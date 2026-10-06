@@ -1,0 +1,21 @@
+import chromadb
+
+client = chromadb.Client()
+
+collection = client.create_collection("Collection")
+
+collection.add(
+    ids=["background:0", "background:1", "background:2", "background: 3"],
+    documents=[
+        "Background of the study",
+        "Disease-causing microorganisms reduce global crop yields by around 20% to 30% annually, directly threatening the stability of our food economy (Lim et al., 2023). This threat is particularly critical in localized agricultural hubs like Bacolod City and the broader Negros Occidental province, where agricultural production dictates the regional economy. The selection of sugarcane, rice, and corn as the focus crops for this study is strongly justified by their indispensable socio-economic importance and statistical dominance in the region. According to the Philippine Statistics Authority, these three crops are included in the top five crops by area and production in Negros Occidental (Philippine Statistics Authority, 2025). Because these three crops form the absolute foundation of the regional export economy, protecting them from epidemiological threats is essential. However, mitigating these threats requires a public that truly understands the severity of plant pathology and agricultural science. Despite the importance of agriculture, most younger generations are becoming more detached from the basic knowledge of agriculture. Some view the agriculture sector as a low-status career with unstable income, noting that a lack of access to land and capital makes agricultural knowledge irrelevant to their futures (Faturohman et al., 2023). Traditional educational methods often fail to show the pure concept of how crop diseases actually spread, making it difficult for non-agriculture experts to understand the importance of crop protection. ",
+    "As digital technologies continue to evolve, they have become one of the primary mediums for education and entertainment. However, digital tools designed to raise awareness about agricultural science remain limited. Gamification is currently recognized as a highly effective approach in modern education, noting its effectiveness in improving motivation, collaborative abilities, and psychological relief (Kozub et al., 2025). Gamification is capable of transforming abstract scientific concepts into more interactive and engaging experiences for young generations, which can be a more effective approach in raising awareness than traditional learning methods. Though some studies have already integrated gamification into educational approaches, existing agricultural games often focus on simplified farming mechanics like planting and harvesting, rather than showing the complex side, like how crop diseases spread or how they can be managed or prevented (Braydent & Fajar, 2025). This highlights the gap in digital tools for cultivating agricultural awareness and interest in plant pathology among non-agricultural students. In real-world agricultural science, predicting disease spread relies heavily on complex mathematical frameworks, such as SIR (Susceptible-Infectious-Recovered) epidemiological model. While this mathematical model is the gold standard for tracking epidemics, it is traditionally represented through differential equations that are inaccessible to undergraduate students outside of specialized scientific fields",
+        "The study aims to explore suitable epidemiological models to identify an optimized algorithm that can accurately simulate the spread and control of crop diseases. By integrating an epidemiological model into an accessible, gamified simulation focused on Bacolod City’s major crops, the study intends to help undergraduate students understand the effects of crop diseases and the actions required to mitigate them. This game aims to cultivate empathy for the agriculture sector and inspire a renewed interest in agricultural science, which could potentially influence future career choices and encourage more support for global food security."
+    ],
+    metadatas=[
+        {"source_document": "Thesis", "section": "Background of the Study"},
+        {"source_document": "Thesis", "section": "Background of the Study"},
+        {"source_document": "Thesis", "section": "Background of the Study"},
+        {"source_document": "Thesis", "section": "Background of the Study"},
+    ]
+)

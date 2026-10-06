@@ -1,0 +1,5 @@
+chromadb
+flask
+commitizen
+pre-commit
+mypy
