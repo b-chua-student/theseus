@@ -16,7 +16,7 @@ npm install
 ```
 cd backend
 python -m venv .venv
-source .venv/bin/activate
+source <command>
 ```
 
 | Platform | Shell      | Command to activate virtual environment |
