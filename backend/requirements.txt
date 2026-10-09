@@ -3,3 +3,5 @@ flask
 commitizen
 pre-commit
 mypy
+chonkie
+dulwich
