@@ -3,4 +3,7 @@ from dulwich.repo import Repo
 
 path = pathlib.Path("Repository")
 path.mkdir(exist_ok=True)
-repo = Repo.init(path)
+try:
+    repo = Repo(path)
+except NotGitRepository:
+    repo = Repo.init(path)
