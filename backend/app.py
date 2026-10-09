@@ -1,12 +1,15 @@
-from flask import Flask, jsonify, Response
-from test_database import client
+from pathlib import Path
+from flask import Flask, jsonify, request, Response # noqa: F401
+from test_database import client # noqa: F401
 
 app = Flask(import_name=__name__)
+
+REPO_DIR = Path(__file__).parent / "repository"
 
 @app.get('/')
 def get_all_documents() -> tuple[Response, int]:
     try:
-        documents = client.get_all_documents()
+        documents = [file.name for file in REPO_DIR.iterdir() if file.is_file()]
         return jsonify({
             "message": "Retrieved files successfully",
             "documents": documents,
