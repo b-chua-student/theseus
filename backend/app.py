@@ -1,14 +1,18 @@
-from flask import Flask, request
+from flask import Flask, jsonify, Response
 from test_database import client
 
 app = Flask(import_name=__name__)
 
-@app.get('/api/get_all_documents')
-def get_all_documents() -> tuple[dict[str, str], int]:
+@app.get('/')
+def get_all_documents() -> tuple[Response, int]:
     try:
-        return {"message": "Retrieved files successfully"}, 200
+        documents = client.get_all_documents()
+        return jsonify({
+            "message": "Retrieved files successfully",
+            "documents": documents,
+        }), 200
     except Exception:
-        return {"message": "Error: failed retrieving files"}, 500        
+        return jsonify({"message": "Error: failed retrieving files"}), 500        
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
