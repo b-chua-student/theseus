@@ -3,3 +3,5 @@ node_modules/
 .ruff_cache
 backend/.venv
 backend/__pycache__
+backend/repository
+backend/.env
