@@ -13,9 +13,9 @@ collection.add(
         "The study aims to explore suitable epidemiological models to identify an optimized algorithm that can accurately simulate the spread and control of crop diseases. By integrating an epidemiological model into an accessible, gamified simulation focused on Bacolod City’s major crops, the study intends to help undergraduate students understand the effects of crop diseases and the actions required to mitigate them. This game aims to cultivate empathy for the agriculture sector and inspire a renewed interest in agricultural science, which could potentially influence future career choices and encourage more support for global food security."
     ],
     metadatas=[
-        {"source_document": "Thesis", "section": "Background of the Study"},
-        {"source_document": "Thesis", "section": "Background of the Study"},
-        {"source_document": "Thesis", "section": "Background of the Study"},
-        {"source_document": "Thesis", "section": "Background of the Study"},
+        {"document_name": "Thesis", "section": "Background of the Study"},
+        {"document_name": "Thesis", "section": "Background of the Study"},
+        {"document_name": "Thesis", "section": "Background of the Study"},
+        {"document_name": "Thesis", "section": "Background of the Study"},
     ]
 )
