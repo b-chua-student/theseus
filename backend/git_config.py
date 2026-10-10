@@ -1,5 +1,5 @@
 import pathlib
-from dulwich.repo import Repo
+from dulwich.repo import Repo, NotGitRepository
 
 path = pathlib.Path("Repository")
 path.mkdir(exist_ok=True)
