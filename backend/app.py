@@ -1,3 +1,4 @@
+from typing import Any, cast
 from flask import Flask, request, jsonify, Response
 from dulwich import porcelain
 from test_database import client, collection
@@ -7,12 +8,12 @@ app = Flask(import_name=__name__)
 
 @app.post('/api/rename')
 def rename_document() -> tuple[Response, int]:
-    data = request.get_json()
+    data = cast(dict[str, Any], request.get_json() or {})
     new_name = data.get('document_name')
     old_name = data.get('old_document_name')
 
-    if not new_name or not old_name:
-        return jsonify({'message': 'Missing document_name or old_document_name.'}), 400
+    if not isinstance(new_name, str) or not isinstance(old_name, str):
+        return jsonify({'message': 'Missing or invalid document_name or old_name.'}), 400
 
     old_file_path = path / old_name
     new_file_path = path / new_name
@@ -41,16 +42,20 @@ def rename_document() -> tuple[Response, int]:
 
         if db_results and db_results.get('ids'):
             ids_to_update = db_results['ids']
+            metadatas = db_results.get('metadatas')
             updated_metadatas = []
             
-            for meta in db_results['metadatas']:
-                meta['source_document'] = new_name
-                meta['document_name'] = new_name
-                updated_metadatas.append(meta)
+            if metadatas:
+                for meta in metadatas:
+                    if meta is not None:
+                        updated_meta = dict(meta)
+                        updated_meta['source_document'] = new_name
+                        updated_meta['document_name'] = new_name
+                        updated_metadatas.append(updated_meta)
 
             collection.update(
                 ids=ids_to_update,
-                metadatas=updated_metadatas
+                metadatas=cast(Any, updated_metadatas)
             )
             
         return jsonify({'message': 'Document renamed'}), 200
