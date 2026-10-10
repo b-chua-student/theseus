@@ -33,6 +33,26 @@ pip install -r requirements.txt
 pre-commit install --hook-type pre-commit --hook-type commit-msg
 ```
 
+## Branching Strategy
+
+This project uses [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).
+
+- `main` is always deployable and protected. No direct pushes.
+- All work happens on short-lived branches created from `main`.
+- Branch names are descriptive and prefixed by type, e.g. `feat/user-collections`, `fix/env-validation`.
+
+<img width="2358" height="748" alt="image" src="https://github.com/user-attachments/assets/dacc018c-93e5-4e07-acb7-7aa1c9f80b0d" />
+
+### Workflow
+
+1. Create a branch from `main`.
+2. Commit changes using the Commitizen format (`feat(scope): message`).
+3. Push the branch and open a pull request.
+4. CI runs on the PR: install, lint, build. All checks must pass.
+5. Request review and address feedback.
+6. Merge into `main` after approval.
+7. Delete the branch.
+
 ## Running the Server
 
 Ensure:
