@@ -134,6 +134,17 @@ class Kiln:
         self.repo.refs[ref] = commit.id
 
     def log(self) -> list[dict[str, str]]:
+        """Lists the commit history of the repository.
+
+        Walks the history starting from HEAD, newest commit first. Returns an empty
+        list if the repository has no commits yet.
+
+        Returns:
+            list[dict[str, str]]: One dictionary per commit with these keys:
+                commit_id (str): Full 40-character hash of the commit.
+                commit_author (str): Author in the form "Name <email>".
+                commit_message (str): Message describing the change.
+        """
         commits: list[dict[str, str]] = []
 
         try:
