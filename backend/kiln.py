@@ -104,7 +104,7 @@ class Kiln:
         head_commit: Commit | None = None
 
         try:
-            head_commit = self.repo[self.repo.head()]
+            head_commit = self.repo.__getitem__(self.repo.head())
         except KeyError:
             pass
 
@@ -122,10 +122,8 @@ class Kiln:
         commit.encoding = b"UTF-8"
         commit.message = commit_message.encode(encoding="UTF-8")
 
-        try:
-            commit.parents = [self.repo.head()]
-        except KeyError:
-            commit.parents = []
+        if head_commit:
+            commit.parents = [head_commit.id]
 
         object_store = self.repo.object_store
         object_store.add_object(blob)
