@@ -8,11 +8,13 @@ from dulwich import porcelain
 import git_config
 
 
+
 app = Flask(import_name=__name__)
 
 @app.post('/api/save')
 def save_document() -> tuple:
-
+    print("Received JSON:", request.get_json(silent=True), flush=True)
+    print("Files in repo directory:", list(git_config.path.iterdir()), flush=True)
     if not request.is_json:
         return jsonify({"message": "Error: file not saved"}), 400
 
@@ -21,14 +23,15 @@ def save_document() -> tuple:
     if not raw_json or not isinstance(raw_json, dict):
         return jsonify({"message": "Error: file not saved"}), 400
 
-    document_name = raw_json.get('document_name')
+    document_name = raw_json.get('document_name') or "document.html"
     raw_html = raw_json.get('content')
 
-    if not document_name or not isinstance(document_name, str) or not raw_html or not isinstance(raw_html, str):
+    if not isinstance(document_name, str) or not raw_html or not isinstance(raw_html, str):
         return jsonify({"message": "Error: file not saved"}), 400
 
     try:
         file_path = git_config.path / document_name
+        print("SAVING TO ABSOLUTE PATH:", file_path.resolve(), flush=True)
         file_path.write_text(raw_html, encoding="utf-8")
 
         repo_str: str = str(git_config.path)
@@ -47,6 +50,7 @@ def save_document() -> tuple:
             chunk_size=512
         )
         chunks: list = chunker.chunk(markdown_text)
+        print(f"Generated {len(chunks)} chunks with Chonkie.", flush=True)
 
         collection = client.get_or_create_collection('Collection')
         if chunks:
@@ -64,11 +68,13 @@ def save_document() -> tuple:
                 documents=documents_list,
                 metadatas=metadatas_list
             )
+            print(f"Total items stored in ChromaDB: {collection.count()}", flush=True)
 
     except Exception as e:
-        print(f"Error saving document: {e}")
+        print(f"Error saving document: {e}", flush=True)
         return jsonify({"message": "Error: file not saved"}), 400
-
+    
+    print("Document saved successfully.", flush=True)
     return jsonify({"message": "Document saved successfully."}), 200
 
 
