@@ -51,7 +51,6 @@ class Kiln:
     # Staging and committing
     def rm(self) -> None: pass
     def mv(self) -> None: pass
-    def commit(self) -> None: pass
     def reset(self) -> None: pass
 
     # Inspect
@@ -73,3 +72,55 @@ class Kiln:
     def fetch(self) -> None: pass
     def pull(self) -> None: pass
     def push(self) -> None: pass
+
+    def commit(self, document_name: str, content: str, commit_author: str, commit_message: str, branch_name: str = "master") -> None:
+        """Commits a document's content directly to a branch.
+
+        Builds the blob, tree and commit objects without an index or working tree,
+        then points the branch ref at the new commit. The parent is taken from HEAD,
+        or left empty on the first commit.
+
+        Args:
+            document_name (str): Filename of the document inside the tree
+                (e.g. "document.docx").
+            content (str): Full text content of the document.
+            commit_author (str): Author and committer in the form
+                "Name <email@example.com>".
+            commit_message (str): Message describing the change.
+            branch_name (str): Branch to update. Created if it does not exist.
+                Defaults to "master".
+
+        Returns:
+            None.
+        """
+
+        FILE_MODE = 0o100644
+
+        blob = Blob.from_string(content.encode(encoding="utf-8"))
+
+        tree = Tree()
+        tree.add(document_name.encode(encoding="utf-8"), FILE_MODE, blob.id)
+
+        commit = Commit()
+        commit.tree = tree.id
+        author = commit_author.encode(encoding="utf-8")
+        commit.author = author
+        commit.committer = author
+        commit.commit_time = commit.author_time = int(time())
+        tz = parse_timezone(b'-0200')[0]
+        commit.commit_timezone = commit.author_timezone = tz
+        commit.encoding = b"UTF-8"
+        commit.message = commit_message.encode(encoding="UTF-8")
+
+        try:
+            commit.parents = [self.repo.head()]
+        except KeyError:
+            commit.parents = []
+
+        object_store = self.repo.object_store
+        object_store.add_object(blob)
+        object_store.add_object(tree)
+        object_store.add_object(commit)
+
+        ref = f"refs/heads/{branch_name}".encode()
+        self.repo.refs[ref] = commit.id
