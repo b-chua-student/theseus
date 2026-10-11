@@ -77,6 +77,51 @@ class Kiln:
     def pull(self) -> None: pass
     def push(self) -> None: pass
 
+    @classmethod
+    def list_documents(cls, storage_dir: str | None = None) -> list[dict[str, str | int]]:
+        """Lists summary information for every document in the storage directory.
+
+        Opens each document's repository and reads its latest commit on HEAD, without
+        reading any document content. Documents with no commits yet are skipped.
+
+        Args:
+            storage_dir (str | None): Parent directory that holds all document
+                repositories. If None, `DEFAULT_STORAGE_DIR` is used.
+
+        Returns:
+            list[dict[str, str | int]]: One dictionary per document with these keys:
+                document_id (str): Name of the document's repository directory.
+                last_commit_id (str): Full 40-character hash of the latest commit.
+                last_modified (int): Commit time as a Unix timestamp.
+                author (str): Author of the latest commit, as "Name <email>".
+
+            An empty list is returned if the storage directory does not exist.
+        """
+
+        root = Path(storage_dir or cls.DEFAULT_STORAGE_DIR)
+        if not root.exists():
+            return []
+
+        documents = []
+
+        for path in root.iterdir():
+            if not path.is_dir():
+                continue
+            kiln = cls(path.name, str(root))
+
+            try:
+                head: Commit = kiln.repo.__getitem__(kiln.repo.head())
+            except KeyError:
+                continue  # no commits yet
+
+            documents.append({
+                "document_id": path.name,
+                "last_commit_id": head.id.decode(),
+                "last_modified": head.commit_time,
+                "author": head.author.decode(encoding="UTF-8")
+            })
+        return documents
+
     def commit(self, document_name: str, content: str, commit_author_name: str, commit_author_email: str, commit_message: str, branch_name: str = "master") -> None:
         """Commits a document's content directly to a branch.
 
