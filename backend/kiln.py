@@ -84,8 +84,8 @@ class Kiln:
             document_name (str): Filename of the document inside the tree
                 (e.g. "document.docx").
             content (str): Full text content of the document.
-            commit_author (str): Author and committer in the form
-                "Name <email@example.com>".
+            commit_author_name (str): Name of the author. Also used as the committer.
+            commit_author_email (str): Email of the author. Also used as the committer.
             commit_message (str): Message describing the change.
             branch_name (str): Branch to update. Created if it does not exist.
                 Defaults to "master".
