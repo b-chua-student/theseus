@@ -11,7 +11,9 @@ from pathlib import Path
 class Kiln:
     """This class is a wrapper around Dulwich's low-level API. It strives to be mapped to native git commands."""
 
-    def __init__(self,document_id: str | int | None = None, storage_dir: str = "kiln", *, persistent: bool = True) -> None:
+    DEFAULT_STORAGE_DIR = "kiln"
+
+    def __init__(self,document_id: str | int | None = None, storage_dir: str = DEFAULT_STORAGE_DIR, *, persistent: bool = True) -> None:
         """Initializes a Kiln repository for a document.
 
         Opens the document's bare Git repository, or creates it if it does not exist.
@@ -29,6 +31,8 @@ class Kiln:
         Raises:
             ValueError: If `document_id` is empty and `persistent` is not False.
         """
+
+        self.storage_dir = storage_dir
 
         if persistent is False:
             self.repo = MemoryRepo()
