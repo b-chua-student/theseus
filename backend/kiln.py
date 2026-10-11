@@ -1,6 +1,7 @@
 from dulwich.repo import Repo, MemoryRepo
 from dulwich.errors import NotGitRepository
 from dulwich.objects import Blob, Tree, Commit, parse_timezone
+import dulwich.objectspec as objectspec
 
 from time import time
 
@@ -136,3 +137,46 @@ class Kiln:
         for entry in self.repo.get_walker():
             commit = entry.commit
             print(commit.id, commit.author, commit.message)
+
+    def get_document(self, commit_id: bytes | str | None = None) -> dict:
+        """Reads a document's filename and content from a commit.
+
+        Looks up the commit, follows it to its tree, and reads the file stored there.
+        Defaults to the latest commit on HEAD. Abbreviated hashes are resolved with
+        `objectspec.parse_commit`.
+
+        Args:
+            commit_id (bytes | str | None): Full or abbreviated hash of the commit
+                to read. If None, HEAD is used.
+
+        Returns:
+            dict: A dictionary with two keys:
+                filename (str): Name of the document in the commit's tree.
+                file_content (str): UTF-8 decoded content of the document.
+
+        Raises:
+            KeyError: If the repository has no commits, or the commit hash is not
+                found.
+            UnicodeDecodeError: If the document content is not valid UTF-8.
+        """
+        if commit_id is None:
+            commit_id = self.repo.head()
+        elif isinstance(commit_id, str):
+            commit_id = commit_id.encode(encoding="UTF-8")
+
+        if len(commit_id) != 40:
+            commit: Commit = objectspec.parse_commit(self.repo, commit_id)
+        else:
+            commit = self.repo.__getitem__(commit_id)
+
+        tree: Tree = self.repo.__getitem__(commit.tree)
+
+        for entry in tree.items():
+            filename: str = entry.path.decode(encoding="utf-8")
+            blob = self.repo.__getitem__(entry.sha)
+            file_content: str = blob.as_raw_string().decode(encoding="utf-8")
+
+        return {
+            "filename": filename,
+            "file_content": file_content
+        }
