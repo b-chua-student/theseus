@@ -73,7 +73,7 @@ class Kiln:
     def pull(self) -> None: pass
     def push(self) -> None: pass
 
-    def commit(self, document_name: str, content: str, commit_author: str, commit_message: str, branch_name: str = "master") -> None:
+    def commit(self, document_name: str, content: str, commit_author_name: str, commit_author_email: str, commit_message: str, branch_name: str = "master") -> None:
         """Commits a document's content directly to a branch.
 
         Builds the blob, tree and commit objects without an index or working tree,
@@ -103,7 +103,7 @@ class Kiln:
 
         commit = Commit()
         commit.tree = tree.id
-        author = commit_author.encode(encoding="utf-8")
+        author = (f"{commit_author_name} <{commit_author_email}>").encode(encoding="utf-8")
         commit.author = author
         commit.committer = author
         commit.commit_time = commit.author_time = int(time())
