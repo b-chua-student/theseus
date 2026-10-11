@@ -101,6 +101,16 @@ class Kiln:
         tree = Tree()
         tree.add(document_name.encode(encoding="utf-8"), FILE_MODE, blob.id)
 
+        head_commit: Commit | None = None
+
+        try:
+            head_commit = self.repo[self.repo.head()]
+        except KeyError:
+            pass
+
+        if head_commit and head_commit.tree == tree.id:
+            raise ValueError("Document is unchanged since last commit.")
+
         commit = Commit()
         commit.tree = tree.id
         author = (f"{commit_author_name} <{commit_author_email}>").encode(encoding="utf-8")
