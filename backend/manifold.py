@@ -8,13 +8,13 @@ from time import time
 from pathlib import Path
 
 
-class Kiln:
+class Manifold:
     """This class is a wrapper around Dulwich's low-level API. It strives to be mapped to native git commands."""
 
-    DEFAULT_STORAGE_DIR = "kiln"
+    DEFAULT_STORAGE_DIR = "manifold"
 
     def __init__(self,document_id: str | int | None = None, storage_dir: str = DEFAULT_STORAGE_DIR, *, persistent: bool = True) -> None:
-        """Initializes a Kiln repository for a document.
+        """Initializes a Manifold repository for a document.
 
         Opens the document's bare Git repository, or creates it if it does not exist.
         Pass `persistent=False` for a temporary in-memory repository.
@@ -23,7 +23,7 @@ class Kiln:
             document_id (str | int | None): Unique ID of the document. Used as the
                 repository directory name. Required unless `persistent=False`.
             storage_dir (str): Parent directory that holds all document repositories.
-                Defaults to "kiln".
+                Defaults to "manifold".
             **kwargs: Optional keyword arguments.
                 persistent (bool): If False, uses an in-memory repository that is
                     lost when the process ends. Defaults to True.
@@ -107,10 +107,10 @@ class Kiln:
         for path in root.iterdir():
             if not path.is_dir():
                 continue
-            kiln = cls(path.name, str(root))
+            manifold = cls(path.name, str(root))
 
             try:
-                head: Commit = kiln.repo.__getitem__(kiln.repo.head())
+                head: Commit = manifold.repo.__getitem__(manifold.repo.head())
             except KeyError:
                 continue  # no commits yet
 
