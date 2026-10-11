@@ -55,7 +55,6 @@ class Kiln:
 
     # Inspect
     def status(self) -> None: pass
-    def log(self) -> None: pass
     def diff(self) -> None: pass
     def show(self) -> None: pass
     def ls_files(self) -> None: pass
@@ -132,3 +131,8 @@ class Kiln:
 
         ref = f"refs/heads/{branch_name}".encode()
         self.repo.refs[ref] = commit.id
+
+    def log(self) -> None:
+        for entry in self.repo.get_walker():
+            commit = entry.commit
+            print(commit.id, commit.author, commit.message)
