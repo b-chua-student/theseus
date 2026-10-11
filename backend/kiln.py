@@ -133,10 +133,22 @@ class Kiln:
         ref = f"refs/heads/{branch_name}".encode()
         self.repo.refs[ref] = commit.id
 
-    def log(self) -> None:
-        for entry in self.repo.get_walker():
+    def log(self) -> list[dict[str, str]]:
+        commits: list[dict[str, str]] = []
+
+        try:
+            walker = self.repo.get_walker()
+        except KeyError:
+            return commits  # no commits yet
+
+        for entry in walker:
             commit = entry.commit
-            print(commit.id, commit.author, commit.message)
+            commits.append({
+                "commit_id": commit.id.decode("utf-8"),
+                "commit_author": commit.author.decode("utf-8"),
+                "commit_message": commit.message.decode("utf-8"),
+            })
+        return commits
 
     def get_document(self, commit_id: bytes | str | None = None) -> dict:
         """Reads a document's filename and content from a commit.
