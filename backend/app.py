@@ -2,9 +2,9 @@ import os
 
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request
-from test_database import client  # noqa: F401
 
 from manifold import Manifold
+from test_database import client  # noqa: F401
 
 load_dotenv()
 
