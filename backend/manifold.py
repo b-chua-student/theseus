@@ -161,7 +161,7 @@ class Manifold:
 
         commit = Commit()
         commit.tree = tree.id
-        author = (f"{commit_author_name} <{commit_author_email}>").encode(encoding="utf-8")
+        author = (f"{commit_author_name} <{commit_author_email}>").encode()
         commit.author = author
         commit.committer = author
         commit.commit_time = commit.author_time = int(time())
