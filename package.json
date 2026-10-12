@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "postinstall": "npm --prefix frontend install",
-    "dev": "concurrently \"npm --prefix frontend run dev\" \"python backend/app.py\""
+    "dev": "concurrently \"npm --prefix frontend run dev\" \"python backend/app.py\"",
+    "lint": "npm --prefix frontend run lint"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
