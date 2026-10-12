@@ -1,11 +1,10 @@
-from dulwich.repo import Repo, MemoryRepo
-from dulwich.errors import NotGitRepository
-from dulwich.objects import Blob, Tree, Commit, parse_timezone
-import dulwich.objectspec as objectspec
-
+from pathlib import Path
 from time import time
 
-from pathlib import Path
+from dulwich import objectspec
+from dulwich.errors import NotGitRepository
+from dulwich.objects import Blob, Commit, Tree, parse_timezone
+from dulwich.repo import MemoryRepo, Repo
 
 
 class Manifold:
