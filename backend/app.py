@@ -1,7 +1,9 @@
-from flask import Flask, request
-from test_database import client
 import os
+
 from dotenv import load_dotenv
+from flask import Flask, request  # noqa: F401
+
+from test_database import client  # noqa: F401
 
 load_dotenv()
 
