@@ -4,7 +4,9 @@
   "scripts": {
     "postinstall": "npm --prefix frontend install",
     "dev": "concurrently \"npm --prefix frontend run dev\" \"python backend/app.py\"",
-    "lint": "npm --prefix frontend run lint"
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "lint:backend": "ruff check backend/ && mypy backend/"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
