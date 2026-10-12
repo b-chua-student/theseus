@@ -50,7 +50,7 @@
 <div class="bar">
   <button onclick={onback}>← Back</button>
   <h2 class="name">{id}</h2>
-  {#each tools as t}
+  {#each tools as t (t.id)}
     <button
       class:active={t.name && active(t.name, t.attrs)}
       onclick={() => t.run(editor.chain().focus()).run()}
