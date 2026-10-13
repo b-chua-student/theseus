@@ -76,7 +76,7 @@ def load_document(document_id: str) -> tuple[Response, int]:
 
 
 @app.post("/api/chat")
-def test_ai_call() -> tuple[str, int]:
+def test_ai_call() -> tuple[Response, int]:
     """Send a user message to Gemini and return its reply.
 
     Expects a JSON body with a "message" string.
