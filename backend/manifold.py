@@ -14,7 +14,13 @@ class Manifold:
 
     DEFAULT_STORAGE_DIR = "manifold"
 
-    def __init__(self,document_id: str | int | None = None, storage_dir: str = DEFAULT_STORAGE_DIR, *, persistent: bool = True) -> None:
+    def __init__(
+        self,
+        document_id: str | int | None = None,
+        storage_dir: str = DEFAULT_STORAGE_DIR,
+        *,
+        persistent: bool = True,
+    ) -> None:
         """Initializes a Manifold repository for a document.
 
         Opens the document's bare Git repository, or creates it if it does not exist.
@@ -51,32 +57,63 @@ class Manifold:
             self.repo = Repo.init_bare(repo_path)
 
     # Setup
-    def init(self) -> None: pass
-    def clone(self) -> None: pass
+    def init(self) -> None:
+        pass
+
+    def clone(self) -> None:
+        pass
 
     # Staging and committing
-    def rm(self) -> None: pass
-    def mv(self) -> None: pass
-    def reset(self) -> None: pass
+    def rm(self) -> None:
+        pass
+
+    def mv(self) -> None:
+        pass
+
+    def reset(self) -> None:
+        pass
 
     # Inspect
-    def status(self) -> None: pass
-    def diff(self) -> None: pass
-    def show(self) -> None: pass
-    def ls_files(self) -> None: pass
-    def cat_file(self) -> None: pass
+    def status(self) -> None:
+        pass
+
+    def diff(self) -> None:
+        pass
+
+    def show(self) -> None:
+        pass
+
+    def ls_files(self) -> None:
+        pass
+
+    def cat_file(self) -> None:
+        pass
 
     # Branches and tags
-    def branch(self) -> None: pass
-    def checkout(self) -> None: pass
-    def tag(self) -> None: pass
-    def merge(self) -> None: pass
+    def branch(self) -> None:
+        pass
+
+    def checkout(self) -> None:
+        pass
+
+    def tag(self) -> None:
+        pass
+
+    def merge(self) -> None:
+        pass
 
     # Remotes
-    def remote(self) -> None: pass
-    def fetch(self) -> None: pass
-    def pull(self) -> None: pass
-    def push(self) -> None: pass
+    def remote(self) -> None:
+        pass
+
+    def fetch(self) -> None:
+        pass
+
+    def pull(self) -> None:
+        pass
+
+    def push(self) -> None:
+        pass
 
     @classmethod
     def list_documents(cls, storage_dir: str | None = None) -> list[dict[str, str | int]]:
@@ -115,15 +152,25 @@ class Manifold:
             except KeyError:
                 continue  # no commits yet
 
-            documents.append({
-                "document_id": path.name,
-                "last_commit_id": head.id.decode(),
-                "last_modified": head.commit_time,
-                "author": head.author.decode(encoding="UTF-8")
-            })
+            documents.append(
+                {
+                    "document_id": path.name,
+                    "last_commit_id": head.id.decode(),
+                    "last_modified": head.commit_time,
+                    "author": head.author.decode(encoding="UTF-8"),
+                }
+            )
         return documents
 
-    def commit(self, document_name: str, content: str, commit_author_name: str, commit_author_email: str, commit_message: str, branch_name: str = "master") -> None:
+    def commit(
+        self,
+        document_name: str,
+        content: str,
+        commit_author_name: str,
+        commit_author_email: str,
+        commit_message: str,
+        branch_name: str = "master",
+    ) -> None:
         """Commits a document's content directly to a branch.
 
         Builds the blob, tree and commit objects without an index or working tree,
@@ -167,7 +214,7 @@ class Manifold:
         commit.author = author
         commit.committer = author
         commit.commit_time = commit.author_time = int(time())
-        tz = parse_timezone(b'-0200')[0]
+        tz = parse_timezone(b"-0200")[0]
         commit.commit_timezone = commit.author_timezone = tz
         commit.encoding = b"UTF-8"
         commit.message = commit_message.encode(encoding="UTF-8")
@@ -204,11 +251,13 @@ class Manifold:
 
         for entry in walker:
             commit = entry.commit
-            commits.append({
-                "commit_id": commit.id.decode("utf-8"),
-                "commit_author": commit.author.decode("utf-8"),
-                "commit_message": commit.message.decode("utf-8"),
-            })
+            commits.append(
+                {
+                    "commit_id": commit.id.decode("utf-8"),
+                    "commit_author": commit.author.decode("utf-8"),
+                    "commit_message": commit.message.decode("utf-8"),
+                }
+            )
         return commits
 
     def get_document(self, commit_id: bytes | str | None = None) -> dict:
@@ -249,7 +298,4 @@ class Manifold:
             blob = self.repo.__getitem__(entry.sha)
             file_content: str = blob.as_raw_string().decode(encoding="utf-8")
 
-        return {
-            "filename": filename,
-            "file_content": file_content
-        }
+        return {"filename": filename, "file_content": file_content}
