@@ -10,7 +10,10 @@ from dulwich.repo import MemoryRepo, Repo
 
 
 class Manifold:
-    """This class is a wrapper around Dulwich's low-level API. It strives to be mapped to native git commands."""
+    """This class is a wrapper around Dulwich's low-level API.
+
+    It strives to be mapped to native git commands.
+    """
 
     DEFAULT_STORAGE_DIR = "manifold"
 
@@ -21,24 +24,22 @@ class Manifold:
         *,
         persistent: bool = True,
     ) -> None:
-        """Initializes a Manifold repository for a document.
+        """Initialize a Manifold repository for a document.
 
         Opens the document's bare Git repository, or creates it if it does not exist.
         Pass `persistent=False` for a temporary in-memory repository.
 
         Args:
-            document_id (str | int | None): Unique ID of the document. Used as the
-                repository directory name. Required unless `persistent=False`.
-            storage_dir (str): Parent directory that holds all document repositories.
-                Defaults to "manifold".
-            **kwargs: Optional keyword arguments.
-                persistent (bool): If False, uses an in-memory repository that is
-                    lost when the process ends. Defaults to True.
+            document_id: Unique ID of the document. Used as the repository
+                directory name. Required unless `persistent` is False.
+            storage_dir: Parent directory that holds all document repositories.
+                Defaults to `DEFAULT_STORAGE_DIR`.
+            persistent: If False, uses an in-memory repository that is lost
+                when the process ends. Defaults to True.
 
         Raises:
-            ValueError: If `document_id` is empty and `persistent` is not False.
+            ValueError: If `document_id` is empty and `persistent` is True.
         """
-
         self.storage_dir = storage_dir
 
         if persistent is False:
@@ -57,62 +58,62 @@ class Manifold:
             self.repo = Repo.init_bare(repo_path)
 
     # Setup
-    def init(self) -> None:
+    def init(self) -> None:  # noqa: D102
         pass
 
-    def clone(self) -> None:
+    def clone(self) -> None:  # noqa: D102
         pass
 
     # Staging and committing
-    def rm(self) -> None:
+    def rm(self) -> None:  # noqa: D102
         pass
 
-    def mv(self) -> None:
+    def mv(self) -> None:  # noqa: D102
         pass
 
-    def reset(self) -> None:
+    def reset(self) -> None:  # noqa: D102
         pass
 
     # Inspect
-    def status(self) -> None:
+    def status(self) -> None:  # noqa: D102
         pass
 
-    def diff(self) -> None:
+    def diff(self) -> None:  # noqa: D102
         pass
 
-    def show(self) -> None:
+    def show(self) -> None:  # noqa: D102
         pass
 
-    def ls_files(self) -> None:
+    def ls_files(self) -> None:  # noqa: D102
         pass
 
-    def cat_file(self) -> None:
+    def cat_file(self) -> None:  # noqa: D102
         pass
 
     # Branches and tags
-    def branch(self) -> None:
+    def branch(self) -> None:  # noqa: D102
         pass
 
-    def checkout(self) -> None:
+    def checkout(self) -> None:  # noqa: D102
         pass
 
-    def tag(self) -> None:
+    def tag(self) -> None:  # noqa: D102
         pass
 
-    def merge(self) -> None:
+    def merge(self) -> None:  # noqa: D102
         pass
 
     # Remotes
-    def remote(self) -> None:
+    def remote(self) -> None:  # noqa: D102
         pass
 
-    def fetch(self) -> None:
+    def fetch(self) -> None:  # noqa: D102
         pass
 
-    def pull(self) -> None:
+    def pull(self) -> None:  # noqa: D102
         pass
 
-    def push(self) -> None:
+    def push(self) -> None:  # noqa: D102
         pass
 
     @classmethod
@@ -135,7 +136,6 @@ class Manifold:
 
             An empty list is returned if the storage directory does not exist.
         """
-
         root = Path(storage_dir or cls.DEFAULT_STORAGE_DIR)
         if not root.exists():
             return []
@@ -190,7 +190,6 @@ class Manifold:
         Returns:
             None.
         """
-
         FILE_MODE = 0o100644
 
         blob = Blob.from_string(content.encode(encoding="utf-8"))
@@ -203,7 +202,7 @@ class Manifold:
         try:
             head_commit = self.repo.__getitem__(self.repo.head())
         except KeyError:
-            pass
+            head_commit = None
 
         if head_commit and head_commit.tree == tree.id:
             raise ValueError("Document is unchanged since last commit.")
