@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request
+from google import genai
 
 from manifold import Manifold
 from test_database import client  # noqa: F401
@@ -72,6 +73,25 @@ def load_document(document_id: str) -> tuple[Response, int]:
     file_content = file_data.get("file_content")
 
     return jsonify(content=file_content), 200
+
+
+@app.post("/api/chat")
+def test_ai_call() -> tuple[str, int]:
+    """Send a user message to Gemini and return its reply.
+
+    Expects a JSON body with a "message" string.
+
+    Returns:
+        A tuple of a JSON response {"reply": str} and the HTTP status code.
+    """
+    raw_json = request.get_json()
+    message = raw_json.get("message")
+
+    ai = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+    interaction = ai.interactions.create(model="gemini-3.8-flash", input=message)
+
+    return jsonify(reply=interaction.output_text), 200
 
 
 if __name__ == "__main__":
