@@ -17,7 +17,7 @@ def get_all_document_metadata() -> tuple[Response, int]:
 
 @app.post("/api/save")
 def save_document() -> tuple[Response, int]:
-    raw_json: dict = request.get_json()
+    raw_json = request.get_json()
     document_id = raw_json.get("document_id")
     raw_html = raw_json.get("content")
 
