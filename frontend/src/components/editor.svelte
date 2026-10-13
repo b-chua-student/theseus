@@ -117,7 +117,7 @@
         <button onclick={() => (open = false)}>✕</button>
       </div>
       <div class="log" bind:this={log}>
-        {#each messages as m}
+        {#each messages as m (m.id)}
           <div class="msg {m.role}">{m.text}</div>
         {/each}
         {#if loading}<div class="msg assistant">…</div>{/if}
