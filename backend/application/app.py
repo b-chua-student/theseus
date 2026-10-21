@@ -24,6 +24,7 @@ limiter = Limiter(
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    limiter.init_app(app)
 
     app.register_blueprint(manuscripts_bp, url_prefix="/api/manuscripts")
 
