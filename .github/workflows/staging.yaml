@@ -1,0 +1,23 @@
+name: Docker Staging
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+
+jobs:
+  docker-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t theseus:staging .
+
+      - name: Run container smoke test
+        run: |
+          docker run -d --name myapp-test -p 5000:5000 theseus:staging
+          sleep 5
+          docker logs myapp-test
+          docker rm -f myapp-test
