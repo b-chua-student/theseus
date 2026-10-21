@@ -6,10 +6,12 @@ from pydantic import BaseModel, ConfigDict, ValidationError, Field
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
+
 class CreateManuscriptRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     title: str = Field(min_length=1)
+
 
 @manuscripts_bp.post("/create")
 def create_manuscript():
@@ -29,6 +31,7 @@ def create_manuscript():
     manuscript = service.execute(project_id=project_id, title=body.title)
 
     return jsonify(ManuscriptResponseDTO.from_domain(manuscript).to_dict()), 201
+
 
 @manuscripts_bp.get("/<manuscript_id>")
 def get_manuscript(manuscript_id: str):
@@ -61,6 +64,7 @@ def get_manuscript(manuscript_id: str):
         }
     ), 200
 
+
 @manuscripts_bp.patch("/<manuscript_id>")
 def update_manuscript(manuscript_id: str):
     try:
@@ -88,6 +92,7 @@ def update_manuscript(manuscript_id: str):
         }
     ), 501
 
+
 @manuscripts_bp.delete("/<manuscript_id>")
 def delete_manuscript(manuscript_id: str):
     try:
@@ -104,9 +109,11 @@ def delete_manuscript(manuscript_id: str):
 
     return "", 204
 
+
 class ManuscriptResponse(BaseModel):
     id: UUID
     title: str
+
 
 @manuscripts_bp.get("")
 def list_manuscripts():
@@ -114,7 +121,6 @@ def list_manuscripts():
     manuscripts = service.execute()
 
     items = [
-        ManuscriptResponse(id=m.id, title=m.title).model_dump(mode="json")
-        for m in manuscripts
+        ManuscriptResponse(id=m.id, title=m.title).model_dump(mode="json") for m in manuscripts
     ]
     return jsonify(items), 200

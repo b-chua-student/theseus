@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from domain.manuscript.aggregates import Manuscript
 from uuid import UUID
 
+
 class ManuscriptRepository(ABC):
     @abstractmethod
     def save(self, manuscript: Manuscript) -> None:
@@ -22,11 +23,11 @@ class ManuscriptRepository(ABC):
     @abstractmethod
     def delete(self, manuscript_id: UUID) -> None:
         pass
-        
+
     @abstractmethod
     def exists(self, manuscript_id: UUID) -> bool:
         pass
-        
+
     @abstractmethod
     def clear(self) -> None:
         pass

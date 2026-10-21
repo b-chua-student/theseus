@@ -21,24 +21,18 @@ def create_app() -> Flask:
 
     manuscript_repository = FakeManuscriptRepository(seed=True)
     revision_history_repository = FakeRevisionHistoryRepository()
-    
 
     create_manuscript_service = CreateManuscriptService(
-        manuscript_repo=manuscript_repository,
-        revision_history_repo=revision_history_repository
+        manuscript_repo=manuscript_repository, revision_history_repo=revision_history_repository
     )
 
     app.extensions["create_manuscript_service"] = create_manuscript_service
 
-    get_all_manuscripts_service = GetAllManuscriptService(
-        repository=manuscript_repository
-    )
+    get_all_manuscripts_service = GetAllManuscriptService(repository=manuscript_repository)
 
     app.extensions["get_all_manuscripts_service"] = get_all_manuscripts_service
 
-    get_manuscript_service = GetManuscriptService(
-        repository=manuscript_repository
-    )
+    get_manuscript_service = GetManuscriptService(repository=manuscript_repository)
 
     app.extensions["get_manuscript_service"] = get_manuscript_service
 

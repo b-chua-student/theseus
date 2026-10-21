@@ -5,13 +5,14 @@ from uuid import UUID, uuid4
 
 from domain.manuscript.aggregates import Manuscript
 
+
 class FakeManuscriptRepository(ManuscriptRepository):
     PROJECT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
     def __init__(self, seed: bool = True) -> None:
-            self._manuscripts: dict[UUID, Manuscript] = {}
-            if seed:
-                self._seed()
+        self._manuscripts: dict[UUID, Manuscript] = {}
+        if seed:
+            self._seed()
 
     def _seed(self) -> None:
         titles = [
@@ -46,7 +47,7 @@ class FakeManuscriptRepository(ManuscriptRepository):
             for manuscript in self._manuscripts.values()
             if manuscript.project_id == project_id
         ]
-    
+
     def get_all(self) -> list[Manuscript]:
         return list(self._manuscripts.values())
 

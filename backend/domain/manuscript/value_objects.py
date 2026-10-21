@@ -18,5 +18,3 @@ class Heading:
 @dataclass(frozen=True, slots=True)
 class Body:
     value: str = ""
-
-

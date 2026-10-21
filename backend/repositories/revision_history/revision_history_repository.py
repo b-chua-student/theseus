@@ -5,7 +5,6 @@ from domain.revision_history.aggregates import RevisionHistory
 
 
 class RevisionHistoryRepository(ABC):
-
     @abstractmethod
     def save(self, history: RevisionHistory) -> None:
         """Persist a revision history."""

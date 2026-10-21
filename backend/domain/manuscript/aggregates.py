@@ -114,9 +114,7 @@ class Manuscript:
                 raise ValueError("Parent section does not exist")
 
         siblings = [
-            section
-            for section in self._sections.values()
-            if section.parent_id == parent_id
+            section for section in self._sections.values() if section.parent_id == parent_id
         ]
 
         if ordinal is None:
@@ -213,11 +211,7 @@ class Manuscript:
             del self._sections[target_id]
 
         siblings = sorted(
-            (
-                section
-                for section in self._sections.values()
-                if section.parent_id == parent_id
-            ),
+            (section for section in self._sections.values() if section.parent_id == parent_id),
             key=lambda section: section.ordinal,
         )
 
@@ -242,11 +236,7 @@ class Manuscript:
         section = self._get_section(section_id)
 
         siblings = sorted(
-            (
-                item
-                for item in self._sections.values()
-                if item.parent_id == section.parent_id
-            ),
+            (item for item in self._sections.values() if item.parent_id == section.parent_id),
             key=lambda item: item.ordinal,
         )
 
@@ -297,8 +287,7 @@ class Manuscript:
             (
                 item
                 for item in self._sections.values()
-                if item.parent_id == old_parent_id
-                and item.id != section_id
+                if item.parent_id == old_parent_id and item.id != section_id
             ),
             key=lambda item: item.ordinal,
         )
@@ -310,8 +299,7 @@ class Manuscript:
             (
                 item
                 for item in self._sections.values()
-                if item.parent_id == new_parent_id
-                and item.id != section_id
+                if item.parent_id == new_parent_id and item.id != section_id
             ),
             key=lambda item: item.ordinal,
         )
@@ -343,9 +331,7 @@ class Manuscript:
             current_id = pending.pop()
 
             children = [
-                section.id
-                for section in self._sections.values()
-                if section.parent_id == current_id
+                section.id for section in self._sections.values() if section.parent_id == current_id
             ]
 
             for child_id in children:

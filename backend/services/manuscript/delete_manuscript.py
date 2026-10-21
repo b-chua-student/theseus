@@ -2,6 +2,7 @@ from uuid import UUID
 
 from repositories.manuscript.manuscript_repository import ManuscriptRepository
 
+
 class DeleteManuscriptService:
     def __init__(self, repository: ManuscriptRepository) -> None:
         self._repository = repository

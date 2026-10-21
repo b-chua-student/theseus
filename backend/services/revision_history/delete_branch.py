@@ -3,6 +3,7 @@ from uuid import UUID
 from domain.revision_history.entities import Branch
 from repositories.revision_history.revision_history_repository import RevisionHistoryRepository
 
+
 class DeleteBranchService:
     def __init__(
         self,
@@ -15,9 +16,7 @@ class DeleteBranchService:
         manuscript_id: UUID,
         branch_name: str,
     ) -> None:
-        history = self._revision_history_repo.get_by_manuscript_id(
-            manuscript_id
-        )
+        history = self._revision_history_repo.get_by_manuscript_id(manuscript_id)
 
         if history is None:
             raise ValueError("Revision history not found")

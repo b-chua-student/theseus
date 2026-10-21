@@ -5,6 +5,7 @@ from domain.revision_history.aggregates import RevisionHistory
 from repositories.manuscript.manuscript_repository import ManuscriptRepository
 from repositories.revision_history.revision_history_repository import RevisionHistoryRepository
 
+
 class CreateManuscriptService:
     def __init__(
         self,

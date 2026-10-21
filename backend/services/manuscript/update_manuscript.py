@@ -1,4 +1,3 @@
-
 from uuid import UUID
 
 from domain.manuscript.aggregates import Manuscript

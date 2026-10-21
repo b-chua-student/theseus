@@ -46,8 +46,7 @@ class RevisionHistory:
     @property
     def branches(self) -> tuple[Branch, ...]:
         return tuple(
-            Branch(name=branch.name, head_id=branch.head_id)
-            for branch in self._branches.values()
+            Branch(name=branch.name, head_id=branch.head_id) for branch in self._branches.values()
         )
 
     @property
@@ -62,9 +61,7 @@ class RevisionHistory:
         """Create the initial revision when the manuscript has content."""
 
         if self._revisions:
-            raise InvalidRevisionError(
-                "Revision history is already initialized"
-            )
+            raise InvalidRevisionError("Revision history is already initialized")
 
         revision = Revision(
             id=uuid4(),
@@ -85,9 +82,7 @@ class RevisionHistory:
         try:
             return self._revisions[revision_id]
         except KeyError:
-            raise RevisionNotFoundError(
-                f"Revision not found: {revision_id}"
-            ) from None
+            raise RevisionNotFoundError(f"Revision not found: {revision_id}") from None
 
     def get_branch(self, name: str) -> Branch:
         branch = self._get_branch(name)
@@ -130,14 +125,10 @@ class RevisionHistory:
             raise ValueError("Branch name cannot be empty")
 
         if name in self._branches:
-            raise DuplicateBranchError(
-                f"Branch already exists: {name}"
-            )
+            raise DuplicateBranchError(f"Branch already exists: {name}")
 
         if not self._revisions:
-            raise InvalidRevisionError(
-                "Cannot create a branch before the initial revision"
-            )
+            raise InvalidRevisionError("Cannot create a branch before the initial revision")
 
         if from_revision_id is None:
             from_revision_id = self._get_branch("main").head_id
@@ -191,9 +182,7 @@ class RevisionHistory:
             raise ValueError("Milestone name cannot be empty")
 
         if name in self._milestones:
-            raise DuplicateMilestoneError(
-                f"Milestone already exists: {name}"
-            )
+            raise DuplicateMilestoneError(f"Milestone already exists: {name}")
 
         self.get_revision(revision_id)
 
@@ -206,9 +195,7 @@ class RevisionHistory:
         try:
             return self._milestones[name]
         except KeyError:
-            raise MilestoneNotFoundError(
-                f"Milestone not found: {name}"
-            ) from None
+            raise MilestoneNotFoundError(f"Milestone not found: {name}") from None
 
     def merge(
         self,
@@ -219,17 +206,13 @@ class RevisionHistory:
         conflicts: tuple[MergeConflict, ...] = (),
     ) -> Revision:
         if source_branch_name == target_branch_name:
-            raise InvalidRevisionError(
-                "Cannot merge a branch into itself"
-            )
+            raise InvalidRevisionError("Cannot merge a branch into itself")
 
         source = self._get_branch(source_branch_name)
         target = self._get_branch(target_branch_name)
 
         if conflicts:
-            raise MergeConflictError(
-                f"Merge has {len(conflicts)} unresolved conflict(s)"
-            )
+            raise MergeConflictError(f"Merge has {len(conflicts)} unresolved conflict(s)")
 
         revision = Revision(
             id=uuid4(),
@@ -247,6 +230,4 @@ class RevisionHistory:
         try:
             return self._branches[name]
         except KeyError:
-            raise BranchNotFoundError(
-                f"Branch not found: {name}"
-            ) from None
+            raise BranchNotFoundError(f"Branch not found: {name}") from None

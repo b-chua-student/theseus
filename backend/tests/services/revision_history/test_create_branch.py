@@ -136,9 +136,7 @@ def test_create_branch_persists_history(
         branch_name="feature",
     )
 
-    persisted = repository.get_by_manuscript_id(
-        saved_history.manuscript_id
-    )
+    persisted = repository.get_by_manuscript_id(saved_history.manuscript_id)
 
     assert persisted is not None
     assert any(branch.name == "feature" for branch in persisted.branches)

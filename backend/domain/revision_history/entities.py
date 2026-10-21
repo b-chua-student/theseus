@@ -15,9 +15,7 @@ class Revision:
 
     def __post_init__(self) -> None:
         if len(self.parent_ids) > 2:
-            raise ValueError(
-                "A revision can have at most two parents"
-            )
+            raise ValueError("A revision can have at most two parents")
 
         if self.id in self.parent_ids:
             raise ValueError("A revision cannot be its own parent")
