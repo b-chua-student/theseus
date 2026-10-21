@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from flask import Blueprint, jsonify, request, current_app
-from app import limiter
+from application.extensions import limiter
 from application.schemas.manuscript_dto import ManuscriptResponseDTO
 from pydantic import BaseModel, ConfigDict, ValidationError, Field
 
