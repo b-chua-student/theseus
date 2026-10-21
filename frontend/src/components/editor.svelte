@@ -9,6 +9,11 @@
   let editor = $state.raw(null);
   let tick = $state(0);
 
+  let title = $state("");
+  let sections = $state([]);
+  let selectedId = $state(null);
+  let heading = $state("");
+
   let open = $state(false);
   let messages = $state([]);
   let input = $state("");
@@ -16,6 +21,21 @@
   let log;
 
   const active = (name, attrs) => (tick, editor?.isActive(name, attrs));
+
+  const rows = $derived.by(() => {
+    const byParent = {};
+    for (const s of sections) (byParent[s.parent_id ?? "root"] ??= []).push(s);
+    const out = [];
+    const walk = (parent, depth) => {
+      const children = (byParent[parent] ?? []).sort((a, b) => a.ordinal - b.ordinal);
+      for (const s of children) {
+        out.push({ ...s, depth });
+        walk(s.id, depth + 1);
+      }
+    };
+    walk("root", 0);
+    return out;
+  });
 
   const tools = [
     { label: "Bold", name: "bold", run: (c) => c.toggleBold() },
@@ -37,19 +57,35 @@
       onTransaction: () => tick++,
     });
 
-    fetch(`/api/documents/${id}`)
+    fetch(`/api/manuscripts/${id}`)
       .then((r) => r.json())
-      .then((doc) => editor.commands.setContent(doc.content));
+      .then((m) => {
+        title = m.title;
+        sections = m.sections ?? [];
+        if (rows.length) select(rows[0].id);
+      });
 
     return () => editor.destroy();
   });
 
+  function select(sectionId) {
+    const s = sections.find((x) => x.id === sectionId);
+    if (!s) return;
+    selectedId = s.id;
+    heading = s.heading;
+    editor.commands.setContent(s.body ?? "");
+  }
+
   async function save() {
-    await fetch("/api/save", {
-      method: "POST",
+    if (!selectedId) return;
+    const body = editor.getHTML();
+    const res = await fetch(`/api/manuscripts/${id}/sections/${selectedId}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document_id: id, content: editor.getHTML() }),
+      body: JSON.stringify({ heading, body }),
     });
+    if (!res.ok) return;
+    sections = sections.map((s) => (s.id === selectedId ? { ...s, heading, body } : s));
   }
 
   function scrollDown() {
@@ -68,7 +104,8 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          document_id: id,
+          manuscript_id: id,
+          section_id: selectedId,
           message: text,
           document: editor.getText(),
         }),
@@ -91,10 +128,30 @@
 </script>
 
 <div class="layout">
+  <aside class="sections">
+    <div class="side-head">Sections</div>
+    <ul>
+      {#each rows as s (s.id)}
+        <li>
+          <button
+            class="section"
+            class:active={s.id === selectedId}
+            style="padding-left: {0.5 + s.depth * 1}rem"
+            onclick={() => select(s.id)}
+          >
+            {s.heading}
+          </button>
+        </li>
+      {:else}
+        <li class="empty">No sections</li>
+      {/each}
+    </ul>
+  </aside>
+
   <div class="main">
     <div class="bar">
       <button onclick={onback}>← Back</button>
-      <h2 class="name">{id}</h2>
+      <h2 class="name">{title}</h2>
       {#each tools as t (t.label)}
         <button
           class:active={t.name && active(t.name, t.attrs)}
@@ -103,10 +160,11 @@
           {t.label}
         </button>
       {/each}
-      <button onclick={save}>Save</button>
+      <button onclick={save} disabled={!selectedId}>Save</button>
       <button class:active={open} onclick={() => (open = !open)}>Chat</button>
     </div>
 
+    <input class="heading" bind:value={heading} placeholder="Section heading" disabled={!selectedId} />
     <div bind:this={element}></div>
   </div>
 
@@ -117,7 +175,7 @@
         <button onclick={() => (open = false)}>✕</button>
       </div>
       <div class="log" bind:this={log}>
-        {#each messages as m (m.id)}
+        {#each messages as m}
           <div class="msg {m.role}">{m.text}</div>
         {/each}
         {#if loading}<div class="msg assistant">…</div>{/if}
@@ -141,6 +199,35 @@
   .bar { display: flex; gap: 0.25rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
   .name { width: 100%; margin: 0.5rem 0; font-size: 1.25rem; }
   .active { background: #ece9fd; }
+  .heading { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; padding: 0.5rem; font: inherit; font-weight: 600; }
+
+  .sections {
+    width: 240px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #000;
+  }
+  .side-head { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; font-weight: 600; }
+  .sections ul { list-style: none; margin: 0; padding: 0.25rem 0; }
+  .section {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    padding: 0.4rem 0.5rem;
+    cursor: pointer;
+    color: #000;
+  }
+  .section:hover { background: #f5f5f5; }
+  .section.active { background: #ece9fd; }
+  .empty { padding: 0.5rem 0.75rem; color: #888; }
 
   .chat {
     width: 320px;

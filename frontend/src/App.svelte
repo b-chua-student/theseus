@@ -1,8 +1,8 @@
 <script>
   import Dashboard from './components/dashboard.svelte';
-  import DocumentEditor from './components/editor.svelte';
+  import ManuscriptEditor from './components/editor.svelte';
 
-  let documents = $state([]);
+  let manuscripts = $state([]);
   let selectedId = $state(null);
 
   $effect(() => {
@@ -10,20 +10,27 @@
   });
 
   function load() {
-    fetch('/api/documents')
+    fetch('/api/manuscripts')
       .then((r) => r.json())
-      .then((data) => (documents = data));
+      .then((data) => (manuscripts = data));
   }
 
   async function create() {
-    const name = prompt('Document name');
-    if (!name) return;
-    await fetch('/api/documents', {
+    const title = prompt('Manuscript title');
+    if (!title) return;
+    const res = await fetch('/api/manuscripts/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ document_id: name }),
+      body: JSON.stringify({ title }),
     });
-    selectedId = name;
+    if (!res.ok) return;
+    const created = await res.json();
+    selectedId = created.id;
+  }
+
+  async function remove(id) {
+    const res = await fetch(`/api/manuscripts/${id}`, { method: 'DELETE' });
+    if (res.ok) manuscripts = manuscripts.filter((m) => m.id !== id);
   }
 
   function back() {
@@ -33,7 +40,12 @@
 </script>
 
 {#if selectedId === null}
-  <Dashboard {documents} onselect={(id) => (selectedId = id)} oncreate={create} />
+  <Dashboard
+    {manuscripts}
+    onselect={(id) => (selectedId = id)}
+    oncreate={create}
+    ondelete={remove}
+  />
 {:else}
-  <DocumentEditor id={selectedId} onback={back} />
+  <ManuscriptEditor id={selectedId} onback={back} />
 {/if}

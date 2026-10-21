@@ -1,38 +1,40 @@
 <script>
-  let { documents = [], onselect, oncreate } = $props();
+  let { manuscripts = [], onselect, oncreate, ondelete } = $props();
 
-  const formatDate = (ts) => new Date(ts * 1000).toLocaleString();
+  function remove(e, manuscript) {
+    e.stopPropagation();
+    if (confirm(`Delete "${manuscript.title}"?`)) ondelete?.(manuscript.id);
+  }
 </script>
 
-<button onclick={() => oncreate?.()}>+ New Document</button>
+<button class="new" onclick={() => oncreate?.()}>+ New Manuscript</button>
 
 <table>
   <thead>
     <tr>
-      <th>Document</th>
-      <th>Author</th>
-      <th>Last Modified</th>
-      <th>Last Commit</th>
+      <th>Title</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
-    {#each documents as doc (doc.document_id)}
-      <tr onclick={() => onselect?.(doc.document_id)}>
-        <td>{doc.document_id}</td>
-        <td>{doc.author}</td>
-        <td>{formatDate(doc.last_modified)}</td>
-        <td><code>{doc.last_commit_id.slice(0, 7)}</code></td>
+    {#each manuscripts as manuscript (manuscript.id)}
+      <tr onclick={() => onselect?.(manuscript.id)}>
+        <td>{manuscript.title}</td>
+        <td class="actions">
+          <button onclick={(e) => remove(e, manuscript)}>Delete</button>
+        </td>
       </tr>
     {:else}
-      <tr><td colspan="4">No documents</td></tr>
+      <tr><td colspan="2">No manuscripts</td></tr>
     {/each}
   </tbody>
 </table>
 
 <style>
-  button { margin-bottom: 1rem; }
+  .new { margin-bottom: 1rem; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+  .actions { text-align: right; width: 1%; white-space: nowrap; }
   tbody tr { cursor: pointer; }
   tbody tr:hover { background: #f5f5f5; }
 </style>
