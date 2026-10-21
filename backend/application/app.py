@@ -1,4 +1,6 @@
 from flask import Flask
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from application.routes.manuscripts import manuscripts_bp
 from repositories.manuscript.fake_manuscript_repository import (
@@ -13,6 +15,11 @@ from services.manuscript.get_manuscript import GetManuscriptService
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.create_manuscript import CreateManuscriptService
 
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100/day", "20/hour"],  
+    storage_uri="memory://",                        
+)
 
 def create_app() -> Flask:
     app = Flask(__name__)

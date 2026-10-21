@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from flask import Blueprint, jsonify, request, current_app
+from app import limiter
 from application.schemas.manuscript_dto import ManuscriptResponseDTO
 from pydantic import BaseModel, ConfigDict, ValidationError, Field
 
@@ -14,6 +15,7 @@ class CreateManuscriptRequest(BaseModel):
 
 
 @manuscripts_bp.post("/create")
+@limiter.limit("5/minute")
 def create_manuscript():
     data = request.get_json(silent=True)
 
@@ -66,6 +68,7 @@ def get_manuscript(manuscript_id: str):
 
 
 @manuscripts_bp.patch("/<manuscript_id>")
+@limiter.limit("10/hour")
 def update_manuscript(manuscript_id: str):
     try:
         manuscript_uuid = UUID(manuscript_id)
@@ -94,6 +97,7 @@ def update_manuscript(manuscript_id: str):
 
 
 @manuscripts_bp.delete("/<manuscript_id>")
+@limiter.limit("10/hour")
 def delete_manuscript(manuscript_id: str):
     try:
         manuscript_uuid = UUID(manuscript_id)
