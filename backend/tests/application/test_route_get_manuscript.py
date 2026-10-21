@@ -1,6 +1,7 @@
 import pytest
 from uuid import UUID, uuid4
 
+
 def test_get_manuscript_route(client, manuscript_repo) -> None:
     book_title = "My Book"
     res = client.post("/api/manuscripts/create", json={"title": book_title})
@@ -11,6 +12,7 @@ def test_get_manuscript_route(client, manuscript_repo) -> None:
 
     assert res.status_code == 200
     assert body["title"] == book_title
+
 
 def test_get_rate_limited(limited_client) -> None:
     url = f"/api/manuscripts/{uuid4()}"
