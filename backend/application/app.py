@@ -16,30 +16,37 @@ from services.manuscript.create_manuscript import CreateManuscriptService
 from .extensions import limiter
 
 
-def create_app() -> Flask:
+def create_app(
+    config: dict | None = None,
+    manuscript_repo=None,
+    revision_history_repo=None,
+) -> Flask:
     app = Flask(__name__)
+    app.config.update(config or {})
     limiter.init_app(app)
 
     app.register_blueprint(manuscripts_bp, url_prefix="/api/manuscripts")
 
-    manuscript_repository = FakeManuscriptRepository(seed=True)
-    revision_history_repository = FakeRevisionHistoryRepository()
+    if manuscript_repo is None:
+        manuscript_repo = FakeManuscriptRepository(seed=True)
+    if revision_history_repo is None:
+        revision_history_repo = FakeRevisionHistoryRepository()
 
     create_manuscript_service = CreateManuscriptService(
-        manuscript_repo=manuscript_repository, revision_history_repo=revision_history_repository
+        manuscript_repo=manuscript_repo, revision_history_repo=revision_history_repo
     )
 
     app.extensions["create_manuscript_service"] = create_manuscript_service
 
-    get_all_manuscripts_service = GetAllManuscriptService(repository=manuscript_repository)
+    get_all_manuscripts_service = GetAllManuscriptService(repository=manuscript_repo)
 
     app.extensions["get_all_manuscripts_service"] = get_all_manuscripts_service
 
-    get_manuscript_service = GetManuscriptService(repository=manuscript_repository)
+    get_manuscript_service = GetManuscriptService(repository=manuscript_repo)
 
     app.extensions["get_manuscript_service"] = get_manuscript_service
 
-    delete_manuscript_service = DeleteManuscriptService(manuscript_repository)
+    delete_manuscript_service = DeleteManuscriptService(manuscript_repo)
 
     app.extensions["delete_manuscript_service"] = delete_manuscript_service
 
