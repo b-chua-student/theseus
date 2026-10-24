@@ -48,7 +48,7 @@ def create_app(
     if revision_history_repo is None:
         revision_history_repo = FakeRevisionHistoryRepository()
 
-    create_manuscript_service = CreateManuscriptService(manuscript_repo=manuscript_repo)
+    create_manuscript_service = CreateManuscriptService(repository=manuscript_repo)
 
     app.extensions["create_manuscript_service"] = create_manuscript_service
 
