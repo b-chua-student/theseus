@@ -1,6 +1,6 @@
+from application.routes.manuscript import manuscripts_bp
 from flask import Flask
 
-from application.routes.manuscript import manuscripts_bp
 from repositories.manuscript.fake_manuscript_repository import (
     FakeManuscriptRepository,
 )
