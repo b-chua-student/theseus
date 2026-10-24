@@ -1,9 +1,5 @@
 from application.routes.manuscripts import manuscripts_bp
 from flask import Flask
-from repositories.manuscript.fake_manuscript_repository import (
-    FakeManuscriptRepository,
-)
-from repositories.manuscript.manuscript_repository import ManuscriptRepository, RevisionHistory
 from repositories.revision_history.fake_revision_history_repository import (
     FakeRevisionHistoryRepository,
 )
@@ -11,6 +7,11 @@ from services.manuscript.create_manuscript import CreateManuscriptService
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.get_manuscript import GetManuscriptService
+
+from repositories.manuscript.fake_manuscript_repository import (
+    FakeManuscriptRepository,
+)
+from repositories.manuscript.manuscript_repository import ManuscriptRepository, RevisionHistory
 
 from .extensions import limiter
 
