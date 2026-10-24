@@ -1,6 +1,7 @@
-from application.extensions import limiter
 from flask import Blueprint
 from flask.typing import ResponseReturnValue
+
+from api.extensions import limiter
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
