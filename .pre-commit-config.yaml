@@ -6,7 +6,7 @@ repos:
         files: ^backend/
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.0
+    rev: v0.17.1
     hooks:
       - id: ruff
         files: ^backend/
@@ -20,6 +20,6 @@ repos:
         stages: [commit-msg]
 
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.2
+    rev: v8.30.0
     hooks:
       - id: gitleaks
