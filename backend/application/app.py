@@ -20,7 +20,7 @@ from .extensions import limiter
 def create_app(
     config: dict | None = None,
     manuscript_repo: ManuscriptRepository = None,
-    revision_history_repo: RevisionHistory = None,
+    revision_history_repo: RevisionHistoryRepository = None,
 ) -> Flask:
     """Create and configure the Flask application.
 
