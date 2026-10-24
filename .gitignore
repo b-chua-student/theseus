@@ -2,7 +2,7 @@ node_modules/
 .mypy_cache
 .ruff_cache
 backend/.venv
-backend/__pycache__
+backend/**/__pycache__/
 backend/repository
 backend/.env
 backend/tests/__pycache__
