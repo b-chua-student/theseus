@@ -11,7 +11,8 @@ from services.manuscript.get_manuscript import GetManuscriptService
 from repositories.manuscript.fake_manuscript_repository import (
     FakeManuscriptRepository,
 )
-from repositories.manuscript.manuscript_repository import ManuscriptRepository, RevisionHistory
+from repositories.manuscript.manuscript_repository import ManuscriptRepository
+from repositories.revision_history.revision_history_repository import RevisionHistoryRepository
 
 from .extensions import limiter
 
