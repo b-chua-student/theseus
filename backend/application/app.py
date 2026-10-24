@@ -1,4 +1,4 @@
-from application.routes.manuscripts import manuscripts_bp
+from application.routes.manuscript import manuscripts_bp
 from flask import Flask
 from repositories.revision_history.fake_revision_history_repository import (
     FakeRevisionHistoryRepository,
