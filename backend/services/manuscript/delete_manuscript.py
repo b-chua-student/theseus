@@ -15,8 +15,8 @@ class DeleteManuscriptService:
         self._repository = repository
 
     def execute(self, manuscript_id: UUID) -> None:
-        """Create docstring."""
-        # TODO: Load manuscript by ID.
-        # TODO: Raise not-found error if missing.
-        # TODO: Delete manuscript.
-        raise NotImplementedError
+        """Delete a manuscript by ID."""
+        if not self._repository.exists(manuscript_id):
+            raise ValueError("Manuscript not found.")
+
+        self._repository.delete(manuscript_id)

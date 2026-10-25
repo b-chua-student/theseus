@@ -14,7 +14,5 @@ class GetAllManuscriptService:
         self._repository = repository
 
     def execute(self) -> list[Manuscript]:
-        """Create docstring."""
-        # TODO: Fetch all manuscripts from repository.
-        # TODO: Return list.
-        raise NotImplementedError
+       """Return all manuscripts."""
+       return self._repository.get_all()
