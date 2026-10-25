@@ -8,6 +8,7 @@ from api.extensions import limiter
 from api.schemas.manuscript_requests import UpdateManuscriptRequest
 from api.schemas.manuscript_responses import ManuscriptResponseDTO
 from services.manuscript.update_manuscript import UpdateManuscriptService
+from services.manuscript.delete_manuscript import DeleteManuscriptService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
@@ -79,12 +80,29 @@ def update_manuscript(manuscript_id: str) -> ResponseReturnValue:
 @manuscripts_bp.delete("/<manuscript_id>")
 @limiter.limit("10/hour")
 def delete_manuscript(manuscript_id: str) -> ResponseReturnValue:
-    """Create docstring."""
-    # TODO: Validate manuscript_id as UUID (400 on failure).
-    # TODO: Call delete_manuscript_service.
-    # TODO: Return 404 if not found.
-    # TODO: Return 204 on success.
-    return "", 501
+    """Delete a manuscript by its UUID.
+
+    Args:
+        manuscript_id: String representation of the manuscript UUID from the URL path.
+
+    Returns:
+        204 No Content on success, 400 if the UUID is invalid, or 404 if not found.
+    """
+    try:
+        parsed_id = UUID(manuscript_id)
+    except ValueError:
+        return jsonify({"error": "Invalid manuscript ID format."}), 400
+
+    delete_manuscript_service: DeleteManuscriptService = current_app.extensions[
+        "delete_manuscript_service"
+    ]
+
+    try:
+        delete_manuscript_service.execute(parsed_id)
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 404
+
+    return "", 204
 
 
 @manuscripts_bp.get("")
