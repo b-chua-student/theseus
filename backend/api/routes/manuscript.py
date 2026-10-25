@@ -89,7 +89,7 @@ def delete_manuscript(manuscript_id: str) -> ResponseReturnValue:
 @manuscripts_bp.get("")
 def list_manuscripts() -> ResponseReturnValue:
     """Retrieve all manuscripts."""
-    get_all_service: GetAllManuscriptService = current_app.extensions["get_all_manuscript_service"]
+    get_all_service: GetAllManuscriptService = current_app.extensions["get_all_manuscripts_service"]
     manuscripts = get_all_service.execute()
     response_data = [ManuscriptResponseDTO.from_domain(m).to_dict() for m in manuscripts]
     return jsonify(response_data), 200
