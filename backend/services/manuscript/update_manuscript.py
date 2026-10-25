@@ -20,10 +20,23 @@ class UpdateManuscriptService:
         manuscript_id: UUID,
         title: str,
     ) -> Manuscript:
-        """Create docstring."""
-        # TODO: Load manuscript by ID.
-        # TODO: Raise not-found error if missing.
-        # TODO: Rename manuscript.
-        # TODO: Persist manuscript.
-        # TODO: Return updated manuscript.
-        raise NotImplementedError
+        """Rename an existing manuscript and persist the changes.
+
+        Args:
+            manuscript_id: Unique identifier of the manuscript to update.
+            title: New title for the manuscript.
+
+        Returns:
+            The updated manuscript aggregate.
+
+        Raises:
+            ValueError: If the manuscript is not found or the title is invalid.
+        """
+        manuscript = self._repository.get_by_id(manuscript_id)
+        if manuscript is None:
+            raise ValueError(f"Manuscript with ID {manuscript_id} not found.")
+
+        manuscript.rename(title)
+        self._repository.save(manuscript)
+
+        return manuscript
