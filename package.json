@@ -7,6 +7,8 @@
     "lint": "npm run lint:frontend && npm run lint:backend",
     "lint:frontend": "npm --prefix frontend run lint",
     "lint:backend": "ruff check backend/ && mypy backend/",
+    "format:backend": "ruff format backend/",
+    "fix:backend": "ruff check --fix backend/",
     "test:backend": "pytest backend/"
   },
   "devDependencies": {
