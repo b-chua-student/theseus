@@ -5,9 +5,13 @@ from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
 from api.extensions import limiter
-from api.schemas.manuscript_requests import UpdateManuscriptRequest
+from api.schemas.manuscript_requests import CreateManuscriptRequest, UpdateManuscriptRequest
 from api.schemas.manuscript_responses import ManuscriptResponseDTO
+from repositories.manuscript.fake_manuscript_repository import (
+    FakeManuscriptRepository,
+)
 from services.manuscript.delete_manuscript import DeleteManuscriptService
+from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.update_manuscript import UpdateManuscriptService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
@@ -16,13 +20,21 @@ manuscripts_bp = Blueprint("manuscripts", __name__)
 @manuscripts_bp.post("/create")
 @limiter.limit("5/minute")
 def create_manuscript() -> ResponseReturnValue:
-    """Create docstring."""
-    # TODO: Parse and validate JSON body.
-    # TODO: Return 400 on invalid input.
-    # TODO: Resolve project_id (replace hardcoded value).
-    # TODO: Call create_manuscript_service.
-    # TODO: Return serialized manuscript with 201.
-    return "", 501
+    """Validate the request and create a manuscript."""
+    try:
+        payload = CreateManuscriptRequest.model_validate(request.get_json(silent=True))
+    except ValidationError:
+        return jsonify({"error": "Provide a JSON object with a non-empty title."}), 400
+
+    service = current_app.extensions["create_manuscript_service"]
+
+    manuscript = service.execute(
+        project_id=FakeManuscriptRepository.PROJECT_ID,
+        title=payload.title,
+    )
+
+    response = ManuscriptResponseDTO.from_domain(manuscript)
+    return jsonify(response.to_dict()), 201
 
 
 @manuscripts_bp.get("/<manuscript_id>")
@@ -107,8 +119,8 @@ def delete_manuscript(manuscript_id: str) -> ResponseReturnValue:
 
 @manuscripts_bp.get("")
 def list_manuscripts() -> ResponseReturnValue:
-    """Create docstring."""
-    # TODO: Call get_all_manuscripts_service.
-    # TODO: Move ManuscriptResponse to schemas module (BaseModel import was missing).
-    # TODO: Serialize and return list with 200.
-    return "", 501
+    """Retrieve all manuscripts."""
+    get_all_service: GetAllManuscriptService = current_app.extensions["get_all_manuscripts_service"]
+    manuscripts = get_all_service.execute()
+    response_data = [ManuscriptResponseDTO.from_domain(m).to_dict() for m in manuscripts]
+    return jsonify(response_data), 200
