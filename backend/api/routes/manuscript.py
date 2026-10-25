@@ -1,7 +1,9 @@
-from flask import Blueprint
+from flask import Blueprint, current_app, jsonify
 from flask.typing import ResponseReturnValue
 
 from api.extensions import limiter
+from api.schemas.manuscript_responses import ManuscriptResponseDTO
+from services.manuscript.get_all_manuscript import GetAllManuscriptService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
@@ -40,6 +42,15 @@ def update_manuscript(manuscript_id: str) -> ResponseReturnValue:
     return "", 501
 
 
+@manuscripts_bp.get("")
+def list_manuscripts() -> ResponseReturnValue:
+    """Retrieve all manuscripts."""
+    get_all_service: GetAllManuscriptService = current_app.extensions["get_all_manuscript_service"]
+    manuscripts = get_all_service.execute()
+    response_data = [ManuscriptResponseDTO.from_domain(m).to_dict() for m in manuscripts]
+    return jsonify(response_data), 200
+
+
 @manuscripts_bp.delete("/<manuscript_id>")
 @limiter.limit("10/hour")
 def delete_manuscript(manuscript_id: str) -> ResponseReturnValue:
@@ -48,13 +59,4 @@ def delete_manuscript(manuscript_id: str) -> ResponseReturnValue:
     # TODO: Call delete_manuscript_service.
     # TODO: Return 404 if not found.
     # TODO: Return 204 on success.
-    return "", 501
-
-
-@manuscripts_bp.get("")
-def list_manuscripts() -> ResponseReturnValue:
-    """Create docstring."""
-    # TODO: Call get_all_manuscripts_service.
-    # TODO: Move ManuscriptResponse to schemas module (BaseModel import was missing).
-    # TODO: Serialize and return list with 200.
     return "", 501
