@@ -14,3 +14,18 @@ class CreateManuscriptRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     title: str = Field(min_length=1)
+
+
+class UpdateManuscriptRequest(BaseModel):
+    """Request payload for updating a manuscript.
+
+    Unknown fields are rejected and surrounding whitespace is stripped
+    from string values.
+
+    Attributes:
+        title: New title of the manuscript. Must be non-empty.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str = Field(min_length=1)
