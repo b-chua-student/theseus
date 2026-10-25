@@ -7,8 +7,8 @@ from pydantic import ValidationError
 from api.extensions import limiter
 from api.schemas.manuscript_requests import UpdateManuscriptRequest
 from api.schemas.manuscript_responses import ManuscriptResponseDTO
-from services.manuscript.update_manuscript import UpdateManuscriptService
 from services.manuscript.delete_manuscript import DeleteManuscriptService
+from services.manuscript.update_manuscript import UpdateManuscriptService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
