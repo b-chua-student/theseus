@@ -11,6 +11,7 @@ from repositories.manuscript.fake_manuscript_repository import (
     FakeManuscriptRepository,
 )
 from services.manuscript.delete_manuscript import DeleteManuscriptService
+from services.manuscript.get_all_manuscript import GetAllManuscriptService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
@@ -87,8 +88,8 @@ def delete_manuscript(manuscript_id: str) -> ResponseReturnValue:
 
 @manuscripts_bp.get("")
 def list_manuscripts() -> ResponseReturnValue:
-    """Create docstring."""
-    # TODO: Call get_all_manuscripts_service.
-    # TODO: Move ManuscriptResponse to schemas module (BaseModel import was missing).
-    # TODO: Serialize and return list with 200.
-    return "", 501
+    """Retrieve all manuscripts."""
+    get_all_service: GetAllManuscriptService = current_app.extensions["get_all_manuscripts_service"]
+    manuscripts = get_all_service.execute()
+    response_data = [ManuscriptResponseDTO.from_domain(m).to_dict() for m in manuscripts]
+    return jsonify(response_data), 200
