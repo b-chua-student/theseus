@@ -29,6 +29,7 @@ quote-style = "double"
 
 [tool.ruff.lint.per-file-ignores]
 "backend/domain/**" = ["A002"]
+"backend/tests/**" = ["D", "ANN001"]
 
 [tool.mypy]
 mypy_path = "backend"
