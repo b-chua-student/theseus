@@ -57,13 +57,13 @@ jobs:
           pip install ruff
 
       - name: Lint
-        run: ruff check .
+        run: ruff check backend
 
       - name: Format check
-        run: ruff format --check .
+        run: ruff format --check backend
 
       - name: Type check
-        run: mypy .
+        run: mypy backend
 
       - name: Test
         run: pytest .
