@@ -6,6 +6,7 @@ import pytest
 from domain.manuscript.aggregates import Manuscript
 from repositories.manuscript.fake_manuscript_repository import FakeManuscriptRepository
 from repositories.manuscript.manuscript_repository import ManuscriptRepository
+from services.manuscript.create_manuscript import CreateManuscriptService
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 
 
@@ -42,3 +43,18 @@ def delete_manuscript_service(
         DeleteManuscriptService: Service under test.
     """
     return DeleteManuscriptService(manuscript_repo)
+
+
+@pytest.fixture
+def create_manuscript_service(
+    manuscript_repo: ManuscriptRepository,
+) -> CreateManuscriptService:
+    """Provide the create service wired to a repository.
+
+    Args:
+        manuscript_repo (ManuscriptRepository): Injected repository.
+
+    Returns:
+        CreateManuscriptService: Service under test.
+    """
+    return CreateManuscriptService(manuscript_repo)

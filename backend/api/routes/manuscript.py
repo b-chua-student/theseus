@@ -1,9 +1,15 @@
 from uuid import UUID
 
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, jsonify, request
 from flask.typing import ResponseReturnValue
+from pydantic import ValidationError
 
 from api.extensions import limiter
+from api.schemas.manuscript_requests import CreateManuscriptRequest
+from api.schemas.manuscript_responses import ManuscriptResponseDTO
+from repositories.manuscript.fake_manuscript_repository import (
+    FakeManuscriptRepository,
+)
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
@@ -12,13 +18,21 @@ manuscripts_bp = Blueprint("manuscripts", __name__)
 @manuscripts_bp.post("/create")
 @limiter.limit("5/minute")
 def create_manuscript() -> ResponseReturnValue:
-    """Create docstring."""
-    # TODO: Parse and validate JSON body.
-    # TODO: Return 400 on invalid input.
-    # TODO: Resolve project_id (replace hardcoded value).
-    # TODO: Call create_manuscript_service.
-    # TODO: Return serialized manuscript with 201.
-    return "", 501
+    """Validate the request and create a manuscript."""
+    try:
+        payload = CreateManuscriptRequest.model_validate(request.get_json(silent=True))
+    except ValidationError:
+        return jsonify({"error": "Provide a JSON object with a non-empty title."}), 400
+
+    service = current_app.extensions["create_manuscript_service"]
+
+    manuscript = service.execute(
+        project_id=FakeManuscriptRepository.PROJECT_ID,
+        title=payload.title,
+    )
+
+    response = ManuscriptResponseDTO.from_domain(manuscript)
+    return jsonify(response.to_dict()), 201
 
 
 @manuscripts_bp.get("/<manuscript_id>")
