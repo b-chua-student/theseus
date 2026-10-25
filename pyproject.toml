@@ -34,3 +34,7 @@ quote-style = "double"
 mypy_path = "backend"
 explicit_package_bases = true
 namespace_packages = true
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
