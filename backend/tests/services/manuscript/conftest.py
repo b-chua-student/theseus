@@ -8,6 +8,7 @@ from repositories.manuscript.fake_manuscript_repository import FakeManuscriptRep
 from repositories.manuscript.manuscript_repository import ManuscriptRepository
 from services.manuscript.create_manuscript import CreateManuscriptService
 from services.manuscript.delete_manuscript import DeleteManuscriptService
+from services.manuscript.get_all_manuscript import GetAllManuscriptService
 
 
 @pytest.fixture
@@ -58,3 +59,18 @@ def create_manuscript_service(
         CreateManuscriptService: Service under test.
     """
     return CreateManuscriptService(manuscript_repo)
+
+
+@pytest.fixture
+def get_all_manuscript_service(
+    manuscript_repo: ManuscriptRepository,
+) -> GetAllManuscriptService:
+    """Provide the get-all service wired to a repository.
+
+    Args:
+        manuscript_repo (ManuscriptRepository): Injected repository.
+
+    Returns:
+        GetAllManuscriptService: Service under test.
+    """
+    return GetAllManuscriptService(manuscript_repo)

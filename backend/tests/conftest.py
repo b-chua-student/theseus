@@ -26,6 +26,16 @@ def manuscript_repo() -> ManuscriptRepository:
 
 
 @pytest.fixture
+def bare_manuscript_repo() -> ManuscriptRepository:
+    """Provide an empty in-memory manuscript repository.
+
+    Returns:
+        FakeManuscriptRepository: Fake repository with no manuscripts.
+    """
+    return FakeManuscriptRepository(seed=False)
+
+
+@pytest.fixture
 def revision_history_repo() -> RevisionHistoryRepository:
     """Provide an empty in-memory revision history repository.
 
@@ -50,6 +60,28 @@ def app(manuscript_repo, revision_history_repo) -> Flask:
     return create_app(
         config={"TESTING": True, "RATELIMIT_ENABLED": False},
         manuscript_repo=manuscript_repo,
+        revision_history_repo=revision_history_repo,
+    )
+
+
+@pytest.fixture
+def bare_app(bare_manuscript_repo, revision_history_repo) -> Flask:
+    """Create a Flask app with an empty manuscript repository.
+
+    Testing mode with rate limiting disabled.
+
+    Args:
+        bare_manuscript_repo (FakeManuscriptRepository): Injected empty
+            manuscript repository.
+        revision_history_repo (FakeRevisionHistoryRepository): Injected
+            revision history repository.
+
+    Returns:
+        Flask: Configured application instance.
+    """
+    return create_app(
+        config={"TESTING": True, "RATELIMIT_ENABLED": False},
+        manuscript_repo=bare_manuscript_repo,
         revision_history_repo=revision_history_repo,
     )
 
