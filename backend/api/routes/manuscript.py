@@ -8,7 +8,6 @@ from api.schemas.manuscript_responses import ManuscriptResponseDTO
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 
-
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
 
