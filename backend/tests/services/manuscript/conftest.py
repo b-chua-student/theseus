@@ -9,6 +9,7 @@ from repositories.manuscript.manuscript_repository import ManuscriptRepository
 from services.manuscript.create_manuscript import CreateManuscriptService
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
+from services.manuscript.update_manuscript import UpdateManuscriptService
 
 
 @pytest.fixture
@@ -74,3 +75,11 @@ def get_all_manuscript_service(
         GetAllManuscriptService: Service under test.
     """
     return GetAllManuscriptService(manuscript_repo)
+
+
+@pytest.fixture
+def update_manuscript_service(
+    manuscript_repo: ManuscriptRepository,
+) -> UpdateManuscriptService:
+    """Provide the update service wired to a repository."""
+    return UpdateManuscriptService(manuscript_repo)
