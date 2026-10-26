@@ -25,13 +25,7 @@ def create_manuscript() -> ResponseReturnValue:
 
     service = current_app.extensions["create_manuscript_service"]
 
-    manuscript = service.execute(
-        project_id=FakeManuscriptRepository.PROJECT_ID,
-        title=payload.title,
-    )
-
-    response = ManuscriptResponseDTO.from_domain(manuscript)
-    return jsonify(response.to_dict()), 201
+    return jsonify(ManuscriptResponseDTO.from_domain(manuscript).to_dict()), 201
 
 
 @manuscripts_bp.get("/<manuscript_id>")
