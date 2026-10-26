@@ -3,17 +3,28 @@
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
 
-  let { id, onback } = $props();
+  /**
+   * @typedef {{ id: string; projectId: string; ownerId: string; title: string }} ManuscriptMeta
+   * @typedef {{ id: string; parent_id: string|null; heading: string; body: string; ordinal: number }} Section
+   */
+
+  let { id, projectId, ownerId, title: initialTitle, onback } = $props();
 
   let element;
   let editor = $state.raw(null);
   let tick = $state(0);
 
+  let currentTitle = $state(initialTitle ?? '');
+  let saveStatus = $state(/** @type {'idle'|'saving'|'saved'|'error'} */ ('idle'));
+
   let open = $state(false);
   let messages = $state([]);
   let input = $state("");
-  let loading = $state(false);
-  let log;
+  let chatLoading = $state(false);
+  let log = $state(/** @type {HTMLElement | undefined} */ (undefined));
+
+  const manuscriptPath = () =>
+    `/api/users/${ownerId}/projects/${projectId}/manuscripts/${id}`;
 
   const active = (name, attrs) => (tick, editor?.isActive(name, attrs));
 
@@ -29,27 +40,87 @@
     { label: "Redo", run: (c) => c.redo() },
   ];
 
+  /**
+   * Convert manuscript sections to TipTap-compatible HTML.
+   * Top-level sections become <h2> headings followed by body paragraphs.
+   * Child sections become <h3> headings.
+   *
+   * @param {Section[]} sections
+   * @returns {string}
+   */
+  function sectionsToHtml(sections) {
+    if (!sections || sections.length === 0) return '';
+
+    // Sort top-level by ordinal, then children by ordinal
+    const topLevel = sections
+      .filter((s) => s.parent_id === null)
+      .sort((a, b) => a.ordinal - b.ordinal);
+
+    const children = sections.filter((s) => s.parent_id !== null);
+
+    let html = '';
+    for (const section of topLevel) {
+      html += `<h2>${escapeHtml(section.heading)}</h2>`;
+      if (section.body) html += `<p>${escapeHtml(section.body)}</p>`;
+
+      const subs = children
+        .filter((c) => c.parent_id === section.id)
+        .sort((a, b) => a.ordinal - b.ordinal);
+      for (const sub of subs) {
+        html += `<h3>${escapeHtml(sub.heading)}</h3>`;
+        if (sub.body) html += `<p>${escapeHtml(sub.body)}</p>`;
+      }
+    }
+    return html;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   onMount(() => {
     editor = new Editor({
       element,
       extensions: [StarterKit],
-      content: "",
+      content: '',
       onTransaction: () => tick++,
     });
 
-    fetch(`/api/documents/${id}`)
+    // Load the manuscript from the real API
+    fetch(manuscriptPath(), {
+      headers: { 'Content-Type': 'application/json' },
+    })
       .then((r) => r.json())
-      .then((doc) => editor.commands.setContent(doc.content));
+      .then((doc) => {
+        currentTitle = doc.title ?? currentTitle;
+        const html = sectionsToHtml(doc.sections ?? []);
+        editor.commands.setContent(html || `<p></p>`);
+      })
+      .catch(() => {
+        editor.commands.setContent('<p></p>');
+      });
 
     return () => editor.destroy();
   });
 
-  async function save() {
-    await fetch("/api/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document_id: id, content: editor.getHTML() }),
-    });
+  async function saveTitle() {
+    const trimmed = currentTitle.trim();
+    if (!trimmed) return;
+    saveStatus = 'saving';
+    try {
+      await fetch(manuscriptPath(), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      saveStatus = 'saved';
+      setTimeout(() => (saveStatus = 'idle'), 2000);
+    } catch {
+      saveStatus = 'error';
+    }
   }
 
   function scrollDown() {
@@ -58,27 +129,28 @@
 
   async function send() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || chatLoading) return;
     messages.push({ role: "user", text });
     input = "";
-    loading = true;
+    chatLoading = true;
     scrollDown();
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          document_id: id,
+          manuscript_id: id,
           message: text,
           document: editor.getText(),
         }),
       });
+      if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       messages.push({ role: "assistant", text: data.reply });
     } catch {
-      messages.push({ role: "assistant", text: "Request failed." });
+      messages.push({ role: "assistant", text: "Chat not available." });
     }
-    loading = false;
+    chatLoading = false;
     scrollDown();
   }
 
@@ -94,7 +166,14 @@
   <div class="main">
     <div class="bar">
       <button onclick={onback}>← Back</button>
-      <h2 class="name">{id}</h2>
+      <div class="name" role="heading" aria-level="2">
+        <input
+          class="title-input"
+          bind:value={currentTitle}
+          onblur={saveTitle}
+          aria-label="Manuscript title"
+        />
+      </div>
       {#each tools as t (t.label)}
         <button
           class:active={t.name && active(t.name, t.attrs)}
@@ -103,7 +182,12 @@
           {t.label}
         </button>
       {/each}
-      <button onclick={save}>Save</button>
+      <button onclick={saveTitle} disabled={saveStatus === 'saving'}>
+        {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'Save title'}
+      </button>
+      {#if saveStatus === 'error'}
+        <span class="save-error">Save failed</span>
+      {/if}
       <button class:active={open} onclick={() => (open = !open)}>Chat</button>
     </div>
 
@@ -117,10 +201,10 @@
         <button onclick={() => (open = false)}>✕</button>
       </div>
       <div class="log" bind:this={log}>
-        {#each messages as m (m.id)}
+        {#each messages as m, i (i)}
           <div class="msg {m.role}">{m.text}</div>
         {/each}
-        {#if loading}<div class="msg assistant">…</div>{/if}
+        {#if chatLoading}<div class="msg assistant">…</div>{/if}
       </div>
       <div class="chat-input">
         <textarea
@@ -129,7 +213,7 @@
           bind:value={input}
           onkeydown={onkey}
         ></textarea>
-        <button onclick={send} disabled={loading}>Send</button>
+        <button onclick={send} disabled={chatLoading}>Send</button>
       </div>
     </aside>
   {/if}
@@ -139,7 +223,21 @@
   .layout { display: flex; gap: 1rem; align-items: flex-start; }
   .main { flex: 1; min-width: 0; }
   .bar { display: flex; gap: 0.25rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
-  .name { width: 100%; margin: 0.5rem 0; font-size: 1.25rem; }
+  .name { width: 100%; margin: 0.5rem 0; font-size: 1.25rem; display: flex; }
+  .title-input {
+    font: inherit;
+    font-size: 1.25rem;
+    font-weight: 600;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    flex: 1;
+    padding: 0.1rem 0.25rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .title-input:focus { border-bottom-color: #2b5fd9; }
+  .save-error { color: #c0392b; font-size: 0.85rem; align-self: center; }
   .active { background: #ece9fd; }
 
   .chat {
@@ -187,6 +285,6 @@
   }
   .chat-input textarea { flex: 1; resize: none; font: inherit; }
 
-  :global(.tiptap) { outline: none; min-height: 300px; padding: 0.5rem; border: 1px solid #ddd; }
+  :global(.tiptap) { outline: none; min-height: 300px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 6px; }
   :global(.tiptap pre) { background: #2e2b29; color: #fff; padding: 0.75rem 1rem; border-radius: 0.5rem; }
 </style>

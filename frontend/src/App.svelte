@@ -1,39 +1,27 @@
 <script>
-  import Dashboard from './components/dashboard.svelte';
+  import ProjectDashboard from './components/project_dashboard.svelte';
   import DocumentEditor from './components/editor.svelte';
 
-  let documents = $state([]);
-  let selectedId = $state(null);
+  /** @type {{ id: string; projectId: string; ownerId: string; title: string } | null} */
+  let openManuscript = $state(null);
 
-  $effect(() => {
-    load();
-  });
-
-  function load() {
-    fetch('/api/documents')
-      .then((r) => r.json())
-      .then((data) => (documents = data));
-  }
-
-  async function create() {
-    const name = prompt('Document name');
-    if (!name) return;
-    await fetch('/api/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ document_id: name }),
-    });
-    selectedId = name;
+  function openEditor(manuscript) {
+    openManuscript = manuscript;
   }
 
   function back() {
-    selectedId = null;
-    load();
+    openManuscript = null;
   }
 </script>
 
-{#if selectedId === null}
-  <Dashboard {documents} onselect={(id) => (selectedId = id)} oncreate={create} />
+{#if openManuscript === null}
+  <ProjectDashboard onopen={openEditor} />
 {:else}
-  <DocumentEditor id={selectedId} onback={back} />
+  <DocumentEditor
+    id={openManuscript.id}
+    projectId={openManuscript.projectId}
+    ownerId={openManuscript.ownerId}
+    title={openManuscript.title}
+    onback={back}
+  />
 {/if}
