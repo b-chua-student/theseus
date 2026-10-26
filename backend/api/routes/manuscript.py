@@ -7,9 +7,6 @@ from pydantic import ValidationError
 from api.extensions import limiter
 from api.schemas.manuscript_requests import CreateManuscriptRequest, UpdateManuscriptRequest
 from api.schemas.manuscript_responses import ManuscriptResponseDTO
-from repositories.manuscript.fake_manuscript_repository import (
-    FakeManuscriptRepository,
-)
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.update_manuscript import UpdateManuscriptService
