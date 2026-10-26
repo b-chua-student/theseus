@@ -5,7 +5,7 @@ from repositories.manuscript.manuscript_repository import ManuscriptRepository
 
 
 class GetManuscriptService:
-    """Application service for retrieving a manuscript within a project."""
+    """Application service for retrieving a manuscript by its identifier."""
 
     def __init__(self, repository: ManuscriptRepository) -> None:
         """Initialize the service.
@@ -16,8 +16,18 @@ class GetManuscriptService:
         self._repository = repository
 
     def execute(self, manuscript_id: UUID) -> Manuscript:
-        """Create docstring."""
-        # TODO: Load manuscript by ID.
-        # TODO: Raise not-found error if missing.
-        # TODO: Return manuscript.
-        raise NotImplementedError
+        """Retrieve a manuscript by its ID.
+
+        Args:
+            manuscript_id: Unique identifier of the manuscript.
+
+        Returns:
+            The matching manuscript.
+
+        Raises:
+            ValueError: If no manuscript with the given ID exists.
+        """
+        manuscript = self._repository.get_by_id(manuscript_id)
+        if manuscript is None:
+            raise ValueError(f"Manuscript '{manuscript_id}' not found.")
+        return manuscript
