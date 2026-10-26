@@ -38,6 +38,14 @@ class ProjectRepository(ABC):
         """
 
     @abstractmethod
+    def get_all(self) -> list[Project]:
+        """Retrieve all stored projects.
+
+        Returns:
+            A list of all projects, empty if none exist.
+        """
+
+    @abstractmethod
     def delete(self, project_id: UUID) -> None:
         """Delete a project by its identifier.
 

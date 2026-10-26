@@ -63,6 +63,14 @@ class FakeProjectRepository(ProjectRepository):
         """
         return [p for p in self._projects.values() if p.owner_id == owner_id]
 
+    def get_all(self) -> list[Project]:
+        """Retrieve all stored projects.
+
+        Returns:
+            A list of all projects, empty if none exist.
+        """
+        return list(self._projects.values())
+
     def delete(self, project_id: UUID) -> None:
         """Delete a project by its identifier.
 
