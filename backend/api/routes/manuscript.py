@@ -5,11 +5,16 @@ from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
 from api.extensions import limiter
-from api.schemas.manuscript_requests import CreateManuscriptRequest, UpdateManuscriptRequest
+from api.schemas.manuscript_requests import (
+    CreateManuscriptRequest,
+    UpdateManuscriptRequest,
+    UpdateSectionRequest,
+)
 from api.schemas.manuscript_responses import ManuscriptResponseDTO
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.update_manuscript import UpdateManuscriptService
+from services.manuscript.update_section import UpdateSectionService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
@@ -189,3 +194,57 @@ def delete_manuscript(user_id: str, project_id: str, manuscript_id: str) -> Resp
         return jsonify({"error": str(err)}), 404
 
     return "", 204
+
+
+@manuscripts_bp.patch("/<manuscript_id>/sections/<section_id>")
+@limiter.limit("30/minute")
+def update_section(
+    user_id: str, project_id: str, manuscript_id: str, section_id: str
+) -> ResponseReturnValue:
+    """Update an existing section's heading and/or body.
+
+    Args:
+        user_id: String representation of the owner user UUID from the URL path.
+        project_id: String representation of the project UUID from the URL path.
+        manuscript_id: String representation of the manuscript UUID from the URL path.
+        section_id: String representation of the section UUID from the URL path.
+
+    Returns:
+        200 with the serialized updated manuscript, 400 on invalid UUID or
+        JSON payload, or 404 if the manuscript or section does not exist.
+    """
+    parsed_user_id, parsed_project_id = _parse_url_ids(user_id, project_id)
+    if parsed_user_id is None:
+        return jsonify({"error": "Invalid user_id or project_id format."}), 400
+
+    try:
+        parsed_manuscript_id = UUID(manuscript_id)
+        parsed_section_id = UUID(section_id)
+    except ValueError:
+        return jsonify({"error": "Invalid manuscript_id or section_id format."}), 400
+
+    raw_body = request.get_json(silent=True)
+    if not isinstance(raw_body, dict):
+        return jsonify({"error": "Request body must be a valid JSON object."}), 400
+
+    try:
+        payload = UpdateSectionRequest.model_validate(raw_body)
+    except ValidationError as err:
+        return jsonify({"error": err.errors()}), 400
+
+    if payload.heading is None and payload.body is None:
+        return jsonify({"error": "At least one of 'heading' or 'body' must be provided."}), 400
+
+    service: UpdateSectionService = current_app.extensions["update_section_service"]
+
+    try:
+        updated_manuscript = service.execute(
+            manuscript_id=parsed_manuscript_id,
+            section_id=parsed_section_id,
+            heading=payload.heading,
+            body=payload.body,
+        )
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 404
+
+    return jsonify(ManuscriptResponseDTO.from_domain(updated_manuscript).to_dict()), 200
