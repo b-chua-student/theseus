@@ -20,6 +20,13 @@
   let loading = $state(false);
   let log;
 
+  // Revision history panel
+  let historyOpen = $state(false);
+  let revisions = $state([]);
+  let historyLoading = $state(false);
+  let historyError = $state("");
+  let restoringId = $state(null);
+
   const active = (name, attrs) => (tick, editor?.isActive(name, attrs));
 
   const rows = $derived.by(() => {
@@ -65,6 +72,18 @@
         if (rows.length) select(rows[0].id);
       });
 
+    // Ensure a revision history exists for this manuscript (idempotent – 409 means already exists)
+    fetch("/api/revision-histories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: projectId,
+        manuscript_id: id,
+        tree_hash: JSON.stringify({ section_id: null, heading: null, body: null }),
+        message: "Initial revision",
+      }),
+    }).catch(() => {});
+
     return () => editor.destroy();
   });
 
@@ -86,7 +105,112 @@
     });
     if (!res.ok) return;
     sections = sections.map((s) => (s.id === selectedId ? { ...s, heading, body } : s));
+
+    // Commit a new revision on save (best-effort; ignore failures)
+    // tree_hash encodes the full section snapshot so restore can replay it
+    const snapshot = JSON.stringify({ section_id: selectedId, heading, body });
+    fetch(`/api/revision-histories/${id}/revisions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        branch_name: "main",
+        tree_hash: snapshot,
+        message: `Saved section "${heading}"`,
+      }),
+    })
+      .then((r) => {
+        if (r.ok && historyOpen) loadRevisions();
+      })
+      .catch(() => {});
   }
+
+  // ---------------------------------------------------------------------------
+  // Revision history
+  // ---------------------------------------------------------------------------
+
+  async function loadRevisions() {
+    historyLoading = true;
+    historyError = "";
+    try {
+      const res = await fetch(`/api/revision-histories/${id}/revisions`);
+      if (res.status === 404) {
+        revisions = [];
+      } else if (!res.ok) {
+        historyError = "Failed to load revision history.";
+      } else {
+        revisions = await res.json();
+      }
+    } catch {
+      historyError = "Failed to load revision history.";
+    }
+    historyLoading = false;
+  }
+
+  function toggleHistory() {
+    historyOpen = !historyOpen;
+    if (historyOpen && revisions.length === 0 && !historyLoading) {
+      loadRevisions();
+    }
+  }
+
+  async function restoreRevision(revisionId) {
+    if (restoringId) return;
+    restoringId = revisionId;
+    try {
+      const res = await fetch(`/api/revision-histories/${id}/revisions/restore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branch_name: "main",
+          target_revision_id: revisionId,
+          message: "Restored via revision history",
+        }),
+      });
+      if (!res.ok) return;
+
+      const revision = await res.json();
+
+      // Parse the snapshot stored in tree_hash to recover section content
+      let snapshot = null;
+      try { snapshot = JSON.parse(revision.tree_hash); } catch { /* legacy revisions without JSON snapshot */ }
+
+      if (snapshot?.section_id && snapshot?.heading != null && snapshot?.body != null) {
+        // Write the old content back to the backend
+        await fetch(
+          `/api/users/${ownerId}/projects/${projectId}/manuscripts/${id}/sections/${snapshot.section_id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ heading: snapshot.heading, body: snapshot.body }),
+          }
+        );
+        // Always update local state and the editor — the revision was created
+        // successfully even if the PATCH above had a transient failure.
+        sections = sections.map((s) =>
+          s.id === snapshot.section_id ? { ...s, heading: snapshot.heading, body: snapshot.body } : s
+        );
+        // If the restored section is currently open, refresh the editor.
+        // Pass emitUpdate:true so TipTap replaces the document even when the
+        // HTML string is identical to the current content.
+        if (selectedId === snapshot.section_id) {
+          heading = snapshot.heading;
+          editor.commands.setContent(snapshot.body ?? "", true);
+        }
+      }
+
+      await loadRevisions();
+    } finally {
+      restoringId = null;
+    }
+  }
+
+  function shortId(uuid) {
+    return uuid.slice(0, 8);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Chat
+  // ---------------------------------------------------------------------------
 
   function scrollDown() {
     queueMicrotask(() => log && (log.scrollTop = log.scrollHeight));
@@ -161,12 +285,56 @@
         </button>
       {/each}
       <button onclick={save} disabled={!selectedId}>Save</button>
+      <button class:active={historyOpen} onclick={toggleHistory}>History</button>
       <button class:active={open} onclick={() => (open = !open)}>Chat</button>
     </div>
 
     <input class="heading" bind:value={heading} placeholder="Section heading" disabled={!selectedId} />
     <div bind:this={element}></div>
   </div>
+
+  {#if historyOpen}
+    <aside class="history">
+      <div class="side-head">
+        <span>Revision History</span>
+        <button class="close-btn" onclick={() => (historyOpen = false)}>✕</button>
+      </div>
+
+      {#if historyLoading}
+        <div class="history-msg">Loading…</div>
+      {:else if historyError}
+        <div class="history-msg error">{historyError}</div>
+      {:else if revisions.length === 0}
+        <div class="history-msg">No revisions yet. Save to create one.</div>
+      {:else}
+        <ul class="rev-list">
+          {#each revisions as rev (rev.id)}
+            <li class="rev-item">
+              <div class="rev-id" title={rev.id}>#{shortId(rev.id)}</div>
+              <div class="rev-msg">{rev.message}</div>
+              {#if rev.parent_ids.length > 0}
+                <div class="rev-parents">
+                  parent{rev.parent_ids.length > 1 ? "s" : ""}:
+                  {rev.parent_ids.map(shortId).join(", ")}
+                </div>
+              {/if}
+              <button
+                class="restore-btn"
+                disabled={restoringId === rev.id}
+                onclick={() => restoreRevision(rev.id)}
+              >
+                {restoringId === rev.id ? "Restoring…" : "Restore"}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <div class="history-footer">
+        <button onclick={loadRevisions} disabled={historyLoading}>↻ Refresh</button>
+      </div>
+    </aside>
+  {/if}
 
   {#if open}
     <aside class="chat">
@@ -213,7 +381,14 @@
     background: #fff;
     color: #000;
   }
-  .side-head { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; font-weight: 600; }
+  .side-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #eee;
+    font-weight: 600;
+  }
   .sections ul { list-style: none; margin: 0; padding: 0.25rem 0; }
   .section {
     display: block;
@@ -229,6 +404,93 @@
   .section.active { background: #ece9fd; }
   .empty { padding: 0.5rem 0.75rem; color: #888; }
 
+  /* Revision history panel */
+  .history {
+    width: 260px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2rem);
+    position: sticky;
+    top: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #000;
+  }
+  .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+    color: #666;
+  }
+  .close-btn:hover { color: #000; }
+  .history-msg {
+    padding: 0.75rem;
+    color: #666;
+    font-size: 0.875rem;
+  }
+  .history-msg.error { color: #c00; }
+  .rev-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0;
+  }
+  .rev-item {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .rev-item:last-child { border-bottom: none; }
+  .rev-id {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #888;
+  }
+  .rev-msg {
+    font-size: 0.875rem;
+    color: #222;
+    word-break: break-word;
+  }
+  .rev-parents {
+    font-family: monospace;
+    font-size: 0.7rem;
+    color: #aaa;
+  }
+  .restore-btn {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 0.3rem;
+    background: #f9f9f9;
+    cursor: pointer;
+  }
+  .restore-btn:hover:not(:disabled) { background: #ece9fd; border-color: #c4b5fd; }
+  .restore-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .history-footer {
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid #eee;
+  }
+  .history-footer button {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 0.3rem;
+    background: #f9f9f9;
+    cursor: pointer;
+  }
+  .history-footer button:hover:not(:disabled) { background: #f0f0f0; }
+  .history-footer button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Chat panel */
   .chat {
     width: 320px;
     flex-shrink: 0;

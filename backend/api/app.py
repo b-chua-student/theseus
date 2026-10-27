@@ -1,5 +1,9 @@
-from flask import Flask
+import logging
+import time
 
+from flask import Flask, Response, g, request
+
+from api.logging_config import configure_logging
 from api.routes.chat import chat_bp
 from api.routes.manuscript import manuscripts_bp
 from api.routes.project import projects_bp
@@ -45,6 +49,8 @@ from services.user.update_user import UpdateUserService
 
 from .extensions import limiter
 
+_access_log = logging.getLogger("theseus.access")
+
 
 def create_app(
     config: dict | None = None,
@@ -75,6 +81,23 @@ def create_app(
     app = Flask(__name__)
     app.config.update(config or {})
     limiter.init_app(app)
+    configure_logging(app)
+
+    @app.before_request
+    def _before_request() -> None:
+        g._request_start = time.perf_counter()
+
+    @app.after_request
+    def _after_request(response: Response) -> Response:  # type: ignore[no-untyped-def]
+        duration_ms = (time.perf_counter() - g._request_start) * 1000
+        _access_log.info(
+            "%s %s %s %.1fms",
+            request.method,
+            request.path,
+            response.status_code,
+            duration_ms,
+        )
+        return response
 
     app.register_blueprint(
         manuscripts_bp,
