@@ -3,30 +3,39 @@
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
 
-  /**
-   * @typedef {{ id: string; projectId: string; ownerId: string; title: string }} ManuscriptMeta
-   * @typedef {{ id: string; parent_id: string|null; heading: string; body: string; ordinal: number }} Section
-   */
-
-  let { id, projectId, ownerId, title: initialTitle, onback } = $props();
+  let { id, projectId, ownerId, onback } = $props();
 
   let element;
   let editor = $state.raw(null);
   let tick = $state(0);
 
-  let currentTitle = $state(initialTitle ?? '');
-  let saveStatus = $state(/** @type {'idle'|'saving'|'saved'|'error'} */ ('idle'));
+  let title = $state("");
+  let sections = $state([]);
+  let selectedId = $state(null);
+  let heading = $state("");
 
   let open = $state(false);
   let messages = $state([]);
   let input = $state("");
-  let chatLoading = $state(false);
-  let log = $state(/** @type {HTMLElement | undefined} */ (undefined));
-
-  const manuscriptPath = () =>
-    `/api/users/${ownerId}/projects/${projectId}/manuscripts/${id}`;
+  let loading = $state(false);
+  let log;
 
   const active = (name, attrs) => (tick, editor?.isActive(name, attrs));
+
+  const rows = $derived.by(() => {
+    const byParent = {};
+    for (const s of sections) (byParent[s.parent_id ?? "root"] ??= []).push(s);
+    const out = [];
+    const walk = (parent, depth) => {
+      const children = (byParent[parent] ?? []).sort((a, b) => a.ordinal - b.ordinal);
+      for (const s of children) {
+        out.push({ ...s, depth });
+        walk(s.id, depth + 1);
+      }
+    };
+    walk("root", 0);
+    return out;
+  });
 
   const tools = [
     { label: "Bold", name: "bold", run: (c) => c.toggleBold() },
@@ -40,87 +49,43 @@
     { label: "Redo", run: (c) => c.redo() },
   ];
 
-  /**
-   * Convert manuscript sections to TipTap-compatible HTML.
-   * Top-level sections become <h2> headings followed by body paragraphs.
-   * Child sections become <h3> headings.
-   *
-   * @param {Section[]} sections
-   * @returns {string}
-   */
-  function sectionsToHtml(sections) {
-    if (!sections || sections.length === 0) return '';
-
-    // Sort top-level by ordinal, then children by ordinal
-    const topLevel = sections
-      .filter((s) => s.parent_id === null)
-      .sort((a, b) => a.ordinal - b.ordinal);
-
-    const children = sections.filter((s) => s.parent_id !== null);
-
-    let html = '';
-    for (const section of topLevel) {
-      html += `<h2>${escapeHtml(section.heading)}</h2>`;
-      if (section.body) html += `<p>${escapeHtml(section.body)}</p>`;
-
-      const subs = children
-        .filter((c) => c.parent_id === section.id)
-        .sort((a, b) => a.ordinal - b.ordinal);
-      for (const sub of subs) {
-        html += `<h3>${escapeHtml(sub.heading)}</h3>`;
-        if (sub.body) html += `<p>${escapeHtml(sub.body)}</p>`;
-      }
-    }
-    return html;
-  }
-
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
   onMount(() => {
     editor = new Editor({
       element,
       extensions: [StarterKit],
-      content: '',
+      content: "",
       onTransaction: () => tick++,
     });
 
-    // Load the manuscript from the real API
-    fetch(manuscriptPath(), {
-      headers: { 'Content-Type': 'application/json' },
-    })
+    fetch(`/api/users/${ownerId}/projects/${projectId}/manuscripts/${id}`)
       .then((r) => r.json())
-      .then((doc) => {
-        currentTitle = doc.title ?? currentTitle;
-        const html = sectionsToHtml(doc.sections ?? []);
-        editor.commands.setContent(html || `<p></p>`);
-      })
-      .catch(() => {
-        editor.commands.setContent('<p></p>');
+      .then((m) => {
+        title = m.title;
+        sections = m.sections ?? [];
+        if (rows.length) select(rows[0].id);
       });
 
     return () => editor.destroy();
   });
 
-  async function saveTitle() {
-    const trimmed = currentTitle.trim();
-    if (!trimmed) return;
-    saveStatus = 'saving';
-    try {
-      await fetch(manuscriptPath(), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: trimmed }),
-      });
-      saveStatus = 'saved';
-      setTimeout(() => (saveStatus = 'idle'), 2000);
-    } catch {
-      saveStatus = 'error';
-    }
+  function select(sectionId) {
+    const s = sections.find((x) => x.id === sectionId);
+    if (!s) return;
+    selectedId = s.id;
+    heading = s.heading;
+    editor.commands.setContent(s.body ?? "");
+  }
+
+  async function save() {
+    if (!selectedId) return;
+    const body = editor.getHTML();
+    const res = await fetch(`/api/users/${ownerId}/projects/${projectId}/manuscripts/${id}/sections/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ heading, body }),
+    });
+    if (!res.ok) return;
+    sections = sections.map((s) => (s.id === selectedId ? { ...s, heading, body } : s));
   }
 
   function scrollDown() {
@@ -129,10 +94,10 @@
 
   async function send() {
     const text = input.trim();
-    if (!text || chatLoading) return;
+    if (!text || loading) return;
     messages.push({ role: "user", text });
     input = "";
-    chatLoading = true;
+    loading = true;
     scrollDown();
     try {
       const res = await fetch("/api/chat", {
@@ -140,17 +105,17 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           manuscript_id: id,
+          section_id: selectedId,
           message: text,
           document: editor.getText(),
         }),
       });
-      if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       messages.push({ role: "assistant", text: data.reply });
     } catch {
-      messages.push({ role: "assistant", text: "Chat not available." });
+      messages.push({ role: "assistant", text: "Request failed." });
     }
-    chatLoading = false;
+    loading = false;
     scrollDown();
   }
 
@@ -163,17 +128,30 @@
 </script>
 
 <div class="layout">
+  <aside class="sections">
+    <div class="side-head">Sections</div>
+    <ul>
+      {#each rows as s (s.id)}
+        <li>
+          <button
+            class="section"
+            class:active={s.id === selectedId}
+            style="padding-left: {0.5 + s.depth * 1}rem"
+            onclick={() => select(s.id)}
+          >
+            {s.heading}
+          </button>
+        </li>
+      {:else}
+        <li class="empty">No sections</li>
+      {/each}
+    </ul>
+  </aside>
+
   <div class="main">
     <div class="bar">
       <button onclick={onback}>← Back</button>
-      <div class="name" role="heading" aria-level="2">
-        <input
-          class="title-input"
-          bind:value={currentTitle}
-          onblur={saveTitle}
-          aria-label="Manuscript title"
-        />
-      </div>
+      <h2 class="name">{title}</h2>
       {#each tools as t (t.label)}
         <button
           class:active={t.name && active(t.name, t.attrs)}
@@ -182,15 +160,11 @@
           {t.label}
         </button>
       {/each}
-      <button onclick={saveTitle} disabled={saveStatus === 'saving'}>
-        {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'Save title'}
-      </button>
-      {#if saveStatus === 'error'}
-        <span class="save-error">Save failed</span>
-      {/if}
+      <button onclick={save} disabled={!selectedId}>Save</button>
       <button class:active={open} onclick={() => (open = !open)}>Chat</button>
     </div>
 
+    <input class="heading" bind:value={heading} placeholder="Section heading" disabled={!selectedId} />
     <div bind:this={element}></div>
   </div>
 
@@ -201,10 +175,10 @@
         <button onclick={() => (open = false)}>✕</button>
       </div>
       <div class="log" bind:this={log}>
-        {#each messages as m, i (i)}
+        {#each messages as m}
           <div class="msg {m.role}">{m.text}</div>
         {/each}
-        {#if chatLoading}<div class="msg assistant">…</div>{/if}
+        {#if loading}<div class="msg assistant">…</div>{/if}
       </div>
       <div class="chat-input">
         <textarea
@@ -213,7 +187,7 @@
           bind:value={input}
           onkeydown={onkey}
         ></textarea>
-        <button onclick={send} disabled={chatLoading}>Send</button>
+        <button onclick={send} disabled={loading}>Send</button>
       </div>
     </aside>
   {/if}
@@ -223,22 +197,37 @@
   .layout { display: flex; gap: 1rem; align-items: flex-start; }
   .main { flex: 1; min-width: 0; }
   .bar { display: flex; gap: 0.25rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
-  .name { width: 100%; margin: 0.5rem 0; font-size: 1.25rem; display: flex; }
-  .title-input {
-    font: inherit;
-    font-size: 1.25rem;
-    font-weight: 600;
-    border: none;
-    border-bottom: 2px solid transparent;
-    background: transparent;
-    flex: 1;
-    padding: 0.1rem 0.25rem;
-    outline: none;
-    transition: border-color 0.15s;
-  }
-  .title-input:focus { border-bottom-color: #2b5fd9; }
-  .save-error { color: #c0392b; font-size: 0.85rem; align-self: center; }
+  .name { width: 100%; margin: 0.5rem 0; font-size: 1.25rem; }
   .active { background: #ece9fd; }
+  .heading { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; padding: 0.5rem; font: inherit; font-weight: 600; }
+
+  .sections {
+    width: 240px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #000;
+  }
+  .side-head { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; font-weight: 600; }
+  .sections ul { list-style: none; margin: 0; padding: 0.25rem 0; }
+  .section {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    padding: 0.4rem 0.5rem;
+    cursor: pointer;
+    color: #000;
+  }
+  .section:hover { background: #f5f5f5; }
+  .section.active { background: #ece9fd; }
+  .empty { padding: 0.5rem 0.75rem; color: #888; }
 
   .chat {
     width: 320px;
@@ -285,6 +274,6 @@
   }
   .chat-input textarea { flex: 1; resize: none; font: inherit; }
 
-  :global(.tiptap) { outline: none; min-height: 300px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 6px; }
+  :global(.tiptap) { outline: none; min-height: 300px; padding: 0.5rem; border: 1px solid #ddd; }
   :global(.tiptap pre) { background: #2e2b29; color: #fff; padding: 0.75rem 1rem; border-radius: 0.5rem; }
 </style>
