@@ -1,5 +1,6 @@
 from flask import Flask
 
+from api.routes.chat import chat_bp
 from api.routes.manuscript import manuscripts_bp
 from api.routes.project import projects_bp
 from api.routes.revision_history import revision_histories_bp
@@ -21,6 +22,7 @@ from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.get_manuscript import GetManuscriptService
 from services.manuscript.update_manuscript import UpdateManuscriptService
+from services.manuscript.update_section import UpdateSectionService
 from services.project.create_project import CreateProjectService
 from services.project.delete_project import DeleteProjectService
 from services.project.get_all_projects import GetAllProjectsService
@@ -79,6 +81,7 @@ def create_app(
         url_prefix="/api/users/<user_id>/projects/<project_id>/manuscripts",
     )
     app.register_blueprint(projects_bp, url_prefix="/api/projects")
+    app.register_blueprint(chat_bp, url_prefix="/api/chat")
     app.register_blueprint(revision_histories_bp, url_prefix="/api/revision-histories")
     app.register_blueprint(users_bp, url_prefix="/api/users")
 
@@ -105,6 +108,9 @@ def create_app(
 
     update_manuscript_service = UpdateManuscriptService(repository=manuscript_repo)
     app.extensions["update_manuscript_service"] = update_manuscript_service
+
+    update_section_service = UpdateSectionService(repository=manuscript_repo)
+    app.extensions["update_section_service"] = update_section_service
 
     app.extensions["create_project_service"] = CreateProjectService(repository=project_repo)
     app.extensions["get_all_projects_service"] = GetAllProjectsService(repository=project_repo)
