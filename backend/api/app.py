@@ -13,6 +13,7 @@ from services.manuscript.create_manuscript import CreateManuscriptService
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.get_manuscript import GetManuscriptService
+from services.manuscript.update_manuscript import UpdateManuscriptService
 
 from .extensions import limiter
 
@@ -63,5 +64,9 @@ def create_app(
     delete_manuscript_service = DeleteManuscriptService(manuscript_repo)
 
     app.extensions["delete_manuscript_service"] = delete_manuscript_service
+
+    update_manuscript_service = UpdateManuscriptService(repository=manuscript_repo)
+
+    app.extensions["update_manuscript_service"] = update_manuscript_service
 
     return app

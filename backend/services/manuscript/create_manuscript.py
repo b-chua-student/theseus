@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from domain.manuscript.aggregates import Manuscript
 from repositories.manuscript.manuscript_repository import ManuscriptRepository
@@ -20,9 +20,24 @@ class CreateManuscriptService:
         project_id: UUID,
         title: str,
     ) -> Manuscript:
-        """Create docstring."""
-        # TODO: Generate manuscript ID.
-        # TODO: Build Manuscript aggregate.
-        # TODO: Persist manuscript.
-        # TODO: Return created manuscript.
-        raise NotImplementedError
+        """Create and persist a manuscript.
+
+        Args:
+            project_id: Identifier of the owning project.
+            title: Title of the manuscript.
+
+        Returns:
+            The newly created manuscript.
+
+        Raises:
+            ValueError: If the title is empty or whitespace only.
+        """
+        manuscript = Manuscript(
+            id=uuid4(),
+            project_id=project_id,
+            title=title,
+        )
+
+        self._repository.save(manuscript)
+
+        return manuscript
