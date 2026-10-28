@@ -46,8 +46,12 @@ from services.user.create_user import CreateUserService
 from services.user.delete_user import DeleteUserService
 from services.user.get_user import GetUserService
 from services.user.update_user import UpdateUserService
+from ports.chunker import Chunker
 
 from .extensions import limiter
+
+import os
+from dotenv import load_dotenv 
 
 _access_log = logging.getLogger("theseus.access")
 
@@ -168,5 +172,13 @@ def create_app(
     app.extensions["merge_branches_service"] = MergeBranchesService(
         repository=revision_history_repo
     )
+
+    load_dotenv()
+
+    chunk_size = os.getenv("CHUNK_SIZE", "512")
+
+    chunker: Chunker = ChonkieChunker(chunk_size)
+
+    app.extensions["chunk_manuscript_service"] = ChunkManuscriptService(chunker)
 
     return app
