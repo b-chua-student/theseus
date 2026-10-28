@@ -15,6 +15,7 @@ from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.update_manuscript import UpdateManuscriptService
 from services.manuscript.update_section import UpdateSectionService
+from services.indexing.index_manuscript_service import IndexManuscriptService
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
@@ -250,19 +251,26 @@ def update_section(
     return jsonify(ManuscriptResponseDTO.from_domain(updated_manuscript).to_dict()), 200
 
 
-@manuscripts_bp.get("/<manuscript_id>/get")
-def chunk(manuscript_id: str) -> ResponseReturnValue:
+@manuscripts_bp.post("/<manuscript_id>/chunk")
+@limiter.limit("5/minute")
+def chunk(user_id: str, project_id: str, manuscript_id: str) -> ResponseReturnValue:
     try:
         validated_manuscript_id = UUID(manuscript_id)
     except ValueError:
-        return jsonify(error="Invalid Manuscript Id"), 404
+        return jsonify(error="Invalid manuscript id"), 400
 
-    get_manuscript_service = current_app.extensions["get_manuscript_service"]
-    manuscript = get_manuscript_service.execute(validated_manuscript_id)
+    service: IndexManuscriptService = current_app.extensions["index_manuscript_service"]
 
-    chunk_manuscript_service = current_app.extensions["chunk_manuscript_service"]
-    chunked_manuscript = chunk_manuscript_service.execute(manuscript)
+    try:
+        indexed = service.execute(validated_manuscript_id)
+    except ValueError:
+        return jsonify(error="Manuscript not found"), 404
+    except Exception:
+        current_app.logger.exception("Indexing failed")
+        return jsonify(error="Indexing failed"), 500
 
-    # pass ChunkedManuscript to CreateIndexedManuscriptService
-
-    # call SaveIndexedManuscriptService
+    return jsonify(
+        indexed_document_id=str(indexed.indexed_document_id.value),
+        status=indexed.status.value,
+        chunk_count=len(indexed.chunks),
+    ), 200

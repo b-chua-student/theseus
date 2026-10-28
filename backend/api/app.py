@@ -9,6 +9,8 @@ from api.routes.manuscript import manuscripts_bp
 from api.routes.project import projects_bp
 from api.routes.revision_history import revision_histories_bp
 from api.routes.user import users_bp
+from ports.embedding.local_embedder import LocalEmbedder
+from services.indexing.embed_indexed_document import EmbedIndexedDocumentService
 from repositories.manuscript.fake_manuscript_repository import (
     FakeManuscriptRepository,
 )
@@ -46,12 +48,21 @@ from services.user.create_user import CreateUserService
 from services.user.delete_user import DeleteUserService
 from services.user.get_user import GetUserService
 from services.user.update_user import UpdateUserService
-from ports.chunker import Chunker
+from ports.chunking.chunker import Chunker
+from ports.chunking.chonkie_chunker import ChonkieChunker
+from services.manuscript.chunk_manuscript import ChunkManuscriptService
+from services.indexing.create_indexed_document import CreateIndexedDocumentService
+from repositories.indexing.chroma_indexed_document_repository import ChromaIndexedDocumentRepository
+from services.indexing.index_manuscript_service import IndexManuscriptService
+from services.indexing.save_indexed_document import SaveIndexedDocumentService
+from domain.indexing.value_objects import EmbeddingModelRef
 
 from .extensions import limiter
 
 import os
 from dotenv import load_dotenv 
+
+import chromadb
 
 _access_log = logging.getLogger("theseus.access")
 
@@ -175,10 +186,26 @@ def create_app(
 
     load_dotenv()
 
-    chunk_size = os.getenv("CHUNK_SIZE", "512")
+    chunk_size = int(os.getenv("CHUNK_SIZE", "512"))
 
-    chunker: Chunker = ChonkieChunker(chunk_size)
+    chunker: Chunker = ChonkieChunker(chunk_size=chunk_size)
 
-    app.extensions["chunk_manuscript_service"] = ChunkManuscriptService(chunker)
+    client = chromadb.PersistentClient(path=os.getenv("CHROMA_PERSIST_PATH", "./chroma_data"))
+    collection = client.get_or_create_collection(name="indexed_chunks")
+    indexed_document_repo = ChromaIndexedDocumentRepository(collection)
+
+    embedder = LocalEmbedder()
+
+    model = EmbeddingModelRef(name=embedder.model.name, version=embedder.model.version)
+
+    index_manuscript_service = IndexManuscriptService(
+        get_manuscript=get_manuscript_service,
+        chunk_manuscript=ChunkManuscriptService(chunker),
+        create_indexed_document=CreateIndexedDocumentService(model=model),
+        embed_indexed_document=EmbedIndexedDocumentService(embedder=embedder),
+        save_indexed_document=SaveIndexedDocumentService(indexed_document_repo),
+    )
+
+    app.extensions["index_manuscript_service"] = index_manuscript_service
 
     return app

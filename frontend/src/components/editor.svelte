@@ -27,6 +27,11 @@
   let historyError = $state("");
   let restoringId = $state(null);
 
+  // NEW: chunking state
+  let chunking = $state(false);
+  let chunkStatus = $state("");
+  let chunkError = $state(false);
+
   const active = (name, attrs) => (tick, editor?.isActive(name, attrs));
 
   const rows = $derived.by(() => {
@@ -122,6 +127,36 @@
         if (r.ok && historyOpen) loadRevisions();
       })
       .catch(() => {});
+  }
+
+  // ---------------------------------------------------------------------------
+  // Chunking (NEW)
+  // ---------------------------------------------------------------------------
+
+  async function chunkManuscript() {
+    if (chunking) return;
+    chunking = true;
+    chunkError = false;
+    chunkStatus = "Chunking…";
+    try {
+      const res = await fetch(
+        `/api/users/${ownerId}/projects/${projectId}/manuscripts/${id}/chunk`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        chunkError = true;
+        chunkStatus = `Chunking failed (${res.status}).`;
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const count = data.chunk_count ?? data.chunks?.length;
+      chunkStatus = count != null ? `Chunked into ${count} chunks.` : "Chunking complete.";
+    } catch {
+      chunkError = true;
+      chunkStatus = "Chunking failed.";
+    } finally {
+      chunking = false;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -285,9 +320,18 @@
         </button>
       {/each}
       <button onclick={save} disabled={!selectedId}>Save</button>
+      <!-- NEW -->
+      <button onclick={chunkManuscript} disabled={chunking || sections.length === 0}>
+        {chunking ? "Chunking…" : "Chunk"}
+      </button>
       <button class:active={historyOpen} onclick={toggleHistory}>History</button>
       <button class:active={open} onclick={() => (open = !open)}>Chat</button>
     </div>
+
+    <!-- NEW -->
+    {#if chunkStatus}
+      <div class="chunk-status" class:error={chunkError} role="status">{chunkStatus}</div>
+    {/if}
 
     <input class="heading" bind:value={heading} placeholder="Section heading" disabled={!selectedId} />
     <div bind:this={element}></div>
@@ -368,6 +412,10 @@
   .name { width: 100%; margin: 0.5rem 0; font-size: 1.25rem; }
   .active { background: #ece9fd; }
   .heading { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; padding: 0.5rem; font: inherit; font-weight: 600; }
+
+  /* NEW: chunk status line */
+  .chunk-status { margin-bottom: 0.5rem; font-size: 0.875rem; color: #666; }
+  .chunk-status.error { color: #c00; }
 
   .sections {
     width: 240px;
