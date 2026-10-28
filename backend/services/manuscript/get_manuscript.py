@@ -26,4 +26,3 @@ class GetManuscriptService:
             raise ValueError("Manuscript not found.")
 
         return manuscript
-    
