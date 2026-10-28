@@ -253,12 +253,12 @@ def update_section(
 @manuscripts_bp.get("/<manuscript_id>/get")
 def chunk(manuscript_id: str) -> ResponseReturnValue:
     try:
-        validated_manuscript_id = UUD(manuscript_id)
+        validated_manuscript_id = UUID(manuscript_id)
     except ValueError:
         return jsonify(error="Invalid Manuscript Id"), 404
 
     get_manuscript_service = current_app.extensions["get_manuscript_service"]
-    manuscript = get_manuscript_service.execute(validatd_manuscript_id)
+    manuscript = get_manuscript_service.execute(validated_manuscript_id)
 
     chunk_manuscript_service = current_app.extensions["chunk_manuscript_service"]
     chunked_manuscript = chunk_manuscript_service.execute(manuscript)
