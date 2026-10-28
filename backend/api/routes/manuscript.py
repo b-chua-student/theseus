@@ -39,12 +39,24 @@ def create_manuscript() -> ResponseReturnValue:
 
 @manuscripts_bp.get("/<manuscript_id>")
 def get_manuscript(manuscript_id: str) -> ResponseReturnValue:
-    """Create docstring."""
-    # TODO: Validate manuscript_id as UUID (400 on failure).
-    # TODO: Call get_manuscript_service.
-    # TODO: Return 404 if not found.
-    # TODO: Serialize via response DTO instead of inline dict.
-    return "", 501
+    """Get a manuscript by its ID."""
+    try:
+        manuscript_uuid = UUID(manuscript_id)
+    except ValueError:
+        return {"error": "Invalid manuscript ID."}, 400
+
+    service = current_app.extensions["get_manuscript_service"]
+
+    try:
+        manuscript = service.execute(manuscript_uuid)
+    except ValueError:
+        return {"error": "Manuscript not found."}, 404
+
+    return {
+        "id": str(manuscript.id),
+        "project_id": str(manuscript.project_id),
+        "title": manuscript.title,
+    }, 200
 
 
 @manuscripts_bp.patch("/<manuscript_id>")

@@ -20,4 +20,9 @@ class GetManuscriptService:
         # TODO: Load manuscript by ID.
         # TODO: Raise not-found error if missing.
         # TODO: Return manuscript.
-        raise NotImplementedError
+        manuscript = self._repository.get_by_id(manuscript_id)
+
+        if manuscript is None:
+            raise ValueError("Manuscript not found.")
+
+        return manuscript

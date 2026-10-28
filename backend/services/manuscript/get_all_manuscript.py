@@ -14,5 +14,5 @@ class GetAllManuscriptService:
         self._repository = repository
 
     def execute(self) -> list[Manuscript]:
-        """Fetch all manuscripts from the repository."""
+        """Return all manuscripts."""
         return self._repository.get_all()
