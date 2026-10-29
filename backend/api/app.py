@@ -64,6 +64,13 @@ from dotenv import load_dotenv
 
 import chromadb
 
+from ports.generation.gemini_answer_generator import GeminiAnswerGenerator  # NEW
+from ports.retrieval.chroma_retriever import ChromaRetriever  # NEW
+from repositories.conversation.fake_conversation_repository import (  # NEW
+    FakeConversationRepository,
+)
+from services.conversation.ask_question import AskQuestionService  # NEW
+
 _access_log = logging.getLogger("theseus.access")
 
 
@@ -207,5 +214,18 @@ def create_app(
     )
 
     app.extensions["index_manuscript_service"] = index_manuscript_service
+
+    # NEW
+    conversation_repo = FakeConversationRepository()
+    retriever = ChromaRetriever(collection=collection, embedder=embedder)
+    generator = GeminiAnswerGenerator(
+        model_name=os.getenv("GENERATION_MODEL", "gemini-3.6-flash"),
+    )
+
+    app.extensions["ask_question_service"] = AskQuestionService(
+        repository=conversation_repo,
+        retriever=retriever,
+        generator=generator,
+    )
 
     return app

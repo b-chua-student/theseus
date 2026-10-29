@@ -41,7 +41,7 @@ class FakeManuscriptRepository(ManuscriptRepository):
             part = manuscript.add_section("Part One", "Opening part.")
             manuscript.add_section("Chapter 1", "First chapter.", parent_id=part.id)
             manuscript.add_section("Chapter 2", "Second chapter.", parent_id=part.id)
-            manuscript.add_section("Part Two", "Closing part.")
+            manuscript.add_section("Methods", "Participants were recruited using stratified random sampling. The population was divided into three regional strata, and a fixed number of sites was drawn at random from each stratum to ensure proportional representation. Sampling was conducted over a six-week period, and sites were included only if they met predefined eligibility criteria. This approach reduces selection bias and allows comparison across regions.")
 
             self._manuscripts[manuscript.id] = manuscript
 

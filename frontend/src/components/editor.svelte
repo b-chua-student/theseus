@@ -27,7 +27,7 @@
   let historyError = $state("");
   let restoringId = $state(null);
 
-  // NEW: chunking state
+  // Chunking state
   let chunking = $state(false);
   let chunkStatus = $state("");
   let chunkError = $state(false);
@@ -130,7 +130,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Chunking (NEW)
+  // Chunking
   // ---------------------------------------------------------------------------
 
   async function chunkManuscript() {
@@ -259,23 +259,36 @@
     loading = true;
     scrollDown();
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          manuscript_id: id,
-          section_id: selectedId,
-          message: text,
-          document: editor.getText(),
-        }),
-      });
-      const data = await res.json();
-      messages.push({ role: "assistant", text: data.reply });
+      const res = await fetch(
+        `/api/users/${ownerId}/projects/${projectId}/manuscripts/${id}/ask`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: text }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        messages.push({
+          role: "assistant",
+          text: data.error ?? `Request failed (${res.status}).`,
+        });
+      } else {
+        messages.push({
+          role: "assistant",
+          text: data.answer ?? "",
+          sources: data.sources ?? [],
+        });
+      }
     } catch {
       messages.push({ role: "assistant", text: "Request failed." });
     }
     loading = false;
     scrollDown();
+  }
+
+  function sectionHeading(sectionId) {
+    return sections.find((s) => s.id === sectionId)?.heading ?? "Unknown section";
   }
 
   function onkey(e) {
@@ -320,7 +333,6 @@
         </button>
       {/each}
       <button onclick={save} disabled={!selectedId}>Save</button>
-      <!-- NEW -->
       <button onclick={chunkManuscript} disabled={chunking || sections.length === 0}>
         {chunking ? "Chunking…" : "Chunk"}
       </button>
@@ -328,7 +340,6 @@
       <button class:active={open} onclick={() => (open = !open)}>Chat</button>
     </div>
 
-    <!-- NEW -->
     {#if chunkStatus}
       <div class="chunk-status" class:error={chunkError} role="status">{chunkStatus}</div>
     {/if}
@@ -388,7 +399,22 @@
       </div>
       <div class="log" bind:this={log}>
         {#each messages as m}
-          <div class="msg {m.role}">{m.text}</div>
+          <div class="msg {m.role}">
+            {m.text}
+            {#if m.sources?.length}
+              <div class="sources">
+                {#each m.sources as src, i}
+                  <button
+                    class="source"
+                    title={src.excerpt}
+                    onclick={() => select(src.section_id)}
+                  >
+                    [{i + 1}] {sectionHeading(src.section_id)}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
         {/each}
         {#if loading}<div class="msg assistant">…</div>{/if}
       </div>
@@ -413,7 +439,6 @@
   .active { background: #ece9fd; }
   .heading { width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; padding: 0.5rem; font: inherit; font-weight: 600; }
 
-  /* NEW: chunk status line */
   .chunk-status { margin-bottom: 0.5rem; font-size: 0.875rem; color: #666; }
   .chunk-status.error { color: #c00; }
 
@@ -576,6 +601,25 @@
   }
   .msg.user { align-self: flex-end; background: #ece9fd; }
   .msg.assistant { align-self: flex-start; background: #f4f4f4; }
+  .sources {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    margin-top: 0.5rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid #ddd;
+  }
+  .source {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 0.75rem;
+    color: #5b3fd1;
+    cursor: pointer;
+    text-align: left;
+  }
+  .source:hover { text-decoration: underline; }
   .chat-input {
     display: flex;
     gap: 0.25rem;

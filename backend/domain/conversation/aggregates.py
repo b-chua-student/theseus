@@ -1,68 +1,112 @@
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from .value_objects import ConversationId, ExchangeId, Query, Answer, AnswerStatus
 from .entities import Exchange
-from datetime import datetime, timezone
-
-
-class InvalidManuscriptId(ValueError):
-    def __init__(self, value: object) -> None:
-        super().__init__(
-            f"Invalid manuscript id: {value!r}. Expected a UUID, "
-            "e.g. '123e4567-e89b-12d3-a456-426614174000'."
-        )
-        self.value = value
-
-
-class ExchangeNotFound(LookupError):
-    def __init__(self, value: object) -> None:
-        super().__init__(f"Exchange with ID: {value!r} not found.")
-        self.value = value
-
-
-class AnswerAlreadyRecorded(Exception):
-    def __init__(self, value: object) -> None:
-        super().__init__(f"Answer already recorded.")
-        self.value = value
+from .value_objects import Answer, ConversationId, ExchangeId, Query
 
 
 class Conversation:
-    def __init__(self, manuscript_id: UUID) -> None:
-        self._id = ConversationId(uuid4())
+    """Aggregate root for a manuscript's question-and-answer conversation.
+
+    Exchanges are kept in the order they were asked. At most one exchange
+    can be unanswered at a time, and it is always the last one.
+    """
+
+    def __init__(
+        self,
+        conversation_id: ConversationId,
+        manuscript_id: UUID,
+    ) -> None:
+        self._id = conversation_id
         self._manuscript_id = manuscript_id
-        self.exchanges: list[Exchange] = []
+        self._exchanges: list[Exchange] = []
 
     @classmethod
     def create(cls, manuscript_id: UUID) -> Conversation:
-        try:
-            UUID(str(manuscript_id))
-        except ValueError:
-            raise InvalidManuscriptId(manuscript_id)
+        """Create an empty conversation with a new id."""
+        return cls(ConversationId(uuid4()), manuscript_id)
 
-        return cls(manuscript_id=manuscript_id)
+    @property
+    def conversation_id(self) -> ConversationId:
+        return self._id
 
-    def ask(self, query: Query) -> Exchange:
+    @property
+    def manuscript_id(self) -> UUID:
+        return self._manuscript_id
+
+    @property
+    def exchanges(self) -> tuple[Exchange, ...]:
+        """All exchanges in the order asked."""
+        return tuple(self._exchanges)
+
+    def ask(self, content: str) -> Exchange:
+        """Record a new question.
+
+        Args:
+            content: The question text.
+
+        Returns:
+            The new, unanswered exchange.
+
+        Raises:
+            ValueError: If the content is empty, or the previous question
+                is still unanswered.
+        """
+        if self._exchanges and not self._exchanges[-1].is_answered:
+            raise ValueError("Previous question is still unanswered")
+
         exchange = Exchange(
-            id=ExchangeId(uuid4()), query=query, answer=None, created_at=datetime.now(timezone.utc)
+            id=ExchangeId(uuid4()),
+            query=Query(content.strip()),
+            created_at=datetime.now(UTC),
         )
-        self.exchanges.append(exchange)
+        self._exchanges.append(exchange)
         return exchange
 
     def record_answer(self, exchange_id: ExchangeId, answer: Answer) -> Exchange:
-        for exchange in self.exchanges:
-            if exchange.id == exchange_id:
-                if exchange.answer is not None:
-                    raise AnswerAlreadyRecorded(exchange_id)
-                exchange.answer = answer
-                return exchange
-        raise ExchangeNotFound(exchange_id)
+        """Attach an answer to an unanswered exchange.
+
+        Args:
+            exchange_id: Id of the exchange being answered.
+            answer: The generated answer.
+
+        Returns:
+            The updated exchange.
+
+        Raises:
+            ValueError: If the exchange does not exist or is already answered.
+        """
+        index = self._index_of(exchange_id)
+
+        if self._exchanges[index].is_answered:
+            raise ValueError("Exchange already answered")
+
+        updated = replace(self._exchanges[index], answer=answer)
+        self._exchanges[index] = updated
+        return updated
 
     def history(self, limit: int) -> list[Exchange]:
-        if limit <= 0:
+        """Return the most recent answered exchanges, oldest first.
+
+        Args:
+            limit: Maximum number of exchanges to return.
+
+        Raises:
+            ValueError: If the limit is negative.
+        """
+        if limit < 0:
+            raise ValueError("Limit cannot be negative")
+        if limit == 0:
             return []
-        answered = [
-            e
-            for e in self.exchanges
-            if e.answer is not None and e.answer.status == AnswerStatus.ANSWERED
-        ]
+
+        answered = [e for e in self._exchanges if e.is_answered]
         return answered[-limit:]
+
+    def _index_of(self, exchange_id: ExchangeId) -> int:
+        for index, exchange in enumerate(self._exchanges):
+            if exchange.id == exchange_id:
+                return index
+        raise ValueError("Exchange does not exist")

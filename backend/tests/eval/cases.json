@@ -1,0 +1,17 @@
+[
+  {
+    "question": "What sampling method was used?",
+    "must_contain_any": [
+      "stratified",
+      "random"
+    ],
+    "must_cite": true
+  },
+  {
+    "question": "Who won the 1998 World Cup?",
+    "must_contain": [
+      "passages"
+    ],
+    "must_cite": false
+  }
+]

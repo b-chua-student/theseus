@@ -10,12 +10,20 @@ from api.schemas.manuscript_requests import (
     UpdateManuscriptRequest,
     UpdateSectionRequest,
 )
+from api.schemas.conversation_requests import (
+    AskQuestionRequest
+)
 from api.schemas.manuscript_responses import ManuscriptResponseDTO
+from api.schemas.conversation_responses import (
+    ExchangeResponseDTO,
+)
 from services.manuscript.delete_manuscript import DeleteManuscriptService
 from services.manuscript.get_all_manuscript import GetAllManuscriptService
 from services.manuscript.update_manuscript import UpdateManuscriptService
 from services.manuscript.update_section import UpdateSectionService
 from services.indexing.index_manuscript_service import IndexManuscriptService
+from services.conversation.ask_question import AskQuestionService
+from ports.generation.errors import GenerationError, GenerationTimeoutError
 
 manuscripts_bp = Blueprint("manuscripts", __name__)
 
@@ -274,3 +282,35 @@ def chunk(user_id: str, project_id: str, manuscript_id: str) -> ResponseReturnVa
         status=indexed.status.value,
         chunk_count=len(indexed.chunks),
     ), 200
+
+
+@manuscripts_bp.post("/<manuscript_id>/ask")
+@limiter.limit("10/minute")
+def ask(user_id: str, project_id: str, manuscript_id: str) -> ResponseReturnValue:
+    try:
+        validated_manuscript_id = UUID(manuscript_id)
+    except ValueError:
+        return jsonify(error="Invalid manuscript id"), 400
+
+    try:
+        payload = AskQuestionRequest.model_validate(request.get_json(silent=True) or {})
+    except ValidationError as exc:
+        return jsonify(error="Invalid request", details=exc.errors(include_url=False)), 400
+
+    service: AskQuestionService = current_app.extensions["ask_question_service"]
+
+    try:
+        exchange = service.execute(validated_manuscript_id, payload.content)
+    except GenerationTimeoutError:
+        current_app.logger.warning("Generation timed out")
+        return jsonify(error="The assistant timed out. Try again."), 504
+    except GenerationError:
+        current_app.logger.exception("Generation failed")
+        return jsonify(error="The assistant is unavailable."), 502
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 409
+    except Exception:
+        current_app.logger.exception("Ask failed")
+        return jsonify(error="Failed to answer question"), 500
+
+    return jsonify(ExchangeResponseDTO.from_domain(exchange).to_dict()), 200
