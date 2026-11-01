@@ -1,4 +1,12 @@
 <script>
+  import Projects from './pages/projects.svelte';
+  let showProjects = $state(true);
+  import SignIn from './pages/signin.svelte';
+  import SignUp from './pages/signup.svelte';
+  import { getSession } from './lib/api/auth.js';
+  let user = $state(getSession());
+  let authScreen = $state('signin');
+
   import AppHeader from "./components/shared/AppHeader.svelte";
   import { listManuscripts, createManuscript } from "./lib/api/manuscripts.js";
   import Dashboard from './pages/dashboard.svelte';
@@ -8,7 +16,7 @@
   let selectedId = $state(null);
 
   $effect(() => {
-    load();
+    if (user) load();
   });
 
   function load() {
@@ -30,9 +38,15 @@
   }
 </script>
 
-<AppHeader inEditor={selectedId !== null} documentTitle={selectedId ?? ''} manuscriptCount={documents.length} onworkspace={back} />
+{#if !user}
+  {#if authScreen === 'signup'}<SignUp onsuccess={value => user = value} onswitch={() => authScreen = 'signin'} />
+  {:else}<SignIn onsuccess={value => user = value} onswitch={() => authScreen = 'signup'} />{/if}
+{:else}
+<AppHeader inEditor={selectedId !== null} documentTitle={selectedId ?? ''} manuscriptCount={documents.length} onworkspace={() => { selectedId = null; showProjects = true; }} />
 
-{#if selectedId === null}
+{#if showProjects}
+  <Projects {user} onworkspace={() => showProjects = false} />
+{:else if selectedId === null}
   <Dashboard {documents} onselect={(id) => (selectedId = id)} oncreate={create} />
 {:else}
   <div class="editor-screen">
@@ -40,6 +54,8 @@
   </div>
 {/if}
 
+
+{/if}
 
 <style>
   /* Keep the document workspace below the shared 48px navigation. */
