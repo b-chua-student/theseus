@@ -1,6 +1,8 @@
 <script>
-  import Dashboard from './components/dashboard.svelte';
-  import DocumentEditor from './components/editor.svelte';
+  import AppHeader from "./components/shared/AppHeader.svelte";
+  import { listManuscripts, createManuscript } from "./lib/api/manuscripts.js";
+  import Dashboard from './pages/dashboard.svelte';
+  import DocumentEditor from './pages/editor.svelte';
 
   let documents = $state([]);
   let selectedId = $state(null);
@@ -10,7 +12,7 @@
   });
 
   function load() {
-    fetch('/api/documents')
+    listManuscripts()
       .then((r) => r.json())
       .then((data) => (documents = data));
   }
@@ -18,11 +20,7 @@
   async function create() {
     const name = prompt('Document name');
     if (!name) return;
-    await fetch('/api/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ document_id: name }),
-    });
+    await createManuscript(name);
     selectedId = name;
   }
 
@@ -31,6 +29,8 @@
     load();
   }
 </script>
+
+<AppHeader inEditor={selectedId !== null} documentTitle={selectedId ?? ''} manuscriptCount={documents.length} onworkspace={back} />
 
 {#if selectedId === null}
   <Dashboard {documents} onselect={(id) => (selectedId = id)} oncreate={create} />
@@ -42,10 +42,10 @@
 
 
 <style>
-  /* Escape the centered app container only while a document is open. */
+  /* Keep the document workspace below the shared 48px navigation. */
   .editor-screen {
     position: fixed;
-    inset: 0;
+    inset: 48px 0 0;
     z-index: 10;
     overflow: auto;
     background: #e3eae5;
@@ -53,11 +53,11 @@
     color-scheme: light;
   }
 
-  /* This app has no header above the editor. Use the full viewport height. */
+  /* Fill the viewport space below AppHeader. */
   .editor-screen > :global(.theseus-editor) {
     width: 100%;
     max-width: none;
-    height: 100dvh;
+    height: calc(100dvh - 48px);
     min-height: 0;
     margin: 0;
   }
@@ -71,7 +71,7 @@
   @media (max-width: 1023px) {
     .editor-screen > :global(.theseus-editor) {
       height: auto;
-      min-height: 100dvh;
+      min-height: calc(100dvh - 48px);
     }
   }
 </style>
