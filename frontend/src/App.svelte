@@ -1,16 +1,27 @@
 <script>
-  import Dashboard from './components/dashboard.svelte';
-  import DocumentEditor from './components/editor.svelte';
+  import Projects from './pages/projects.svelte';
+  let showProjects = $state(true);
+  import SignIn from './pages/signin.svelte';
+  import SignUp from './pages/signup.svelte';
+  import { getSession, signOut } from './lib/api/auth.js';
+  let user = $state(getSession());
+  let authScreen = $state('signin');
+
+  import AppHeader from "./components/shared/AppHeader.svelte";
+  import { listManuscripts, createManuscript } from "./lib/api/manuscripts.js";
+  import Dashboard from './pages/dashboard.svelte';
+  import DocumentEditor from './pages/editor.svelte';
 
   let documents = $state([]);
   let selectedId = $state(null);
+  let selectedProject = $state(null);
 
   $effect(() => {
-    load();
+    if (user) load();
   });
 
   function load() {
-    fetch('/api/documents')
+    listManuscripts()
       .then((r) => r.json())
       .then((data) => (documents = data));
   }
@@ -18,11 +29,7 @@
   async function create() {
     const name = prompt('Document name');
     if (!name) return;
-    await fetch('/api/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ document_id: name }),
-    });
+    await createManuscript(name);
     selectedId = name;
   }
 
@@ -30,10 +37,74 @@
     selectedId = null;
     load();
   }
+
+  async function handleSignOut() {
+    await signOut();
+    user = null;
+  }
+
+  function openProject(project) {
+    selectedProject = project;
+    showProjects = false;
+  }
+
+  function backToProjects() {
+    selectedProject = null;
+    showProjects = true;
+    selectedId = null;
+  }
 </script>
 
-{#if selectedId === null}
-  <Dashboard {documents} onselect={(id) => (selectedId = id)} oncreate={create} />
+{#if !user}
+  {#if authScreen === 'signup'}<SignUp onsuccess={value => user = value} onswitch={() => authScreen = 'signin'} />
+  {:else}<SignIn onsuccess={value => user = value} onswitch={() => authScreen = 'signup'} />{/if}
 {:else}
-  <DocumentEditor id={selectedId} onback={back} />
+<AppHeader inEditor={selectedId !== null} documentTitle={selectedId ?? ''} manuscriptCount={documents.length} onworkspace={() => { selectedId = null; showProjects = true; }} onsignout={handleSignOut} />
+
+{#if showProjects}
+  <Projects {user} onworkspace={() => showProjects = false} onproject={openProject} />
+{:else if selectedId === null}
+  <Dashboard {documents} {selectedProject} onselect={(id) => (selectedId = id)} oncreate={create} onback={backToProjects} />
+{:else}
+  <div class="editor-screen">
+    <DocumentEditor id={selectedId} onback={back} />
+  </div>
 {/if}
+
+
+{/if}
+
+<style>
+  /* Keep the document workspace below the shared 48px navigation. */
+  .editor-screen {
+    position: fixed;
+    inset: 48px 0 0;
+    z-index: 10;
+    overflow: auto;
+    background: #e3eae5;
+    text-align: left;
+    color-scheme: light;
+  }
+
+  /* Fill the viewport space below AppHeader. */
+  .editor-screen > :global(.theseus-editor) {
+    width: 100%;
+    max-width: none;
+    height: calc(100dvh - 48px);
+    min-height: 0;
+    margin: 0;
+  }
+
+  /* Prevent the underlying dashboard container from scrolling behind the editor. */
+  :global(body:has(.editor-screen)) {
+    overflow: hidden;
+  }
+
+  /* Preserve the editor's stacked, scrollable layout on smaller screens. */
+  @media (max-width: 1023px) {
+    .editor-screen > :global(.theseus-editor) {
+      height: auto;
+      min-height: calc(100dvh - 48px);
+    }
+  }
+</style>
