@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from pymongo import MongoClient
@@ -22,7 +23,7 @@ class MongoIdentityRepository(IdentityRepository):
         *,
         collection: str = "users",
     ) -> None:
-        self.client = MongoClient(uri)
+        self.client: MongoClient[dict[str, Any]] = MongoClient(uri)
         self.users = self.client[db_name][collection]
         self.users.create_index("email", unique=True)
 

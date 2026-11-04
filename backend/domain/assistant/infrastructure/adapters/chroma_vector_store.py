@@ -6,6 +6,7 @@ and dimensionality as the ingested chunks. Distance is cosine; the returned
 ``score`` is ``1 - distance`` (higher is more similar).
 """
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
@@ -68,9 +69,10 @@ class ChromaVectorStore(VectorStore):
             return
 
         ordered = [chunk_by_id[e.chunk_id] for e in embeddings]
+        vectors: list[Sequence[float] | Sequence[int]] = [e.vector for e in embeddings]
         self._collection.upsert(
             ids=[str(c.id.value) for c in ordered],
-            embeddings=[e.vector for e in embeddings],
+            embeddings=vectors,
             documents=[c.text for c in ordered],
             metadatas=[
                 {
@@ -104,8 +106,9 @@ class ChromaVectorStore(VectorStore):
         if doc_ref_ids is not None:
             where = {_DOC_KEY: {"$in": [str(d.value) for d in doc_ref_ids]}}
 
+        query_vectors: list[Sequence[float] | Sequence[int]] = [query_embedding]
         res = self._collection.query(
-            query_embeddings=[query_embedding],
+            query_embeddings=query_vectors,
             n_results=min(k, total),
             where=where,
             include=["documents", "metadatas", "distances"],

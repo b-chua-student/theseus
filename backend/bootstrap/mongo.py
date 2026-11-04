@@ -1,6 +1,7 @@
 """MongoDB connection settings shared by every Mongo-backed repository."""
 
 import os
+from typing import Any
 
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -24,5 +25,5 @@ def create_database(uri: str | None = None, db_name: str | None = None) -> Datab
     comparing them with freshly created ones would raise.
     """
     default_uri, default_db = mongo_settings()
-    client = MongoClient(uri or default_uri, tz_aware=True)
+    client: MongoClient[dict[str, Any]] = MongoClient(uri or default_uri, tz_aware=True)
     return client[db_name or default_db]

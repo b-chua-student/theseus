@@ -8,3 +8,6 @@ mypy
 chonkie
 dulwich
 pytest
+hypothesis==6.170.14
+# Imported by the (not yet wired) PostgreSQL identity adapter; needed for type checking.
+psycopg[binary]==3.3.7
