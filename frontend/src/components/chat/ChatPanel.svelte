@@ -3,10 +3,13 @@
   import { tick as flushUI } from "svelte";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
-  let { projectId, editor, tick, open, onclose, notice = $bindable('') } = $props();
+  // `notice` is write-only here: the parent (editor.svelte) binds it and displays it.
+  // eslint-disable-next-line no-useless-assignment
+  let { projectId, editor, tick, open, onclose, notice = $bindable() } = $props();
 
   // Keep this component mounted while closed to retain the session conversation.
   let messages = $state([]);
+  let nextMessageId = 0;
   let input = $state("");
   let loading = $state(false);
   let log = $state();
@@ -109,16 +112,17 @@
     const text = retry ? retryText : input.trim();
     if (!text || loading) return;
     if (!retry) {
-      messages.push({ role: "user", text, timestamp: Date.now() });
+      messages.push({ id: nextMessageId++, role: "user", text, timestamp: Date.now() });
       input = "";
     }
     loading = true;
     scrollDown();
     try {
       const answer = await ask(text);
-      messages.push({ role: "assistant", text: answer, timestamp: Date.now() });
+      messages.push({ id: nextMessageId++, role: "assistant", text: answer, timestamp: Date.now() });
     } catch (e) {
       messages.push({
+        id: nextMessageId++,
         role: "assistant",
         text: e.message || "Request failed. Please check the backend connection and retry.",
         timestamp: Date.now(),
@@ -167,16 +171,18 @@
         <div class="scholar-context">Context: Current Manuscript</div>
         {#if messages.length === 0}
         <!-- LOCAL ONLY: quick prompts fill the composer. They do not send requests. -->
-        <div class="scholar-prompts" aria-label="Suggested prompts">{#each prompts as prompt}<button type="button" onclick={() => fillPrompt(prompt.text)}><span aria-hidden="true">✧</span>{prompt.label}</button>{/each}</div>
+        <div class="scholar-prompts" aria-label="Suggested prompts">{#each prompts as prompt (prompt.label)}<button type="button" onclick={() => fillPrompt(prompt.text)}><span aria-hidden="true">✧</span>{prompt.label}</button>{/each}</div>
         {/if}
         <div class="log scholar-log" bind:this={log} role="log" aria-live="polite" aria-label="Assistant conversation">
           {#if messages.length === 0}
             <div class="scholar-welcome"><span class="welcome-label">YOUR WRITING SPACE</span><h4>Let’s work on your manuscript.</h4><p>Ask for a summary, rephrase a passage, or review your writing.</p><span class="welcome-note">Review AI suggestions before using them.</span></div>
           {/if}
-          {#each messages as m}
+          {#each messages as m (m.id)}
             <article class="scholar-message" class:from-user={m.role === 'user'} class:reply-error={m.isError}>
               <div class="scholar-message-meta"><span>{#if m.role === 'assistant'}<span class="tiny-avatar" aria-hidden="true">t</span>Theseus AI <span class="reply-type">{m.isError ? 'Request issue' : 'Writing assistant'}</span>{:else}You{/if}</span><time datetime={new Date(m.timestamp).toISOString()} title={fullTime(m.timestamp)}>{formatTime(m.timestamp)}</time></div>
               {#if m.role === 'assistant' && !m.isError}
+                <!-- renderMarkdown() sanitizes the HTML with DOMPurify before it is rendered. -->
+                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                 <div class="scholar-bubble markdown-body">{@html renderMarkdown(m.text)}</div>
               {:else}
                 <div class="scholar-bubble">{m.text}</div>

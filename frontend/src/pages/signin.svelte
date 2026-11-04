@@ -2,13 +2,13 @@
   import AuthLayout from '../components/auth/AuthLayout.svelte';
   import { signIn } from '../lib/api/auth.js';
   let { onsuccess, onswitch } = $props();
-  let name = $state(''), email = $state(''), password = $state(''), confirm = $state('');
+  let name = $state(''), email = $state(''), password = $state('');
   let busy = $state(false), error = $state('');
   async function submit(event) {
     event.preventDefault(); error = '';
     
     busy = true;
-    try { const user = await signIn({ name, email, password }); password = ''; confirm = ''; onsuccess?.(user); }
+    try { const user = await signIn({ name, email, password }); password = ''; onsuccess?.(user); }
     catch (e) { error = e.message || 'Unable to continue. Please retry.'; }
     finally { busy = false; }
   }

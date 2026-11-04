@@ -316,10 +316,10 @@
             {:else}{INDEX_LABELS[indexStatus.status]}{#if indexStatus.status === 'indexed'} · {indexStatus.chunk_count} chunk{indexStatus.chunk_count === 1 ? '' : 's'}{/if}{/if}
           </span></div>
         <nav class="menu-bar" aria-label="Document menus">
-          {#each ['File', 'Edit', 'View', 'Insert', 'Format', 'Tools', 'Help'] as menu}
+          {#each ['File', 'Edit', 'View', 'Insert', 'Format', 'Tools', 'Help'] as menu (menu)}
             <div class="dropdown"><button type="button" onclick={() => menuOpen = menuOpen === menu ? null : menu} aria-expanded={menuOpen === menu}>{menu}</button>
               {#if menuOpen === menu}<div class="dropdown-panel" aria-label={`${menu} actions`}>
-                {#each menuItems[menu] as item}<button type="button" disabled={item.disabled || !editor} onclick={() => runMenu(item.action)}>{item.label}{#if item.disabled}<small>Unavailable</small>{/if}</button>{/each}
+                {#each menuItems[menu] as item (item.label)}<button type="button" disabled={item.disabled || !editor} onclick={() => runMenu(item.action)}>{item.label}{#if item.disabled}<small>Unavailable</small>{/if}</button>{/each}
               </div>{/if}</div>
           {/each}
         </nav>
@@ -359,7 +359,7 @@
               <p class="revisions-status">No revisions yet. Save the document to create one.</p>
             {:else}
               <strong>Revision history</strong>
-              {#each revisions as rev}
+              {#each revisions as rev (rev.id)}
                 <div class="revision-item">
                   <div class="revision-meta">
                     <span class="revision-message">{rev.message}</span>

@@ -233,7 +233,7 @@
         <div class="manuscript-list">
           {#if loading}
             <div class="manuscript-skeletons" role="status" aria-label="Loading manuscripts">
-              {#each { length: 3 } as _}<div class="skeleton-card"></div>{/each}
+              {#each { length: 3 }, i (i)}<div class="skeleton-card"></div>{/each}
             </div>
           {:else}
             {#each manuscripts as doc (doc.id)}

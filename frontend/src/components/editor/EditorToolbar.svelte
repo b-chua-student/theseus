@@ -29,10 +29,10 @@
 
   <div class="formatting-bar" role="group" aria-label="Manuscript formatting">
     <div class="format-tools">
-      <select class="font-select" aria-label="Font family" disabled={!editor} value={fontFamily} onchange={event => setFont('fontFamily', event.currentTarget.value)}>{#each fonts as font}<option value={font}>{font}</option>{/each}</select>
+      <select class="font-select" aria-label="Font family" disabled={!editor} value={fontFamily} onchange={event => setFont('fontFamily', event.currentTarget.value)}>{#each fonts as font (font)}<option value={font}>{font}</option>{/each}</select>
       <div class="size-control">
         <input class="font-size-input" type="number" min="1" max="300" step="any" aria-label="Font size" title="Font size in pixels (1–300)" disabled={!editor} value={sizeDraft} onfocus={beginSize} oninput={event => { sizeDraft = event.currentTarget.value; updateSize(sizeDraft); }} onblur={finishSize} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); editor?.commands.focus(); } }} />
-        <select class="size-presets" aria-label="Preset font size" title="Preset font sizes" disabled={!editor} onfocus={beginSize} onblur={finishSize} onchange={chooseSize}><option value="">px</option>{#each sizes as size}<option value={parseFloat(size)}>{parseFloat(size)} px</option>{/each}</select>
+        <select class="size-presets" aria-label="Preset font size" title="Preset font sizes" disabled={!editor} onfocus={beginSize} onblur={finishSize} onchange={chooseSize}><option value="">px</option>{#each sizes as size (size)}<option value={parseFloat(size)}>{parseFloat(size)} px</option>{/each}</select>
       </div>
       <span class="divider"></span>
       {#each tools as t (t.label)}
@@ -53,12 +53,12 @@
       {/each}
       <button type="button" class="format-button citation" disabled={!editor} onclick={() => showDialog('citation')} title="Insert citation text" aria-label="Insert citation">99</button>
       <span class="divider"></span>
-      {#each ['left', 'center', 'right', 'justify'] as alignment}
+      {#each ['left', 'center', 'right', 'justify'] as alignment (alignment)}
         <button type="button" class="format-button" class:active={isAligned(alignment)} disabled={!editor} onclick={() => align(alignment)} title={`${alignment} alignment`} aria-label={`${alignment} alignment`} aria-pressed={isAligned(alignment)}>{@render icon(alignment, 12)}</button>
       {/each}
     </div>
     <div class="page-tools">
-      <div class="page-pill"><span>Pages:</span><div class="page-links">{#each outline as page}<button type="button" class:page-number={currentPage.number === page.number} onclick={() => jumpTo(page.pos)} aria-label={`Go to page ${page.number}`}>p.{page.number}</button>{/each}</div><button type="button" disabled={!editor} onclick={addPage} title="Append a manual page" aria-label="Add page">+</button></div>
+      <div class="page-pill"><span>Pages:</span><div class="page-links">{#each outline as page (page.number)}<button type="button" class:page-number={currentPage.number === page.number} onclick={() => jumpTo(page.pos)} aria-label={`Go to page ${page.number}`}>p.{page.number}</button>{/each}</div><button type="button" disabled={!editor} onclick={addPage} title="Append a manual page" aria-label="Add page">+</button></div>
       <div class="page-pill zoom"><button type="button" disabled={zoom <= 50} onclick={() => changeZoom(-10)} aria-label="Zoom out" title="Zoom out">{@render icon('zoom', 11)} −</button><span>{zoom}%</span><button type="button" disabled={zoom >= 150} onclick={() => changeZoom(10)} aria-label="Zoom in" title="Zoom in">{@render icon('zoom', 11)} +</button></div>
       <span class="word-count">{wordCount} words</span>
     </div>

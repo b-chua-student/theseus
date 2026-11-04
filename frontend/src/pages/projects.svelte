@@ -169,7 +169,7 @@
 
   {#if loading}
     <div class="grid" role="status" aria-label="Loading projects">
-      {#each { length: 3 } as _}<div class="card skeleton"></div>{/each}
+      {#each { length: 3 }, i (i)}<div class="card skeleton"></div>{/each}
     </div>
   {:else}
   <div class="grid">
@@ -312,7 +312,7 @@
       New Owner
       <select bind:value={ownerNewId} required>
         <option value="" disabled>Select a member…</option>
-        {#each ownerTarget?.members ?? [] as m}
+        {#each ownerTarget?.members ?? [] as m (m.id)}
           <option value={m.id}>{m.display_name}</option>
         {/each}
       </select>

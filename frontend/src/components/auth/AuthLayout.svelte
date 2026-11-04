@@ -33,7 +33,7 @@
     <button class="brand" type="button" onclick={() => navigate('authSection')} aria-label="Theseus home"><span class="mark"></span>THESEUS</button>
     <div class="controls">
       <nav aria-label="Landing page sections">
-        {#each sections as section}
+        {#each sections as section (section.id)}
           <button class="dot" class:active={active === section.id} aria-label={section.label} aria-current={active === section.id ? 'location' : undefined} title={section.label} onclick={() => navigate(section.id)}><span></span></button>
         {/each}
       </nav>

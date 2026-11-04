@@ -48,7 +48,7 @@
 </section>
 <section id="cardsSection" class="features" aria-label="Platform features">
   <div class="grid">
-    {#each features as feature}
+    {#each features as feature (feature.title)}
       <!-- UI only: direct visitors to the form until project navigation is connected. -->
       <button type="button" class="feature" onclick={() => onnavigate('authSection')}>
         <div><h3>{feature.title}</h3><p>{feature.body}</p></div>
@@ -62,7 +62,7 @@
     <div class="footer-grid">
       <div><span class="eyebrow">THESEUS PROJECTS</span><h2>THESEUS</h2><p>A collaborative research and manuscript authoring platform for academic teams. Manage branched drafts, section-level version history, indexed PDF source libraries, and grounded AI synthesis in one place.</p></div>
       <nav aria-label="Platform"><span class="eyebrow">Platform</span>
-        {#each ['Sign In / Register', 'Projects Directory', 'Manuscript Editor', 'Source Library & AI'] as label}
+        {#each ['Sign In / Register', 'Projects Directory', 'Manuscript Editor', 'Source Library & AI'] as label (label)}
           <button type="button" onclick={() => onnavigate('authSection')}>{label}</button>
         {/each}
       </nav>

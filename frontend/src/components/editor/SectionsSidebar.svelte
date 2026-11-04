@@ -11,9 +11,9 @@
         {#if outline.every((page) => page.sections.length === 0)}
           <p class="section-empty">No sections yet. Add a heading to build your outline.</p>
         {/if}
-        {#each outline as page}
+        {#each outline as page (page.number)}
           <button type="button" class="page-label page-jump" onclick={() => jumpTo(page.pos)}>PAGE {page.number}</button>
-          {#each page.sections as section}
+          {#each page.sections as section (section.pos)}
             <button type="button" class="section-card" class:section-selected={currentSection?.pos === section.pos} onclick={() => jumpTo(section.pos)} title={section.title}>
               <span class="section-icon">{@render icon('document', 13)}</span><span class="section-text"><strong>{section.title}</strong><small>Heading {section.level}</small></span><span class="section-page">p.{page.number}</span>
             </button>
