@@ -20,7 +20,7 @@
     <label>Password<input type="password" bind:value={password} required  autocomplete="current-password" /></label>
     
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button type="submit" disabled={busy}>{busy ? 'Please wait…' : 'Sign In to Theseus'}</button>
+    <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign In to Theseus'}</button>
   </form>
   <p class="switch-row"><button class="switch" type="button" onclick={onswitch}>Sign Up<span aria-hidden="true">↗</span></button></p>
 </AuthLayout>

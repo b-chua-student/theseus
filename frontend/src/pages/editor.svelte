@@ -1,5 +1,6 @@
 <script>
-  import { getManuscript, saveManuscript } from "../lib/api/manuscripts.js";
+  import { getManuscript, editSectionBody, appendSection } from "../lib/api/manuscripts.js";
+  import { startRevisionHistory, commitRevision } from "../lib/api/revisions.js";
   import { onMount } from "svelte";
   import { Editor } from "@tiptap/core";
   import ManuscriptCanvas from "../components/editor/ManuscriptCanvas.svelte";
@@ -10,11 +11,12 @@
   import { fonts, sizes, normalizeFontSize, InlineStyle, Underline, Alignment, PageBreak, SelectionHighlight } from "../lib/editor/extensions.js";
   import StarterKit from "@tiptap/starter-kit";
 
-  let { id, onback } = $props();
+  let { manuscriptId, projectId, title, onback } = $props();
 
   /* API INTEGRATION GUIDE
-   * ACTIVE API: document load and save() below, plus ChatPanel.svelte send(), use the
-   * existing backend. Keep their endpoints and payload contracts unchanged.
+   * ACTIVE API: document load and save() below use the existing manuscript backend.
+   * ChatPanel send() uses the conversation routes under
+   * /api/projects/:projectId/conversations (see lib/api/chat.js).
    * TODO(API): marks future integrations, not runnable request code.
    * Disabled controls remain visible to preserve the Theseus layout.
    * No endpoint names or response shapes are assumed for future features.
@@ -37,7 +39,15 @@
   let zoom = $state(100);
   let showSections = $state(true);
   let menuOpen = $state(null);
+  // Incremented after each save attempt so the header re-checks indexing status.
+  let saveTick = $state(0);
   let notice = $state('');
+  let saving = $state(false);
+  // 'loading' until the manuscript content has been fetched; 'error' if the first
+  // load failed (the editor stays blank and Save is disabled so nothing is overwritten).
+  let loadState = $state('loading');
+  let loadError = $state('');
+  let hasLoaded = false;
   let sectionDialog = $state(false);
   let sectionName = $state('');
   let citationDialog = $state(false);
@@ -169,7 +179,10 @@
     else if (action === 'italic') editor?.chain().focus().toggleItalic().run();
   }
   function closeMenus(event) {
-    if (!event.target.closest?.('.dropdown')) menuOpen = null;
+    // Use composedPath(): it is captured at dispatch time, so it still works when the
+    // clicked element was removed from the DOM by a re-render before this handler ran.
+    const inside = event.composedPath().some((el) => el.classList?.contains('dropdown'));
+    if (!inside) menuOpen = null;
   }
   function windowKey(event) { if (event.key === 'Escape') menuOpen = null; }
 
@@ -187,29 +200,166 @@
     { label: "Redo", run: (c) => c.redo() },
   ];
 
+  const parseBody = (s) => {
+    try {
+      const doc = JSON.parse(s);
+      return Array.isArray(doc?.content) ? doc.content : [];
+    } catch {
+      return []; // empty or old HTML body
+    }
+  };
+
+  function loadManuscript() {
+    if (!hasLoaded) {
+      loadState = 'loading';
+      loadError = '';
+    }
+    return withTimeout(getManuscript(projectId, manuscriptId), 15000)
+      .then((manuscript) => {
+        const content = [...manuscript.sections]
+          .sort((a, b) => a.ordinal - b.ordinal)
+          .flatMap((s) => {
+            const body = parseBody(s.body);
+            return [
+              {
+                type: 'heading',
+                attrs: { level: 2 },
+                content: [{ type: 'text', text: s.heading }],
+              },
+              ...(body.length ? body : [{ type: 'paragraph' }]),
+            ];
+          });
+
+        editor.commands.setContent({ type: 'doc', content });
+        hasLoaded = true;
+        loadState = 'ready';
+
+        // Start revision tracking for this manuscript (idempotent — no-op if
+        // history already exists). Best-effort: failures don't block the editor.
+        startRevisionHistory(projectId, manuscriptId).catch(() => {});
+      })
+      .catch((e) => {
+        // Never replace what the user is looking at with a blank document: on a
+        // first load show an error with retry; on a reload keep the current text.
+        if (hasLoaded) {
+          notice = `Could not reload the manuscript: ${e.message}`;
+        } else {
+          loadState = 'error';
+          loadError = e.message || 'The manuscript could not be loaded.';
+        }
+      });
+  }
+
+  // Reload manuscript content after a revision restore.
+  function onRestore() {
+    loadManuscript();
+    notice = 'Revision restored.';
+  }
+
+  // Reload manuscript content after switching to another draft.
+  function onDraftChange() {
+    loadManuscript();
+    notice = 'Switched draft.';
+  }
+
   onMount(() => {
     editor = new Editor({
       element,
       extensions: [StarterKit.configure({ underline: false }), InlineStyle, Underline, Alignment, PageBreak, SelectionHighlight],
-      content: "",
+      content: '',
       onTransaction: () => tick++,
     });
 
-    // ACTIVE API: GET the current document; response supplies doc.content.
-    getManuscript(id)
-      .then((r) => r.json())
-      .then((doc) => editor.commands.setContent(doc.content));
+    loadManuscript();
 
-    return () => { editor.destroy(); };
+    return () => editor.destroy();
   });
 
-  // ACTIVE API: POST /api/save with document_id and content (HTML).
-  // TODO(API): Add persisted revision metadata or commit descriptions only after
-  // the backend supports them. Do not add fields to this request speculatively.
-  // TODO(API): Indexing/chunk progress needs real server job/status data.
-  // A completed save request alone does not prove indexing is complete.
-  async function save() {
-    await saveManuscript(id, editor.getHTML());
+  function withTimeout(promise, ms = 30000) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timed out.')), ms)
+      ),
+    ]);
+  }
+
+  // ACTIVE API: Save by persisting each section's body individually.
+  // The editor content is a flat HTML document; we map headings back to sections
+  // by ordinal position (first heading → first section, etc.).
+  // Requests run one at a time, unchanged bodies are skipped, and failures are shown.
+  // `message` is the optional revision message; callers may pass nothing.
+  async function save(message) {
+    if (!editor || saving || loadState !== 'ready') return;
+    const revisionMessage = typeof message === 'string' && message.trim() ? message.trim() : 'Manual save';
+    saving = true;
+    notice = 'Saving…';
+
+    try {
+      const textOf = (node) =>
+        (node.content ?? []).map((n) => n.text ?? '').join('').trim();
+
+      const emptyDoc = () => ({ type: 'doc', content: [] });
+
+      // Split editor JSON into { heading, body } blocks.
+      const blocks = [];
+      let current = null;
+      for (const node of editor.getJSON().content ?? []) {
+        if (node.type === 'heading') {
+          current = { heading: textOf(node) || 'Untitled section', body: emptyDoc() };
+          blocks.push(current);
+        } else {
+          if (!current) {
+            current = { heading: 'Untitled section', body: emptyDoc() };
+            blocks.push(current);
+          }
+          current.body.content.push(node);
+        }
+      }
+
+      // Fetch existing sections.
+      let manuscript = await withTimeout(getManuscript(projectId, manuscriptId, { working: true }));
+      let sections = [...manuscript.sections].sort((a, b) => a.ordinal - b.ordinal);
+
+      // Create missing sections sequentially to preserve order.
+      for (let i = sections.length; i < blocks.length; i++) {
+        await withTimeout(appendSection(projectId, manuscriptId, blocks[i].heading));
+      }
+
+      // Re-fetch to get IDs of newly created sections.
+      if (blocks.length > sections.length) {
+        manuscript = await withTimeout(getManuscript(projectId, manuscriptId, { working: true }));
+        sections = [...manuscript.sections].sort((a, b) => a.ordinal - b.ordinal);
+      }
+
+      // Persist bodies one at a time; skip sections that did not change.
+      for (let i = 0; i < blocks.length; i++) {
+        const section = sections[i];
+        if (!section) continue;
+        const next = JSON.stringify(blocks[i].body);
+        if ((section.body ?? '') === next) continue;
+        await withTimeout(editSectionBody(projectId, manuscriptId, section.id, next));
+      }
+
+      // Commit the working copy as a new revision on the current draft.
+      // "No changes" is fine; any other failure is reported, since the content
+      // would otherwise not be stored on the draft.
+      try {
+        const revision = await withTimeout(commitRevision(projectId, manuscriptId, revisionMessage));
+        notice = `Saved to draft "${revision.draft}".`;
+      } catch (e) {
+        if (e.code === 'revision.no_changes') {
+          notice = 'Saved. No changes since the last revision.';
+        } else {
+          notice = `Saved, but could not record a revision: ${e.message}`;
+        }
+      }
+    } catch (e) {
+      notice = `Save failed: ${e.message || 'Unknown error.'}`;
+    } finally {
+      saving = false;
+      saveTick++;
+    }
   }
 
 </script>
@@ -242,7 +392,7 @@
 {/snippet}
 
 <div class="theseus-editor">
-  <EditorHeader {id} {editor} {onback} {menuItems} {runMenu} {save} {icon} bind:menuOpen bind:open />
+  <EditorHeader {projectId} id={manuscriptId} {title} {editor} {onback} {menuItems} {runMenu} {save} {icon} {onRestore} {onDraftChange} {saveTick} {saving} canSave={loadState === 'ready'} bind:menuOpen bind:open />
 
   <EditorToolbar {editor} {fonts} {sizes} {fontFamily} {fontSize} {setFont} {tools} {active} {runMenu} {showDialog} {isAligned} {align} {outline} {currentPage} {jumpTo} {addPage} {zoom} {changeZoom} {wordCount} {icon} />
 
@@ -251,9 +401,9 @@
   <div class="workspace">
     {#if showSections}<SectionsSidebar {editor} {outline} {currentSection} {showDialog} {sectionOnNextPage} {jumpTo} {wordCount} {icon} />{/if}
 
-    <ManuscriptCanvas {zoom} pageCount={outline.length} bind:element />
+    <ManuscriptCanvas {zoom} pageCount={outline.length} status={loadState} error={loadError} onretry={loadManuscript} bind:element />
 
-    <ChatPanel {id} {editor} {tick} {open} onclose={() => open = false} bind:notice />
+    <ChatPanel projectId={projectId} {editor} {tick} {open} onclose={() => open = false} bind:notice />
   </div>
 </div>
 

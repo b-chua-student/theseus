@@ -20,7 +20,7 @@
     <label>Password<input type="password" bind:value={password} required minlength="8" autocomplete="new-password" /></label>
     <label>Confirm password<input type="password" bind:value={confirm} required autocomplete="new-password" /></label>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <button type="submit" disabled={busy}>{busy ? 'Please wait…' : 'Create Account'}</button>
+    <button type="submit" disabled={busy}>{busy ? 'Creating account…' : 'Create Account'}</button>
   </form>
   <p class="switch-row"><button class="switch" type="button" onclick={onswitch}>Sign In<span aria-hidden="true">↗</span></button></p>
 </AuthLayout>

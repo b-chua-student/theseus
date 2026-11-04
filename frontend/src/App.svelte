@@ -1,42 +1,24 @@
 <script>
   import Projects from './pages/projects.svelte';
-  let showProjects = $state(true);
   import SignIn from './pages/signin.svelte';
   import SignUp from './pages/signup.svelte';
   import { getSession, signOut } from './lib/api/auth.js';
-  let user = $state(getSession());
-  let authScreen = $state('signin');
-
   import AppHeader from "./components/shared/AppHeader.svelte";
-  import { listManuscripts, createManuscript } from "./lib/api/manuscripts.js";
   import Dashboard from './pages/dashboard.svelte';
   import DocumentEditor from './pages/editor.svelte';
 
-  let documents = $state([]);
-  let selectedId = $state(null);
+  let user = $state(getSession());
+  let authScreen = $state('signin');
+  let showProjects = $state(true);
+
+  // selectedManuscript holds { id, projectId } when the editor is open.
+  let selectedManuscript = $state(null);
   let selectedProject = $state(null);
-
-  $effect(() => {
-    if (user) load();
-  });
-
-  function load() {
-    listManuscripts()
-      .then((r) => r.json())
-      .then((data) => (documents = data));
-  }
-
-  async function create() {
-    const name = prompt('Document name');
-    if (!name) return;
-    await createManuscript(name);
-    selectedId = name;
-  }
-
-  function back() {
-    selectedId = null;
-    load();
-  }
+  // Number of manuscripts in the open project, reported by the Dashboard.
+  let manuscriptCount = $state(0);
+  // Incremented each time the user returns from the editor, so the Dashboard
+  // can reload the manuscript list without unmounting and remounting.
+  let dashboardRefreshKey = $state(0);
 
   async function handleSignOut() {
     await signOut();
@@ -48,33 +30,76 @@
     showProjects = false;
   }
 
+  function openManuscript(manuscriptId, projectId, title) {
+    selectedManuscript = { id: manuscriptId, projectId, title };
+  }
+
+  function backFromEditor() {
+    selectedManuscript = null;
+    dashboardRefreshKey++;
+  }
+
   function backToProjects() {
     selectedProject = null;
+    selectedManuscript = null;
     showProjects = true;
-    selectedId = null;
   }
 </script>
 
 {#if !user}
-  {#if authScreen === 'signup'}<SignUp onsuccess={value => user = value} onswitch={() => authScreen = 'signin'} />
-  {:else}<SignIn onsuccess={value => user = value} onswitch={() => authScreen = 'signup'} />{/if}
+  {#if authScreen === 'signup'}
+    <SignUp onsuccess={value => user = value} onswitch={() => authScreen = 'signin'} />
+  {:else}
+    <SignIn onsuccess={value => user = value} onswitch={() => authScreen = 'signup'} />
+  {/if}
 {:else}
-<AppHeader inEditor={selectedId !== null} documentTitle={selectedId ?? ''} manuscriptCount={documents.length} onworkspace={() => { selectedId = null; showProjects = true; }} onsignout={handleSignOut} />
+  <AppHeader
+    inEditor={selectedManuscript !== null}
+    documentTitle={selectedManuscript?.title ?? ''}
+    manuscriptCount={showProjects ? 0 : manuscriptCount}
+    onworkspace={() => { selectedManuscript = null; showProjects = true; }}
+    onsignout={handleSignOut}
+  />
 
-{#if showProjects}
-  <Projects {user} onworkspace={() => showProjects = false} onproject={openProject} />
-{:else if selectedId === null}
-  <Dashboard {documents} {selectedProject} onselect={(id) => (selectedId = id)} oncreate={create} onback={backToProjects} />
-{:else}
-  <div class="editor-screen">
-    <DocumentEditor id={selectedId} onback={back} />
-  </div>
-{/if}
-
-
+  {#if showProjects}
+    <Projects {user} onworkspace={() => showProjects = false} onproject={openProject} />
+  {:else}
+    <!--
+      Keep the Dashboard mounted while the editor is open (hidden via CSS) so its
+      loading state and manuscript list are preserved. Without this, every trip
+      through the editor destroys and recreates the Dashboard, causing it to
+      re-run load() on return — which shows "Loading manuscripts…" unnecessarily
+      and can get stuck if the back-navigation races with an in-flight save.
+    -->
+    <div class:hidden={selectedManuscript !== null}>
+      <Dashboard
+        {selectedProject}
+        refreshKey={dashboardRefreshKey}
+        oncount={(count) => manuscriptCount = count}
+        onselect={openManuscript}
+        onback={backToProjects}
+      />
+    </div>
+    {#if selectedManuscript !== null}
+      <div class="editor-screen">
+        <DocumentEditor
+          manuscriptId={selectedManuscript.id}
+          projectId={selectedManuscript.projectId}
+          title={selectedManuscript.title}
+          onback={backFromEditor}
+        />
+      </div>
+    {/if}
+  {/if}
 {/if}
 
 <style>
+  /* Hide the dashboard behind the editor without unmounting it, so its loaded
+     manuscript list and loading state are preserved across editor visits. */
+  .hidden {
+    display: none;
+  }
+
   /* Keep the document workspace below the shared 48px navigation. */
   .editor-screen {
     position: fixed;

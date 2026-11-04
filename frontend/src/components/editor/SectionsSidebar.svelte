@@ -8,6 +8,9 @@
         <div class="sections-heading"><h3>Sections &amp; Pages</h3><span class="badge">{outline.length} PAGES</span></div>
         <p class="section-hint">Click a heading or page to jump</p>
         <div class="section-actions"><button type="button" disabled={!editor} onclick={() => showDialog('section')}>+ Section</button><button type="button" disabled={!currentSection} onclick={sectionOnNextPage} title="Insert a page break before the selected section">↵ Next Page</button></div>
+        {#if outline.every((page) => page.sections.length === 0)}
+          <p class="section-empty">No sections yet. Add a heading to build your outline.</p>
+        {/if}
         {#each outline as page}
           <button type="button" class="page-label page-jump" onclick={() => jumpTo(page.pos)}>PAGE {page.number}</button>
           {#each page.sections as section}
@@ -31,6 +34,7 @@
   h3 { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin: 0; }
   .badge { background: #dee5df; color: #2f3b35; padding: 2px 6px; border-radius: 3px; font: 600 8px var(--mono); }
   .section-hint { font-size: 8.5px; color: #78867f; margin: 2px 0 10px; }
+  .section-empty { font-size: 9px; color: #78867f; margin: 0 0 10px; line-height: 1.5; }
   .section-actions { display: flex; gap: 4px; margin-bottom: 10px; }
   .section-actions button { flex: 1; border: 1px solid var(--border); border-radius: 5px; padding: 4px 6px; background: white; font-size: 8.5px; font-weight: 600; white-space: nowrap; }
   .section-actions button:last-child { color: var(--green); }

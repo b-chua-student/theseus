@@ -1,13 +1,16 @@
 <script>
-  import { sendChatMessage } from "../../lib/api/chat.js";
+  import { startConversation, askConversation } from "../../lib/api/chat.js";
   import { tick as flushUI } from "svelte";
-  let { id, editor, tick, open, onclose, notice = $bindable('') } = $props();
+  import { marked } from "marked";
+  import DOMPurify from "dompurify";
+  let { projectId, editor, tick, open, onclose, notice = $bindable('') } = $props();
 
   // Keep this component mounted while closed to retain the session conversation.
   let messages = $state([]);
   let input = $state("");
   let loading = $state(false);
   let log = $state();
+  let conversationId = $state(null);
 
 
   // Browser-local timestamps and tools. Chat request fields stay unchanged.
@@ -15,6 +18,21 @@
   let composer = $state();
   let selectionQuote = $state('');
   const formatTime = (value) => new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // The assistant's reply is untrusted text, so parse it as markdown and sanitize
+  // the resulting HTML before it is ever assigned with {@html}. User messages are
+  // rendered as plain text (see the template), so they are never run through this.
+  marked.setOptions({ breaks: true });
+  // Open links from replies in a new tab so they never replace the editor.
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A' && node.getAttribute('href')) {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+  function renderMarkdown(text) {
+    return DOMPurify.sanitize(marked.parse(text ?? ''), { ADD_ATTR: ['target'] });
+  }
   const fullTime = (value) => new Date(value).toLocaleString();
   const prompts = [
     { label: 'Paraphrase academically', text: 'Paraphrase the selected passage or current manuscript in an academic tone.' },
@@ -55,25 +73,68 @@
     flushUI().then(() => { if (log) log.scrollTop = log.scrollHeight; });
   }
 
-  // ACTIVE API: POST /api/chat with document_id, message, and document text.
+  // ACTIVE API: two-step conversation flow under
+  // /api/projects/:projectId/conversations.
+  //   1. POST .../conversations              -> { id }   (started once, reused)
+  //   2. POST .../conversations/:id/exchanges  { query } -> { answer }
+  // Selected passages are part of the query text; the full manuscript body is
+  // not sent (the backend conversation contract has no document-context field).
   // TODO(API): None/Source Library scopes need an agreed server context contract.
   // Keep scope controls disabled; do not pretend a tab changes server grounding.
-  async function send() {
-    const text = input.trim();
+  // Failures worth offering a retry for: network errors (no status), rate limits,
+  // AI provider errors and an unavailable assistant. Validation errors (4xx) won't
+  // succeed on retry, so they are not retryable.
+  const isRetryable = (e) => !e.status || e.status === 429 || e.status >= 500;
+
+  async function ask(text) {
+    if (!conversationId) {
+      conversationId = await startConversation(projectId);
+    }
+    try {
+      return await askConversation(projectId, conversationId, text);
+    } catch (e) {
+      // The conversation is gone (e.g. the server restarted): start a fresh one once.
+      if (e.status === 404 && e.code === "assistant.conversation_not_found") {
+        conversationId = await startConversation(projectId);
+        return await askConversation(projectId, conversationId, text);
+      }
+      throw e;
+    }
+  }
+
+  async function send(retryText) {
+    // `retryText` is only a string when called from the Retry button; the click
+    // handler otherwise passes an event.
+    const retry = typeof retryText === "string";
+    const text = retry ? retryText : input.trim();
     if (!text || loading) return;
-    messages.push({ role: "user", text, timestamp: Date.now() });
-    input = "";
+    if (!retry) {
+      messages.push({ role: "user", text, timestamp: Date.now() });
+      input = "";
+    }
     loading = true;
     scrollDown();
     try {
-      const res = await sendChatMessage(id, text, editor.getText());
-      const data = await res.json();
-      messages.push({ role: "assistant", text: typeof data.reply === 'string' ? data.reply : 'No reply was returned. Please retry.', timestamp: Date.now(), isError: !res.ok || !!data.error });
-    } catch {
-      messages.push({ role: "assistant", text: "Request failed. Please check the backend connection and retry.", timestamp: Date.now(), isError: true });
+      const answer = await ask(text);
+      messages.push({ role: "assistant", text: answer, timestamp: Date.now() });
+    } catch (e) {
+      messages.push({
+        role: "assistant",
+        text: e.message || "Request failed. Please check the backend connection and retry.",
+        timestamp: Date.now(),
+        isError: true,
+        retryText: isRetryable(e) ? text : null,
+      });
     }
     loading = false;
     scrollDown();
+  }
+
+  // Remove the failed reply and resend the question that caused it.
+  function retryMessage(m) {
+    const index = messages.indexOf(m);
+    if (index !== -1) messages.splice(index, 1);
+    send(m.retryText);
   }
 
   function onkey(e) {
@@ -115,7 +176,12 @@
           {#each messages as m}
             <article class="scholar-message" class:from-user={m.role === 'user'} class:reply-error={m.isError}>
               <div class="scholar-message-meta"><span>{#if m.role === 'assistant'}<span class="tiny-avatar" aria-hidden="true">t</span>Theseus AI <span class="reply-type">{m.isError ? 'Request issue' : 'Writing assistant'}</span>{:else}You{/if}</span><time datetime={new Date(m.timestamp).toISOString()} title={fullTime(m.timestamp)}>{formatTime(m.timestamp)}</time></div>
-              <div class="scholar-bubble">{m.text}</div>
+              {#if m.role === 'assistant' && !m.isError}
+                <div class="scholar-bubble markdown-body">{@html renderMarkdown(m.text)}</div>
+              {:else}
+                <div class="scholar-bubble">{m.text}</div>
+              {/if}
+              {#if m.isError && m.retryText}<div class="scholar-reply-actions"><button type="button" onclick={() => retryMessage(m)} disabled={loading}>Try again</button></div>{/if}
               {#if m.role === 'assistant' && !m.isError}<div class="scholar-reply-actions"><button type="button" onclick={() => copyReply(m.text)}>Copy</button><button type="button" onclick={() => insertReply(m.text)} disabled={!editor}>Use in manuscript</button></div>{/if}
             </article>
           {/each}
@@ -129,7 +195,7 @@
                  real project sources. No sources or verification badges are fabricated. -->
             <button type="button" disabled title="Source lookup is not connected">Cite source</button>
           </div>
-          <div class="scholar-input"><textarea bind:this={composer} rows="3" placeholder="Ask Theseus to rephrase, summarize, or review your manuscript…" aria-label="Message the assistant" bind:value={input} onkeydown={onkey}></textarea><button type="button" class="scholar-send" onclick={send} disabled={loading || !editor || !input.trim()} aria-label="Send message" title="Send message">{@render icon('send', 16)}</button></div>
+          <div class="scholar-input"><textarea bind:this={composer} rows="3" placeholder="Ask Theseus to rephrase, summarize, or review your manuscript…" aria-label="Message the assistant" bind:value={input} onkeydown={onkey}></textarea><button type="button" class="scholar-send" onclick={() => send()} disabled={loading || !editor || !input.trim()} aria-label="Send message" title="Send message">{@render icon('send', 16)}</button></div>
           <div class="scholar-input-hint"><span>Enter to send · Shift + Enter for a new line</span><span>AI suggestions</span></div>
         </div>
       </aside>
@@ -157,7 +223,20 @@
   .scholar-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 17px 12px; display: flex; flex-direction: column; gap: 19px; scrollbar-width: thin; scrollbar-color: #bac9be transparent; }
   .scholar-welcome { margin: auto 0; padding: 24px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }.welcome-label { font: 8px var(--mono); letter-spacing: .06em; color: var(--accent); }.scholar-welcome h4 { font: 600 19px/1.3 var(--sans); margin: 10px 0; }.scholar-welcome p { font-size: 11px; line-height: 1.7; color: var(--text-muted); margin: 0 0 18px; }.welcome-note { font: 8px/1.5 var(--mono); color: var(--text-muted); }
   .scholar-message { min-width: 0; width: 100%; }.scholar-message.from-user { width: 88%; align-self: flex-end; }.scholar-message-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--text-muted); font-size: 9px; margin: 0 2px 6px; }.scholar-message-meta > span { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }.scholar-message-meta time { white-space: nowrap; font: 7.5px var(--mono); }.from-user .scholar-message-meta { justify-content: flex-end; }.tiny-avatar { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 5px; background: var(--accent); color: white; font: 10px var(--sans); flex-shrink: 0; }.reply-type { font: 7px var(--mono); background: #e5ece5; padding: 2px 4px; border-radius: 3px; color: var(--accent); }
-  .scholar-bubble { white-space: pre-wrap; overflow-wrap: anywhere; padding: 13px 12px; background: white; border: 1px solid #cbd6cd; border-radius: 3px 13px 13px 13px; font-size: 11px; line-height: 1.75; color: var(--text); }.from-user .scholar-bubble { border: 0; background: var(--accent); color: white; border-radius: 13px 13px 3px 13px; line-height: 1.6; }.reply-error .scholar-bubble { background: #fcf6ef; border-color: #dfcdb8; }.scholar-reply-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }.scholar-reply-actions button { font-size: 8px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-muted); color: var(--accent); }
+  .scholar-bubble { white-space: pre-wrap; overflow-wrap: anywhere; padding: 13px 12px; background: white; border: 1px solid #cbd6cd; border-radius: 3px 13px 13px 13px; font-size: 11px; line-height: 1.75; color: var(--text); }
+  .markdown-body { white-space: normal; }
+  .markdown-body :global(p) { margin: 0 0 8px; }
+  .markdown-body :global(p:last-child) { margin-bottom: 0; }
+  .markdown-body :global(ul), .markdown-body :global(ol) { margin: 0 0 8px; padding-left: 18px; }
+  .markdown-body :global(li) { margin: 2px 0; }
+  .markdown-body :global(code) { background: #eef1ee; border-radius: 3px; padding: 1px 4px; font-family: var(--mono); font-size: 10px; }
+  .markdown-body :global(pre) { background: #eef1ee; border-radius: 6px; padding: 8px 10px; overflow-x: auto; margin: 0 0 8px; }
+  .markdown-body :global(pre code) { background: none; padding: 0; }
+  .markdown-body :global(blockquote) { margin: 0 0 8px; padding-left: 10px; border-left: 2px solid #cbd6cd; color: var(--text-muted); }
+  .markdown-body :global(h1), .markdown-body :global(h2), .markdown-body :global(h3) { margin: 0 0 6px; line-height: 1.3; }
+  .markdown-body :global(a) { color: var(--accent); text-decoration: underline; }
+  .markdown-body :global(table) { border-collapse: collapse; margin: 0 0 8px; }
+  .markdown-body :global(th), .markdown-body :global(td) { border: 1px solid #cbd6cd; padding: 3px 7px; }.from-user .scholar-bubble { border: 0; background: var(--accent); color: white; border-radius: 13px 13px 3px 13px; line-height: 1.6; }.reply-error .scholar-bubble { background: #fcf6ef; border-color: #dfcdb8; }.scholar-reply-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }.scholar-reply-actions button { font-size: 8px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-muted); color: var(--accent); }
   .scholar-thinking { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); padding: 4px 0; }.thinking-dots { animation: scholar-pulse 1s ease-in-out infinite; }@keyframes scholar-pulse { 50% { opacity: .3; } }
   .scholar-composer-area { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--surface-muted); padding: 10px; }.scholar-selection { display: flex; gap: 6px; align-items: center; padding: 7px 0 9px; min-width: 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }.selection-tag { font: 7px var(--mono); background: var(--accent); color: white; padding: 3px; border-radius: 3px; }.selection-excerpt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; flex: 1; min-width: 0; font-style: italic; }.scholar-selection button { border: 1px solid var(--border); background: var(--surface); border-radius: 4px; font-size: 8px; padding: 3px 5px; }
   .scholar-composer-tools { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }.scholar-composer-tools button { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font: 8px var(--mono); padding: 4px 5px; }.scholar-composer-tools button:disabled { color: #8b968f; }

@@ -15,14 +15,16 @@
   let projects  = $state([]);
   let loading   = $state(true);
   let error     = $state('');
+  let loadFailed = $state(false);
 
   $effect(() => { load(); });
 
   async function load() {
     loading = true;
     error   = '';
+    loadFailed = false;
     try { projects = await listProjects(); }
-    catch (e) { error = e.message; }
+    catch (e) { error = e.message; loadFailed = true; }
     finally { loading = false; }
   }
 
@@ -162,9 +164,14 @@
   </div>
 
   {#if error}
-    <p class="error" role="alert">{error}</p>
+    <p class="error" role="alert">{error} <button type="button" class="retry" onclick={load}>Retry</button></p>
   {/if}
 
+  {#if loading}
+    <div class="grid" role="status" aria-label="Loading projects">
+      {#each { length: 3 } as _}<div class="card skeleton"></div>{/each}
+    </div>
+  {:else}
   <div class="grid">
     <button class="card new" onclick={openCreate}>
       <span class="plus">+</span>
@@ -172,8 +179,11 @@
       <small>Create a research workspace</small>
     </button>
 
-    {#if loading}
-      <p class="loading">Loading projects…</p>
+    {#if projects.length === 0 && !loadFailed}
+      <div class="card empty-hint">
+        <strong>No projects yet</strong>
+        <small>Create your first project to start a manuscript.</small>
+      </div>
     {:else}
       {#each projects as project (project.id)}
         <article class="card">
@@ -220,6 +230,7 @@
       {/each}
     {/if}
   </div>
+  {/if}
 </main>
 
 <!-- ── create project modal ─────────────────────────────────────────────── -->
@@ -425,8 +436,12 @@
   }
 
   /* ── status ── */
-  .loading { font-size: 11px; color: var(--text-muted); padding: 24px 0; }
-  .error { font-size: 11px; color: #c0392b; margin-bottom: 12px; }
+  .error { font-size: 11px; color: #c0392b; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+  .error .retry { font-size: 10px; font-weight: 600; color: var(--accent); background: transparent; border: 1px solid currentColor; border-radius: 5px; padding: 3px 9px; }
+  .skeleton { background: linear-gradient(90deg, #eef1ee 25%, #f6f8f6 37%, #eef1ee 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border: 1px solid var(--border, #e2e6e2); }
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+  .empty-hint { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 4px; color: var(--text-muted); padding: 20px; }
+  .empty-hint small { font-size: 10px; }
 
   /* ── dialogs ── */
   dialog {

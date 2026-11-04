@@ -1,3 +1,5 @@
+import { apiFetch } from './http.js';
+
 const key = 'theseus.session';
 
 export function getSession() {
@@ -6,16 +8,11 @@ export function getSession() {
 
 export async function signIn({ email, password }) {
   if (!email.trim() || !password) throw new Error('Enter your email and password.');
-  const res = await fetch('/api/auth/login', {
+  const res = await apiFetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email.trim(), password }),
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || err.detail || 'Login failed.');
-  }
+  }, 'Sign in failed. Please try again.');
   const user = await res.json();
   sessionStorage.setItem(key, JSON.stringify(user));
   return user;
@@ -23,16 +20,11 @@ export async function signIn({ email, password }) {
 
 export async function signUp({ name, email, password }) {
   if (!name.trim() || !email.trim() || password.length < 8) throw new Error('Complete all fields. Use at least 8 password characters.');
-  const res = await fetch('/api/auth/register', {
+  const res = await apiFetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ display_name: name.trim(), email: email.trim(), password }),
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || err.detail || 'Registration failed.');
-  }
+  }, 'Could not create your account. Please try again.');
   const user = await res.json();
   sessionStorage.setItem(key, JSON.stringify(user));
   return user;
