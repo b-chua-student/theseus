@@ -18,6 +18,7 @@ select = [
 ]
 ignore = [
     "D100", "D104",  # missing module/package docstrings
+    "D105", "D107",  # magic methods / __init__ (covered by the class docstring)
     "D203", "D213",  # conflict with D211/D212
 ]
 
@@ -29,7 +30,9 @@ quote-style = "double"
 
 [tool.ruff.lint.per-file-ignores]
 "backend/domain/**" = ["A002"]
-"backend/tests/**" = ["D", "ANN001"]
+# Adapter methods implement documented ports; docs live on the port.
+"backend/domain/*/infrastructure/adapters/**" = ["D102"]
+"backend/tests/**" = ["D", "ANN001", "ANN201", "ANN202", "B008", "FBT"]
 
 [tool.mypy]
 mypy_path = "backend"
@@ -39,3 +42,4 @@ namespace_packages = true
 [tool.pytest.ini_options]
 pythonpath = ["backend"]
 testpaths = ["backend/tests"]
+addopts = ["--import-mode=importlib"]

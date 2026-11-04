@@ -7,3 +7,6 @@ backend/repository
 backend/.env
 backend/tests/__pycache__
 manifold/
+**/log/
+*.log
+.kiro

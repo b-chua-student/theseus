@@ -4,49 +4,12 @@ import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 
-from api.app import create_app, limiter
-from repositories.manuscript.fake_manuscript_repository import (
-    FakeManuscriptRepository,
-)
-from repositories.manuscript.manuscript_repository import ManuscriptRepository
-from repositories.revision_history.fake_revision_history_repository import (
-    FakeRevisionHistoryRepository,
-)
-from repositories.revision_history.revision_history_repository import RevisionHistoryRepository
+from bootstrap.app import create_app
+from bootstrap.extensions import limiter
 
 
 @pytest.fixture
-def manuscript_repo() -> ManuscriptRepository:
-    """Provide a seeded in-memory manuscript repository.
-
-    Returns:
-        FakeManuscriptRepository: Fake repository pre-populated with seed data.
-    """
-    return FakeManuscriptRepository(seed=True)
-
-
-@pytest.fixture
-def bare_manuscript_repo() -> ManuscriptRepository:
-    """Provide an empty in-memory manuscript repository.
-
-    Returns:
-        FakeManuscriptRepository: Fake repository with no manuscripts.
-    """
-    return FakeManuscriptRepository(seed=False)
-
-
-@pytest.fixture
-def revision_history_repo() -> RevisionHistoryRepository:
-    """Provide an empty in-memory revision history repository.
-
-    Returns:
-        FakeRevisionHistoryRepository: Fake repository with no revisions.
-    """
-    return FakeRevisionHistoryRepository()
-
-
-@pytest.fixture
-def app(manuscript_repo, revision_history_repo) -> Flask:
+def app() -> Flask:
     """Create a Flask app in testing mode with rate limiting disabled.
 
     Args:
@@ -58,31 +21,7 @@ def app(manuscript_repo, revision_history_repo) -> Flask:
         Flask: Configured application instance.
     """
     return create_app(
-        config={"TESTING": True, "RATELIMIT_ENABLED": False},
-        manuscript_repo=manuscript_repo,
-        revision_history_repo=revision_history_repo,
-    )
-
-
-@pytest.fixture
-def bare_app(bare_manuscript_repo, revision_history_repo) -> Flask:
-    """Create a Flask app with an empty manuscript repository.
-
-    Testing mode with rate limiting disabled.
-
-    Args:
-        bare_manuscript_repo (FakeManuscriptRepository): Injected empty
-            manuscript repository.
-        revision_history_repo (FakeRevisionHistoryRepository): Injected
-            revision history repository.
-
-    Returns:
-        Flask: Configured application instance.
-    """
-    return create_app(
-        config={"TESTING": True, "RATELIMIT_ENABLED": False},
-        manuscript_repo=bare_manuscript_repo,
-        revision_history_repo=revision_history_repo,
+        config={"TESTING": True, "SECRET_KEY": "test-secret", "RATELIMIT_ENABLED": False},
     )
 
 
@@ -100,7 +39,7 @@ def client(app) -> FlaskClient:
 
 
 @pytest.fixture
-def limited_app(manuscript_repo, revision_history_repo) -> Iterator[Flask]:
+def limited_app() -> Iterator[Flask]:
     """Create a Flask app with rate limiting enabled.
 
     Uses in-memory limiter storage and resets limiter state before and
@@ -118,10 +57,9 @@ def limited_app(manuscript_repo, revision_history_repo) -> Iterator[Flask]:
         config={
             "TESTING": True,
             "RATELIMIT_ENABLED": True,
+            "SECRET_KEY": "test-secret",
             "RATELIMIT_STORAGE_URI": "memory://",
         },
-        manuscript_repo=manuscript_repo,
-        revision_history_repo=revision_history_repo,
     )
     limiter.reset()
     yield app
@@ -139,3 +77,19 @@ def limited_client(limited_app) -> FlaskClient:
         FlaskClient: Test client bound to ``limited_app``.
     """
     return limited_app.test_client()
+
+
+@pytest.fixture
+def user_payload():
+    return {
+        "display_name": "Test User",
+        "email": "user@example.com",
+        "password": "correct-horse-battery",
+    }
+
+
+@pytest.fixture
+def registered_user(client, user_payload):
+    client.post("/api/auth/register", json=user_payload)
+    client.post("/api/auth/logout")
+    return user_payload
