@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 
 from domain.project.models.value_objects import ProjectName
@@ -11,7 +13,10 @@ def service(repository):
 
 def test_create_project_persists(service, repository) -> None:
     service.execute(
-        project_name="Test Project", owner_name="Test Owner", owner_email="test@email.com"
+        project_name="Test Project",
+        owner_id=str(uuid4()),
+        owner_name="Test Owner",
+        owner_email="test@email.com",
     )
 
     retrieved = repository.get_project_by_name(ProjectName("Test Project"))

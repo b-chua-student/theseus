@@ -21,9 +21,7 @@ def test_editing_description_persists(service, repository) -> None:
 
     assert repository.get_project_by_id(project.id) is not None
 
-    project.edit_description("new description")
-
-    service.execute(project.id, "new description")
+    service.execute(str(project.id.value), "new description")
 
     retrieved = repository.get_project_by_id(project.id)
 
