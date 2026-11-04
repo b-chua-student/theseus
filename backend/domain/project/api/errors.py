@@ -2,4 +2,4 @@ from domain.shared.errors import DomainError
 
 
 class ProjectNotFoundError(DomainError):
-    pass
+    """Raised when a requested project does not exist."""

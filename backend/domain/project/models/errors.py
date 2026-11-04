@@ -1,19 +1,25 @@
 from domain.shared.errors import DomainError
 
+
 class ProjectError(DomainError):
-    pass
+    """Base class for project domain errors."""
+
 
 class InvalidProjectNameError(ProjectError):
-    pass
+    """Raised when a project name is blank or too long."""
+
 
 class InvalidDisplayNameError(ProjectError):
-    pass
+    """Raised when a display name is blank or too long."""
+
 
 class InvalidEmailError(ProjectError):
-    pass
+    """Raised when an email address is not valid."""
+
 
 class NotAProjectMemberError(ProjectError):
-    pass
+    """Raised when a user is not a member of the project."""
+
 
 class IsCurrentOwnerError(ProjectError):
-    pass
+    """Raised when ownership is transferred to the member who already owns the project."""

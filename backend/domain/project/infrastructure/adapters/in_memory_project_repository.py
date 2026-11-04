@@ -1,9 +1,9 @@
+from faker import Faker
+
 from domain.project.infrastructure.ports.project_repository import ProjectRepository
 from domain.project.models.aggregates import Project
-from domain.project.models.value_objects import MemberId, ProjectId, ProjectName, DisplayName, Email
 from domain.project.models.entities import Member
-
-from faker import Faker
+from domain.project.models.value_objects import DisplayName, Email, MemberId, ProjectId, ProjectName
 
 THESIS_TITLES = [
     "Design and Development of an Online Enrollment System",
@@ -23,22 +23,25 @@ THESIS_TITLES = [
     "Mobile-Based Learning Management System",
 ]
 
+
 class InMemoryProjectRepository(ProjectRepository):
+    """Non-persistent ProjectRepository backed by a list, optionally seeded with fake data."""
+
     def __init__(self, *, seed: bool = False, totalProjects: int = 5) -> None:
-        self._db = []
+        self._db: list[Project] = []
         self._fake = Faker()
-        if (seed):
+        if seed:
             self.seed(totalProjects=totalProjects)
 
     def seed(self, totalProjects: int) -> None:
-        for i in range(totalProjects):
+        for _i in range(totalProjects):
             self._db.append(
                 Project.create(
                     name=ProjectName(self._fake.random_element(elements=THESIS_TITLES)),
                     owner=Member.join(
                         display_name=DisplayName(self._fake.name()),
                         email=Email(self._fake.email()),
-                    )
+                    ),
                 )
             )
 
@@ -58,19 +61,19 @@ class InMemoryProjectRepository(ProjectRepository):
         for project in self._db:
             if project.id == project_id:
                 return project
+        return None
 
     def get_project_by_name(self, project_name: ProjectName) -> Project | None:
         for project in self._db:
             if project.name == project_name:
                 return project
+        return None
 
     def update_project(self, new_project: Project) -> None:
-        for project in self._db:
+        for index, project in enumerate(self._db):
             if project.id == new_project.id:
-                self.delete_project_by_id(project.id)
-                self.add_project(new_project)
+                self._db[index] = new_project
+                return
 
     def delete_project_by_id(self, project_id: ProjectId) -> None:
-        for project in self._db:
-            if project.id == project_id:
-                self._db.remove(self.get_project_by_id(project_id))
+        self._db = [project for project in self._db if project.id != project_id]
