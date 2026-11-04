@@ -1,9 +1,13 @@
-from .api import UserDTO, IdentityAPI
-
-from domain.identity.models.aggregates import User
 from repositories.identity.identity_repository import IdentityRepository
 
+from domain.identity.models.aggregates import User
+
+from .api import IdentityAPI, UserDTO
+
+
 class InMemoryIdentityAPI(IdentityAPI):
+    """In-memory IdentityAPI that reads users from an identity repository."""
+
     def __init__(self, repository: IdentityRepository) -> None:
         self._repository = repository
 
@@ -17,8 +21,8 @@ class InMemoryIdentityAPI(IdentityAPI):
     def get_user(self, user_id: str) -> UserDTO | None:
         user = self._repository.get_by_id(user_id)
 
-        if (user):
-            return self._to_dto(user) 
+        if user:
+            return self._to_dto(user)
 
         return None
 
@@ -27,10 +31,8 @@ class InMemoryIdentityAPI(IdentityAPI):
 
         dtos = []
 
-        if (users):
+        if users:
             for user in users:
                 dtos.append(self._to_dto(user))
 
         return dtos
-
-

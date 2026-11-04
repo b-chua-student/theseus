@@ -7,17 +7,25 @@ from domain.identity.services.auth.errors import InvalidCredentialsError
 
 
 class LoginUserService:
+    """Use case for authenticating a user by email and password."""
+
     def __init__(self, repository: IdentityRepository, hasher: PasswordHasher) -> None:
         self._repository = repository
         self._hasher = hasher
         self._dummy_hash = hasher.hash("dummy-password")
 
     def execute(self, email: str, password: str) -> User:
+        """Return the user matching the credentials.
+
+        Raises:
+            InvalidCredentialsError: If the email or password is wrong. A dummy hash is
+                verified for unknown emails to keep response time uniform.
+        """
         try:
             email_vo = Email(email)
         except InvalidEmailError:
             self._hasher.verify(password, self._dummy_hash)
-            raise InvalidCredentialsError("Invalid email format")
+            raise InvalidCredentialsError("Invalid email format") from None
 
         user = self._repository.get_by_email(email_vo)
 

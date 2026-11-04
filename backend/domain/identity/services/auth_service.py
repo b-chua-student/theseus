@@ -1,8 +1,8 @@
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
+from repositories.identity.identity_repository import IdentityRepository
 
 from domain.identity.models.aggregates import User
-from repositories.identity.identity_repository import IdentityRepository
 
 _hasher = PasswordHasher()
 # Verified against when the email is unknown, so response time doesn't reveal it
@@ -10,10 +10,13 @@ _DUMMY_HASH = _hasher.hash("dummy-password")
 
 
 class AuthService:
+    """Legacy service for authenticating users against a repository."""
+
     def __init__(self, repository: IdentityRepository) -> None:
         self.repository = repository
 
     def authenticate(self, email: str, password: str) -> User | None:
+        """Return the user if the password matches, otherwise None."""
         user = self.repository.get_by_email(email)
         hash_to_check = user.password_hash if user and user.password_hash else _DUMMY_HASH
 
