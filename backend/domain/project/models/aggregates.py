@@ -88,13 +88,13 @@ class Project:
     def get_member_by_name(self, display_name: str) -> Member | None:
         """Return the first member whose display name matches, or None."""
         for member in self.members:
-            if member.display_name == display_name:
+            if member.display_name.value == display_name:
                 return member
         return None
 
     def get_member_by_email(self, email: str) -> Member | None:
         """Return the first member whose email matches, or None."""
         for member in self.members:
-            if member.email == email:
+            if member.email.value == email:
                 return member
         return None
