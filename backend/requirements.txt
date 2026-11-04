@@ -1,6 +1,7 @@
+-r requirements-prod.txt
+
+# Development and CI only
 chromadb
-flask
-flask_limiter
 commitizen
 pre-commit
 mypy
