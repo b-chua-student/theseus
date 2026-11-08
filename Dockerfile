@@ -9,4 +9,4 @@ COPY backend/ .
 
 EXPOSE 5000
 
-CMD ["flask", "--app", "application.app:create_app", "run", "--host=0.0.0.0", "--port=5000"]
+CMD ["flask", "--app", "api.app:create_app", "run", "--host=0.0.0.0", "--port=5000"]
