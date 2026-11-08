@@ -20,7 +20,7 @@
   let loading = $state(false);
   let log;
 
-  const active = (name, attrs) => (tick, editor?.isActive(name, attrs));
+  const active = (name, attrs) => (tick >= 0 ? editor?.isActive(name, attrs) : false);
 
   const rows = $derived.by(() => {
     const byParent = {};

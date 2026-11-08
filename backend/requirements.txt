@@ -1,6 +1,6 @@
 chromadb
 flask
-flask-limiter
+flask_limiter
 commitizen
 pre-commit
 mypy
