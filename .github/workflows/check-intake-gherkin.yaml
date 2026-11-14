@@ -3,8 +3,8 @@ name: check-intake-gherkin
 on:
   pull_request:
     paths:
-      - '.kiro/specs/**/**/*.feature'
-      - '.kiro/specs/**/**/*brief*.md'
+      - '.kiro/specs/*/brief.md'
+      - '.kiro/specs/*/*/*.feature'
 
 jobs:
   changes:
@@ -14,6 +14,7 @@ jobs:
       intake_files: ${{ steps.f.outputs.intake_files }}
       gherkin: ${{ steps.f.outputs.gherkin }}
       gherkin_files: ${{ steps.f.outputs.gherkin_files }}
+      gherkin_contexts: ${{ steps.ctx.outputs.contexts }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -22,9 +23,16 @@ jobs:
           list-files: shell
           filters: |
             intake:
-              - '.kiro/specs/**/**/brief.md'
+              - '.kiro/specs/*/brief.md'
             gherkin:
-              - '.kiro/specs/**/**/*.feature'
+              - '.kiro/specs/*/*/*.feature'
+      - name: Collect affected contexts
+        id: ctx
+        run: |
+          ctxs=$(for f in ${{ steps.f.outputs.gherkin_files }}; do
+            echo "$f" | cut -d/ -f1-3
+          done | sort -u | tr '\n' ' ')
+          echo "contexts=$ctxs" >> "$GITHUB_OUTPUT"
 
   intake:
     needs: changes
@@ -36,6 +44,7 @@ jobs:
         run: |
           fail=0
           for f in ${{ needs.changes.outputs.intake_files }}; do
+            [ -f "$f" ] || continue
             for h in "## Goal" "## In Scope" "## Non-Goals" "## Constraints" "## Success Criteria"; do
               grep -q "^$h" "$f" || { echo "::error file=$f::Missing section: $h"; fail=1; }
             done
@@ -54,7 +63,12 @@ jobs:
         with:
           node-version: 20
       - name: Lint syntax
-        run: npx --yes gherkin-lint ${{ needs.changes.outputs.gherkin_files }}
+        run: |
+          files=""
+          for f in ${{ needs.changes.outputs.gherkin_files }}; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          [ -z "$files" ] || npx --yes gherkin-lint $files
       - name: Check scenario IDs
         run: |
           fail=0
@@ -64,9 +78,12 @@ jobs:
             t=$(grep -cE '^\s*(@\S+\s+)*@S-[0-9]{3}' "$f")
             [ "$s" -eq "$t" ] || { echo "::error file=$f::$s scenarios but $t have @S-### tags"; fail=1; }
           done
-          for d in specs/*/; do
-            dup=$(grep -rohE '@S-[0-9]{3}' "$d"features 2>/dev/null | sort | uniq -d)
-            [ -z "$dup" ] || { echo "::error::Duplicate IDs in $d: $dup"; fail=1; }
+          # IDs must be unique across all features within a context
+          for d in ${{ needs.changes.outputs.gherkin_contexts }}; do
+            [ -d "$d" ] || continue
+            dup=$(find "$d" -mindepth 2 -name '*.feature' -print0 \
+              | xargs -0 grep -ohE '@S-[0-9]{3}' 2>/dev/null | sort | uniq -d)
+            [ -z "$dup" ] || { echo "::error::Duplicate IDs in $d: $(echo $dup)"; fail=1; }
           done
           exit $fail
 
