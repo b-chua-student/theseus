@@ -3,8 +3,8 @@ name: check-intake-gherkin
 on:
   pull_request:
     paths:
-      - '.kiro/specs/**/*.feature'
-      - '.kiro/specs/**/*brief*.md'
+      - '.kiro/specs/**/**/*.feature'
+      - '.kiro/specs/**/**/*brief*.md'
 
 jobs:
   changes:
@@ -22,9 +22,9 @@ jobs:
           list-files: shell
           filters: |
             intake:
-              - '.kiro/specs/**/brief.md'
+              - '.kiro/specs/**/**/brief.md'
             gherkin:
-              - '.kiro/specs/**/*.feature'
+              - '.kiro/specs/**/**/*.feature'
 
   intake:
     needs: changes
