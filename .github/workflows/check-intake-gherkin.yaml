@@ -1,0 +1,81 @@
+name: check-intake-gherkin
+
+on:
+  pull_request:
+    paths:
+      - '.kiro/specs/**/*.feature'
+      - '.kiro/specs/**/*brief*.md'
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      intake: ${{ steps.f.outputs.intake }}
+      intake_files: ${{ steps.f.outputs.intake_files }}
+      gherkin: ${{ steps.f.outputs.gherkin }}
+      gherkin_files: ${{ steps.f.outputs.gherkin_files }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          list-files: shell
+          filters: |
+            intake:
+              - '.kiro/specs/**/brief.md'
+            gherkin:
+              - '.kiro/specs/**/*.feature'
+
+  intake:
+    needs: changes
+    if: needs.changes.outputs.intake == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required sections
+        run: |
+          fail=0
+          for f in ${{ needs.changes.outputs.intake_files }}; do
+            for h in "## Goal" "## In Scope" "## Non-Goals" "## Constraints" "## Success Criteria"; do
+              grep -q "^$h" "$f" || { echo "::error file=$f::Missing section: $h"; fail=1; }
+            done
+            grep -qiE 'TBD|TODO' "$f" && { echo "::error file=$f::Unresolved TBD/TODO"; fail=1; }
+            [ "$(wc -l < "$f")" -le 80 ] || { echo "::error file=$f::Exceeds 80 lines"; fail=1; }
+          done
+          exit $fail
+
+  gherkin:
+    needs: changes
+    if: needs.changes.outputs.gherkin == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Lint syntax
+        run: npx --yes gherkin-lint ${{ needs.changes.outputs.gherkin_files }}
+      - name: Check scenario IDs
+        run: |
+          fail=0
+          for f in ${{ needs.changes.outputs.gherkin_files }}; do
+            [ -f "$f" ] || continue
+            s=$(grep -cE '^\s*Scenario( Outline)?:' "$f")
+            t=$(grep -cE '^\s*(@\S+\s+)*@S-[0-9]{3}' "$f")
+            [ "$s" -eq "$t" ] || { echo "::error file=$f::$s scenarios but $t have @S-### tags"; fail=1; }
+          done
+          for d in specs/*/; do
+            dup=$(grep -rohE '@S-[0-9]{3}' "$d"features 2>/dev/null | sort | uniq -d)
+            [ -z "$dup" ] || { echo "::error::Duplicate IDs in $d: $dup"; fail=1; }
+          done
+          exit $fail
+
+  summary:
+    needs: [changes, intake, gherkin]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate
+        run: |
+          [[ "${{ needs.intake.result }}" =~ ^(success|skipped)$ ]] || exit 1
+          [[ "${{ needs.gherkin.result }}" =~ ^(success|skipped)$ ]] || exit 1
