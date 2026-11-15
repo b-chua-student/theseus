@@ -23,3 +23,27 @@ class InvalidSourceIdError(SourceLibraryError):
     """Raised when a source ID is not a valid UUID."""
 
     code = "source_library.invalid_source_id"
+
+
+class InvalidDescriptionError(SourceLibraryError):
+    """Raised when a description is too long."""
+
+    code = "source_library.invalid_description"
+
+
+class InvalidTagsError(SourceLibraryError):
+    """Raised when tags exceed the maximum count."""
+
+    code = "source_library.invalid_tags"
+
+
+class InvalidContentTypeError(SourceLibraryError):
+    """Raised when content type is invalid."""
+
+    code = "source_library.invalid_content_type"
+
+
+class InvalidTextBodyError(SourceLibraryError):
+    """Raised when text body is empty or exceeds length limit."""
+
+    code = "source_library.invalid_text_body"

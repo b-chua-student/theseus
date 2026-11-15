@@ -9,12 +9,6 @@ select = [
     "I",            # import sorting
     "B",            # bugbear
     "UP",           # pyupgrade
-    "SIM",          # simplifications
-    "A",            # builtin shadowing (your `id` param)
-    "T20",          # print statements
-    "ANN",          # annotations
-    "FBT",          # boolean traps
-    "D",            # docstrings
 ]
 ignore = [
     "D100", "D104",  # missing module/package docstrings

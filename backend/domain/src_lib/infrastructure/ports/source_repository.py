@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
+from typing import Literal
+from uuid import UUID
 
 from domain.src_lib.models.aggregates import Source
-from domain.src_lib.models.value_objects import SourceId
+from domain.src_lib.models.value_objects import ContentType, SourceId
 
 
 class SourceRepository(ABC):
@@ -20,4 +22,38 @@ class SourceRepository(ABC):
     @abstractmethod
     def save(self, source: Source) -> None:
         """Insert or update a source."""
+        ...
+
+    @abstractmethod
+    def list_text(
+        self,
+        project_id: UUID,
+        content_type: ContentType | None = None,
+        tag: str | None = None,
+        sort: Literal["updatedAt", "title"] = "updatedAt",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[Source], int]:
+        """List text sources with filtering, sorting and pagination.
+
+        Returns:
+            Tuple of (sources on current page, total count matching filters)
+        """
+        ...
+
+    @abstractmethod
+    def search_text(
+        self,
+        project_id: UUID,
+        query: str,
+        content_type: ContentType | None = None,
+        tag: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> tuple[list[Source], int]:
+        """Search text sources with full-text search.
+
+        Returns:
+            Tuple of (sources on current page, total count matching search)
+        """
         ...
