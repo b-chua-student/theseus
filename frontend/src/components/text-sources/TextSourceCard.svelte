@@ -1,12 +1,14 @@
 <script>
+  import TextSourceContent from './TextSourceContent.svelte';
   /**
    * @type {{
+   *   projectId?: string,
    *   source: import('../../lib/api/textSources.js').TextSourceSummary,
    *   onedit: (source: import('../../lib/api/textSources.js').TextSourceSummary) => void,
    *   ondelete: (source: import('../../lib/api/textSources.js').TextSourceSummary) => void,
    * }}
    */
-  let { source, onedit, ondelete } = $props();
+  let { source, onedit, ondelete, projectId = '' } = $props();
 
   const TYPE_LABELS = { documentation: 'Documentation', notes: 'Notes', code: 'Code', other: 'Other' };
 
@@ -29,6 +31,12 @@
     <ul class="tags" aria-label="Tags">
       {#each source.tags as tag (tag)}<li>{tag}</li>{/each}
     </ul>
+  {/if}
+
+  {#if projectId}
+    {#key `${projectId}:${source.id}`}
+      <TextSourceContent {projectId} sourceId={source.id} />
+    {/key}
   {/if}
 
   <div class="bottom">

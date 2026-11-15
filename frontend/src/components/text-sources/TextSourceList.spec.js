@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/svelte';
 
 vi.mock('../../lib/api/textSources.js', () => ({
+  getTextSource: vi.fn(),
   listTextSources: vi.fn(),
   searchTextSources: vi.fn(),
   deleteTextSource: vi.fn(),
 }));
 
-import { listTextSources, searchTextSources, deleteTextSource } from '../../lib/api/textSources.js';
+import { getTextSource, listTextSources, searchTextSources, deleteTextSource } from '../../lib/api/textSources.js';
 import TextSourceList from './TextSourceList.svelte';
 import TextSourceCard from './TextSourceCard.svelte';
 
@@ -48,6 +49,31 @@ describe('TextSourceList', () => {
     const card = screen.getByRole('article');
     expect(within(card).getByText('Notes')).toBeInTheDocument();
     expect(screen.getByText('alpha')).toBeInTheDocument();
+  });
+
+  it('loads full content on demand, preserves literal markup, and closes it', async () => {
+    const content = 'Full source\n<script>alert(1)</script>\n  indented code';
+    getTextSource.mockResolvedValue({ ...item(1), content });
+    const { container } = setup();
+    const card = await screen.findByRole('article', { name: 'Source 1' });
+    expect(getTextSource).not.toHaveBeenCalled();
+    await fireEvent.click(within(card).getByRole('button', { name: 'View content' }));
+    await waitFor(() => expect(within(card).getByLabelText('Source content').textContent).toBe(content));
+    expect(getTextSource).toHaveBeenCalledWith('p1', 'id1');
+    expect(container.querySelector('script')).toBeNull();
+    await fireEvent.click(within(card).getByRole('button', { name: 'Close content' }));
+    expect(within(card).queryByLabelText('Source content')).toBeNull();
+  });
+
+  it('shows content loading failures and allows retry', async () => {
+    getTextSource.mockRejectedValueOnce(new Error('Content unavailable'))
+      .mockResolvedValueOnce({ ...item(1), content: 'Complete content' });
+    setup();
+    const card = await screen.findByRole('article', { name: 'Source 1' });
+    await fireEvent.click(within(card).getByRole('button', { name: 'View content' }));
+    expect(await within(card).findByRole('alert')).toHaveTextContent('Content unavailable');
+    await fireEvent.click(within(card).getByRole('button', { name: 'Retry' }));
+    expect(await within(card).findByLabelText('Source content')).toHaveTextContent('Complete content');
   });
 
   it('shows the empty state with a create action when there are no sources', async () => {

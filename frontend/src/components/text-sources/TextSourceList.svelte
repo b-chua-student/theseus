@@ -206,7 +206,7 @@
     {:else}
       <ul class="cards" aria-busy={loading}>
         {#each items as source (source.id)}
-          <li><TextSourceCard {source} {onedit} ondelete={askDelete} /></li>
+          <li><TextSourceCard {source} {projectId} {onedit} ondelete={askDelete} /></li>
         {/each}
       </ul>
     {/if}
