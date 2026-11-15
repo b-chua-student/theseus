@@ -1,9 +1,12 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
 class AskRequest(BaseModel):
     """Request body for asking the assistant a question."""
 
+    context_scope: Literal["none", "source_library"] = "source_library"
     query: str = Field(min_length=1, max_length=4000)
 
     @field_validator("query")

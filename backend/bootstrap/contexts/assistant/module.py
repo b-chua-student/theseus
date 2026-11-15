@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from domain.assistant.infrastructure.adapters.in_memory_conversation_repository import (
@@ -20,6 +21,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
 )
 from domain.assistant.infrastructure.ports.source_content_provider import SourceContentProvider
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
+from domain.assistant.models.value_objects import DocumentRefId, ProjectId
 from domain.assistant.services.chat import ChatService
 from domain.assistant.services.get_indexing_status import GetIndexingStatusService
 from domain.assistant.services.handlers.on_manuscript_saved import OnManuscriptSaved
@@ -60,6 +62,7 @@ def build_assistant_module(
     vector_store: VectorStore | None = None,
     conversation_repo: ConversationRepository | None = None,
     chat_model: ChatModel | None = None,
+    source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
 ) -> AssistantModule:
     """Build the assistant module and subscribe its handlers to ``event_bus``.
 
@@ -118,6 +121,7 @@ def build_assistant_module(
     chat: ChatService | None = None
     if chat_model is not None:
         chat = ChatService(
+            source_ids=source_ids,
             repository=conversation_repo,
             model=chat_model,
             embedding_generator=embedding_generator,

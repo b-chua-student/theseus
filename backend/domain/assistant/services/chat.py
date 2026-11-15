@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Callable
+from typing import Literal
 
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
@@ -17,6 +19,7 @@ from domain.assistant.models.value_objects import (
     Chunk,
     ChunkId,
     ConversationId,
+    DocumentRefId,
     ProjectId,
     Query,
     RetrievedChunk,
@@ -28,8 +31,8 @@ logger = logging.getLogger(__name__)
 class ChatService:
     """Starts conversations and answers questions, grounded in indexed sources.
 
-    Retrieval is enabled only when ``embedding_generator``, ``vector_store`` and
-    ``document_repository`` are all supplied; otherwise the model gets no context.
+    Source retrieval requires embedding, vector store, document repository, and
+    an active source ID reader; otherwise the model gets no retrieved context.
     """
 
     def __init__(
@@ -40,6 +43,7 @@ class ChatService:
         vector_store: VectorStore | None = None,
         document_repository: IndexedDocumentRepository | None = None,
         top_k: int = 5,
+        source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
     ) -> None:
         self._repository = repository
         self._model = model
@@ -47,6 +51,7 @@ class ChatService:
         self._vector_store = vector_store
         self._document_repository = document_repository
         self._top_k = top_k
+        self._source_ids = source_ids
 
     def start(self, project_id: str) -> ConversationId:
         """Start a conversation in the given project and return its id."""
@@ -54,13 +59,20 @@ class ChatService:
         self._repository.save(conversation)
         return conversation.id
 
-    def ask(self, conversation_id: str, text: str) -> Answer:
+    def ask(
+        self,
+        conversation_id: str,
+        text: str,
+        context_scope: Literal["none", "source_library"] = "source_library",
+    ) -> Answer:
         """Answer ``text`` within a conversation and return the answer.
 
         Raises:
             ConversationNotFoundError: If the conversation does not exist.
             ChatModelError: If the model fails; the exchange is discarded so the user can retry.
         """
+        if context_scope not in ("none", "source_library"):
+            raise ValueError("Unsupported assistant context scope")
         conversation = self._repository.get(ConversationId.from_str(conversation_id))
         if conversation is None:
             raise ConversationNotFoundError(f"Conversation '{conversation_id}' not found")
@@ -70,7 +82,11 @@ class ChatService:
         exchange = conversation.ask(query)
 
         try:
-            context = self._retrieve(conversation.project_id, query)
+            context = (
+                self._retrieve(conversation.project_id, query)
+                if context_scope == "source_library"
+                else []
+            )
             answer = self._model.reply(history, query, context)
         except ChatModelError:
             # Don't leave the exchange pending, or every later question would be rejected.
@@ -92,13 +108,15 @@ class ChatService:
             self._embedding_generator is None
             or self._vector_store is None
             or self._document_repository is None
+            or self._source_ids is None
         ):
             return []
         try:
+            allowed = set(self._source_ids(project_id))
             doc_ref_ids = [
                 d.doc_ref_id
                 for d in self._document_repository.list_by_project(project_id)
-                if d.is_searchable
+                if d.is_searchable and d.doc_ref_id in allowed
             ]
             if not doc_ref_ids:
                 return []

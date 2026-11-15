@@ -36,6 +36,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
 )
 from domain.assistant.infrastructure.ports.source_content_provider import SourceContentProvider
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
+from domain.assistant.models.value_objects import DocumentRefId
 from domain.identity.infrastructure.adapters.argon_password_hasher import ArgonPasswordHasher
 from domain.identity.infrastructure.adapters.in_memory_identity_repository import (
     InMemoryIdentityRepository,
@@ -116,12 +117,10 @@ def build_container(
     # before the source context starts publishing events.
     event_bus = publisher or InProcessEventBus()
 
-    # Default the content provider to read manuscript sections from the manuscript
-    # repository so a ManuscriptSaved event triggers real ingestion by default.
-    # Text sources are served from the source repository; everything else falls back
-    # to manuscripts.
-    source_content_provider = source_content_provider or SourceLibraryContentProvider(
-        source_repo, ManuscriptContentProvider(manuscript_repo)
+    # Index text library sources directly; delegate manuscripts and file sources
+    # to the configured content provider.
+    source_content_provider = SourceLibraryContentProvider(
+        source_repo, source_content_provider or ManuscriptContentProvider(manuscript_repo)
     )
 
     # Default ingestion adapters to in-memory implementations so the pipeline runs
@@ -143,6 +142,11 @@ def build_container(
         vector_store=vector_store,
         conversation_repo=conversation_repo,
         chat_model=chat_model,
+        source_ids=lambda project_id: [
+            DocumentRefId(source.id.value)
+            for source in source_repo.list_active()
+            if source.project_id == project_id.value
+        ],
     )
 
     return Container(

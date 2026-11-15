@@ -44,6 +44,7 @@ def ask(project_id: str, conversation_id: str) -> ResponseReturnValue:
     answer = _chat().ask(
         conversation_id=conversation_id,
         text=body.query,
+        context_scope=body.context_scope,
     )
 
     return jsonify(answer=answer.text), 201

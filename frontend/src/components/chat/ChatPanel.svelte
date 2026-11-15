@@ -8,15 +8,24 @@
   let { projectId, editor, tick, open, onclose, notice = $bindable() } = $props();
 
   // Keep this component mounted while closed to retain the session conversation.
-  let messages = $state([]);
+  let contextScope = $state("none");
+  let sessions = $state({
+    none: { messages: [], conversationId: null },
+    source_library: { messages: [], conversationId: null },
+  });
+  const messages = $derived(sessions[contextScope].messages);
   let nextMessageId = 0;
   let input = $state("");
   let loading = $state(false);
   let log = $state();
-  let conversationId = $state(null);
+  function switchContext(scope) {
+    if (loading) return;
+    contextScope = scope;
+    scrollDown();
+  }
 
 
-  // Browser-local timestamps and tools. Chat request fields stay unchanged.
+  // Browser-local timestamps and writing tools.
   const hasSelection = $derived((tick, !!editor && !editor.state.selection.empty));
   let composer = $state();
   let selectionQuote = $state('');
@@ -76,30 +85,24 @@
     flushUI().then(() => { if (log) log.scrollTop = log.scrollHeight; });
   }
 
-  // ACTIVE API: two-step conversation flow under
-  // /api/projects/:projectId/conversations.
-  //   1. POST .../conversations              -> { id }   (started once, reused)
-  //   2. POST .../conversations/:id/exchanges  { query } -> { answer }
-  // Selected passages are part of the query text; the full manuscript body is
-  // not sent (the backend conversation contract has no document-context field).
-  // TODO(API): None/Source Library scopes need an agreed server context contract.
-  // Keep scope controls disabled; do not pretend a tab changes server grounding.
+  // Each scope has its own conversation history to keep source context isolated.
   // Failures worth offering a retry for: network errors (no status), rate limits,
   // AI provider errors and an unavailable assistant. Validation errors (4xx) won't
   // succeed on retry, so they are not retryable.
   const isRetryable = (e) => !e.status || e.status === 429 || e.status >= 500;
 
   async function ask(text) {
-    if (!conversationId) {
-      conversationId = await startConversation(projectId);
+    const session = sessions[contextScope];
+    if (!session.conversationId) {
+      session.conversationId = await startConversation(projectId);
     }
     try {
-      return await askConversation(projectId, conversationId, text);
+      return await askConversation(projectId, session.conversationId, text, contextScope);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
-        conversationId = await startConversation(projectId);
-        return await askConversation(projectId, conversationId, text);
+        session.conversationId = await startConversation(projectId);
+        return await askConversation(projectId, session.conversationId, text, contextScope);
       }
       throw e;
     }
@@ -162,13 +165,11 @@
           <button type="button" class="scholar-close" onclick={onclose} aria-label="Close assistant" title="Close assistant">{@render icon('panel')}</button>
         </header>
 
-        <!-- TODO(API): Enable context switching when the backend supports None and Source Library scopes. -->
         <div class="scholar-scopes" role="group" aria-label="Assistant context">
-          <button type="button" disabled title="Context switching is not implemented">None</button>
-          <button type="button" class="selected" aria-pressed="true" disabled title="Existing chat uses this manuscript">Manuscript</button>
-          <button type="button" disabled title="Source context is not implemented">Source Library</button>
+          <button type="button" class:selected={contextScope === 'none'} aria-pressed={contextScope === 'none'} disabled={loading} onclick={() => switchContext('none')}>None</button>
+          <button type="button" class:selected={contextScope === 'source_library'} aria-pressed={contextScope === 'source_library'} disabled={loading} onclick={() => switchContext('source_library')}>Source Library</button>
         </div>
-        <div class="scholar-context">Context: Current Manuscript</div>
+        <div class="scholar-context">Context: {contextScope === 'none' ? 'None — no library sources used' : 'Source Library — indexed sources in this project'}</div>
         {#if messages.length === 0}
         <!-- LOCAL ONLY: quick prompts fill the composer. They do not send requests. -->
         <div class="scholar-prompts" aria-label="Suggested prompts">{#each prompts as prompt (prompt.label)}<button type="button" onclick={() => fillPrompt(prompt.text)}><span aria-hidden="true">✧</span>{prompt.label}</button>{/each}</div>
