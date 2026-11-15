@@ -20,7 +20,7 @@
   "new-line-at-eof": ["on", "yes"],
   "no-superfluous-tags": "on",
   "no-homogenous-tags": "on",
-  "only-one-when": "on"
+  "only-one-when": "on",
 
   "indentation": [
     "on",
