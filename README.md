@@ -1,36 +1,57 @@
 # Theseus
 
-Theseus is a web-based document editor with integrated Git-like VCS and AI capabilities.
+Theseus is a web-based document editor with Git-like version control and an AI research assistant.
 
-## Installation
+- **Write** manuscripts made of nested sections, grouped into projects.
+- **Version** your work with revisions (commits) and drafts (branches). Restore any earlier revision.
+- **Cite** from a source library of papers and references.
+- **Ask** an AI assistant (Gemini) questions about your manuscript.
 
-1. Clone the repository
-```
+## Documentation
+
+| Document                                | Contents                                      |
+| --------------------------------------- | --------------------------------------------- |
+| [Setup guide](docs/setup.md)            | Install, configure, run, test, deploy         |
+| [Architecture](docs/architecture.md)    | System diagram, bounded contexts, data flow   |
+| [API reference](docs/api.md)            | Every HTTP endpoint, request and response     |
+
+## Quick start
+
+Requires Node.js 20+, Python 3.12+ and a MongoDB instance. Full details are in the [setup guide](docs/setup.md).
+
+```bash
 git clone https://github.com/b-chua-student/theseus
-```
-2. Install npm packages
-```
-npm install
-```
-3. Create Python virtual environment
-```
-cd backend
-python -m venv .venv
-source <command>
+cd theseus
+npm install                              # also installs frontend dependencies
+
+python -m venv backend/.venv
+source backend/.venv/bin/activate
+pip install -r backend/requirements.txt
+
+cp backend/.env.example backend/.env     # then set SECRET_KEY and GEMINI_API_KEY
+npm run dev                              # frontend :5173, backend :5000
 ```
 
-| Platform | Shell      | Command to activate virtual environment |
-| -------- | ---------- | --------------------------------------- |
-| POSIX    | bash/zsh   | `$ source <venv>/bin/activate`          |
-| POSIX    | fish       | `$ source <venv>/bin/activate.fish`     |
-| POSIX    | csh/tcsh   | `$ source <venv>/bin/activate.csh`      |
-| POSIX    | pwsh       | `$ <venv>/bin/Activate.ps1`             |
-| Windows  | cmd.exe    | `C:\> <venv>\Scripts\activate.bat`      |
-| Windows  | PowerShell | `PS C:\> <venv>\Scripts\Activate.ps1`   |
-4. Install pip packages (make sure you are inside the `backend/` folder)
+## Tech stack
+
+| Layer    | Technology                                                            |
+| -------- | --------------------------------------------------------------------- |
+| Frontend | Svelte 5, Vite, Tiptap rich-text editor                            |
+| Backend  | Python 3.12, Flask, Pydantic, Flask-Limiter, Gunicorn                 |
+| Storage  | MongoDB (production), in-memory adapters (tests)                      |
+| AI       | Google Gemini (chat), in-memory vector store (ChromaDB adapter exists, not wired) |
+| Deploy   | Docker, Render                                                        |
+
+## Project layout
+
 ```
-pip install -r requirements.txt
-pre-commit install --hook-type pre-commit --hook-type commit-msg
+backend/
+  bootstrap/   app factory, dependency container, error handlers
+  domain/      one package per bounded context (api, models, services, infrastructure)
+  tests/
+frontend/
+  src/         Svelte pages, components, and API client (src/lib/api)
+docs/          setup, architecture, API reference
 ```
 
 ## Branching Strategy
@@ -52,16 +73,6 @@ This project uses [GitHub Flow](https://docs.github.com/en/get-started/using-git
 5. Request review and address feedback.
 6. Merge into `main` after approval.
 7. Delete the branch.
-
-## Running the Server
-
-Ensure:
-- You are in root folder
-- Virtual environment is activate
-```
-npm run dev
-```
-This command runs both the frontend server (Vite) and backend server (Flask).
 
 ## Contributing
 

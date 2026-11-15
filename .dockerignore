@@ -1,0 +1,16 @@
+# Keep secrets, local state and bulky/irrelevant files out of the build context.
+# backend/.env holds real API keys and must never be copied into an image.
+.git
+.github
+.kiro
+.hypothesis
+**/.env
+**/.venv
+**/node_modules
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/logs
+frontend/dist
+backend/tests
