@@ -101,6 +101,37 @@ def test_crud_and_search_round_trip_on_mongo(user):
     assert client.get(url(pid, "/search", q="fresh")).get_json()["total"] == 0
 
 
+def test_summary_queries_preserve_metadata_and_only_return_a_snippet(user):
+    client, pid = user
+    body = "entanglement 🙂 " * 100
+    created = client.post(
+        url(pid),
+        json={
+            "title": "Quantum notes",
+            "content": body,
+            "description": "Research summary",
+            "tags": ["physics"],
+            "contentType": "notes",
+        },
+    )
+    assert created.status_code == 201
+    detail = created.get_json()
+    expected = {key: value for key, value in detail.items() if key != "content"}
+    expected["snippet"] = body[:200]
+
+    for path, params in (
+        ("", {"sort": "updatedAt", "page": 1, "pageSize": 20}),
+        ("", {"sort": "title"}),
+        ("/search", {"q": "entanglement"}),
+    ):
+        response = client.get(url(pid, path, **params))
+        assert response.status_code == 200
+        assert response.get_json()["items"] == [expected]
+
+    fetched = client.get(url(pid, f"/{detail['id']}"))
+    assert fetched.get_json()["content"] == body
+
+
 @pytest.mark.performance
 def test_n1_create_10kb_under_2_seconds(user):
     client, pid = user

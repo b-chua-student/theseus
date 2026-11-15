@@ -24,7 +24,21 @@ SNIPPET_LENGTH = 200
 # SNIPPET_LENGTH characters so the Source invariant (text => content) still holds.
 # Items returned by list_text/search_text are therefore read-only summaries and must
 # not be saved back; use ``get`` for the full document.
+# A computed field makes this an inclusion projection: retain the metadata explicitly.
 _LIST_PROJECTION: dict[str, Any] = {
+    "title": 1,
+    "authors": 1,
+    "year": 1,
+    "file_ref": 1,
+    "project_id": 1,
+    "removed_at": 1,
+    "kind": 1,
+    "content_type": 1,
+    "version": 1,
+    "updated_at": 1,
+    "created_at": 1,
+    "tags": 1,
+    "description": 1,
     "content": {"$substrCP": ["$content", 0, SNIPPET_LENGTH]},
 }
 
