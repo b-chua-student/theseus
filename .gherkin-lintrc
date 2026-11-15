@@ -38,11 +38,41 @@
       "but": 4
     }
   ],
-  "name-length": ["on", { "Feature": 80, "Scenario": 100, "Step": 120 }],
-  "scenario-size": ["on", { "steps-length": { "Background": 5, "Scenario": 8 } }],
+
+  "name-length": [
+    "on",
+    {
+      "Feature": 80,
+      "Scenario": 100,
+      "Step": 120
+    }
+  ],
+
+  "scenario-size": [
+    "on",
+    {
+      "steps-length": {
+        "Background": 5,
+        "Scenario": 8
+      }
+    }
+  ],
+
   "required-tags": [
     "on",
-    { "tags": ["^@S-\\d{3}$", "^@criterion-\\d+$"], "ignoreUntagged": false }
+    {
+      "tags": [
+        "^@S-\\d{3}$",
+        "^@criterion-\\d+$"
+      ],
+      "ignoreUntagged": false
+    }
   ],
-  "no-restricted-tags": ["on", { "tags": ["@TBD", "@TODO", "@wip"] }]
+
+  "no-restricted-tags": [
+    "on",
+    {
+      "tags": ["@TBD", "@TODO", "@wip"]
+    }
+  ]
 }
