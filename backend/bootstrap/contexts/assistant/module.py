@@ -25,10 +25,11 @@ from domain.assistant.services.get_indexing_status import GetIndexingStatusServi
 from domain.assistant.services.handlers.on_manuscript_saved import OnManuscriptSaved
 from domain.assistant.services.handlers.on_source_added import OnSourceAdded
 from domain.assistant.services.handlers.on_source_removed import OnSourceRemoved
+from domain.assistant.services.handlers.on_source_updated import OnSourceUpdated
 from domain.assistant.services.ingestion_worker import IngestionWorker
 from domain.manuscript.models.events import ManuscriptSaved
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
-from domain.src_lib.models.events import SourceAdded, SourceRemoved
+from domain.src_lib.models.events import SourceAdded, SourceRemoved, SourceUpdated
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,11 @@ def build_assistant_module(
         queue=index_job_queue,
         provider=source_content_provider,  # type: ignore[arg-type]  # may be None in tests
     )
+    on_source_updated = OnSourceUpdated(
+        repository=indexed_document_repo,
+        queue=index_job_queue,
+        provider=source_content_provider,
+    )
     on_source_removed = OnSourceRemoved(repository=indexed_document_repo)
     on_manuscript_saved = OnManuscriptSaved(
         repository=indexed_document_repo,
@@ -83,6 +89,7 @@ def build_assistant_module(
     )
 
     event_bus.subscribe(SourceAdded, on_source_added)
+    event_bus.subscribe(SourceUpdated, on_source_updated)
     event_bus.subscribe(SourceRemoved, on_source_removed)
     event_bus.subscribe(ManuscriptSaved, on_manuscript_saved)
 

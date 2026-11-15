@@ -31,7 +31,7 @@ class Source:
     title: SourceTitle
     authors: tuple[Author, ...]
     year: int | None
-    file_ref: str
+    file_ref: str | None
     project_id: UUID
     removed_at: datetime | None = None
     # New fields for text sources
@@ -42,6 +42,7 @@ class Source:
     content_type: ContentType = ContentType.OTHER
     version: int = 1
     updated_at: datetime | None = None
+    created_at: datetime | None = None
     _events: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -62,12 +63,14 @@ class Source:
         # Set updated_at if not provided
         if self.updated_at is None:
             object.__setattr__(self, "updated_at", datetime.now(UTC))
+        if self.created_at is None:
+            object.__setattr__(self, "created_at", self.updated_at)
 
     @classmethod
     def add(
         cls,
         title: SourceTitle,
-        file_ref: str,
+        file_ref: str | None,
         project_id: UUID,
         authors: list[Author] | None = None,
         year: int | None = None,
@@ -118,7 +121,7 @@ class Source:
         """Create a new text source (convenience method)."""
         return cls.add(
             title=title,
-            file_ref="",  # Empty for text sources
+            file_ref=None,  # Text sources have no file (D6)
             project_id=project_id,
             authors=None,
             year=None,

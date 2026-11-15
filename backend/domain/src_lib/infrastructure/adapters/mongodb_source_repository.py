@@ -2,9 +2,11 @@ from typing import Any, Literal
 from uuid import UUID
 
 from pymongo import ASCENDING, DESCENDING
+from pymongo.collation import Collation
 from pymongo.database import Database
 
 from domain.shared.clock import now
+from domain.src_lib.infrastructure.adapters.mongodb_source_indexes import ensure_source_indexes
 from domain.src_lib.infrastructure.ports.source_repository import SourceRepository
 from domain.src_lib.models.aggregates import Source
 from domain.src_lib.models.value_objects import (
@@ -17,42 +19,26 @@ from domain.src_lib.models.value_objects import (
     TextBody,
 )
 
+SNIPPET_LENGTH = 200
+
+# List/search views never load the full body (R4). ``content`` is replaced by its first
+# SNIPPET_LENGTH characters so the Source invariant (text => content) still holds.
+# Items returned by list_text/search_text are therefore read-only summaries and must
+# not be saved back; use ``get`` for the full document.
+_LIST_PROJECTION: dict[str, Any] = {
+    "content": {"$substrCP": ["$content", 0, SNIPPET_LENGTH]},
+}
+
+# Case-insensitive ordering for the title sort.
+_TITLE_COLLATION = Collation(locale="en", strength=2)
+
 
 class MongoSourceRepository(SourceRepository):
     """Sources stored one per document. Removed sources are kept (soft delete)."""
 
     def __init__(self, database: Database, *, collection: str = "sources") -> None:
         self._sources = database[collection]
-        self._sources.create_index("removed_at")
-        # Create indexes for text search and filtering
-        self._sources.create_index(
-            [("project_id", 1), ("kind", 1), ("removed_at", 1), ("updated_at", DESCENDING)]
-        )
-        self._sources.create_index([("project_id", 1), ("tags", 1)])
-        # Text index for search - extend existing if present
-        try:
-            # Check if text index exists
-            existing_indexes = list(self._sources.list_indexes())
-            has_text_index = any("text" in idx.get("key", {}) for idx in existing_indexes)
-            if not has_text_index:
-                self._sources.create_index(
-                    [
-                        ("title", "text"),
-                        ("tags", "text"),
-                        ("description", "text"),
-                        ("content", "text"),
-                    ],
-                    default_language="english",
-                    weights={
-                        "title": 10,
-                        "tags": 5,
-                        "description": 3,
-                        "content": 1,
-                    },
-                )
-        except Exception:
-            # If text index creation fails (e.g., existing incompatible index), skip
-            pass
+        ensure_source_indexes(self._sources)
 
     # ---- mapping ----
     @staticmethod
@@ -69,6 +55,7 @@ class MongoSourceRepository(SourceRepository):
             "content_type": source.content_type.value,
             "version": source.version,
             "updated_at": source.updated_at,
+            "created_at": source.created_at,
             "tags": list(source.tags.value),
         }
 
@@ -103,16 +90,16 @@ class MongoSourceRepository(SourceRepository):
         version = doc.get("version", 1)
 
         # Get updated_at if present
-        updated_at = doc.get("updated_at")
+        updated_at = doc.get("updated_at") or doc.get("created_at")
 
         return Source(
             id=SourceId(UUID(doc["_id"])),
             title=SourceTitle(doc["title"]),
-            authors=tuple(Author(name) for name in doc["authors"]),
-            year=doc["year"],
-            file_ref=doc["file_ref"],
+            authors=tuple(Author(name) for name in doc.get("authors", [])),
+            year=doc.get("year"),
+            file_ref=doc.get("file_ref"),
             project_id=UUID(doc["project_id"]),
-            removed_at=doc["removed_at"],
+            removed_at=doc.get("removed_at"),
             kind=kind,
             content=content,
             description=description,
@@ -120,6 +107,7 @@ class MongoSourceRepository(SourceRepository):
             content_type=content_type,
             version=version,
             updated_at=updated_at,
+            created_at=doc.get("created_at") or updated_at,
         )
 
     # ---- port implementation ----
@@ -134,15 +122,16 @@ class MongoSourceRepository(SourceRepository):
     def save(self, source: Source) -> None:
         doc = self._to_doc(source)
         update_fields = {k: v for k, v in doc.items() if k != "_id"}
+        # Optional text fields cleared by an update must be removed from the stored doc.
+        unset_fields = {k: "" for k in ("description", "content") if k not in update_fields}
 
-        self._sources.update_one(
-            {"_id": str(source.id.value)},
-            {
-                "$set": update_fields,
-                "$setOnInsert": {"created_at": now()},
-            },
-            upsert=True,
-        )
+        update: dict[str, Any] = {
+            "$set": update_fields,
+            "$setOnInsert": {"created_at": now()},
+        }
+        if unset_fields:
+            update["$unset"] = unset_fields
+        self._sources.update_one({"_id": str(source.id.value)}, update, upsert=True)
 
     def list_text(
         self,
@@ -178,7 +167,11 @@ class MongoSourceRepository(SourceRepository):
 
         # Projection to exclude content for list views
         docs = (
-            self._sources.find(query, {"content": 0}).sort(sort_field).skip(skip).limit(page_size)
+            self._sources.find(query, _LIST_PROJECTION)
+            .sort(sort_field + [("_id", ASCENDING)])
+            .collation(_TITLE_COLLATION)
+            .skip(skip)
+            .limit(page_size)
         )
 
         return [self._to_source(d) for d in docs], total
@@ -194,6 +187,7 @@ class MongoSourceRepository(SourceRepository):
     ) -> tuple[list[Source], int]:
         """Search text sources with full-text search."""
         # Build text search query
+        query = query.strip()
         text_query: dict[str, Any] = {"$text": {"$search": query}} if query else {}
 
         # Build filter query
@@ -218,7 +212,7 @@ class MongoSourceRepository(SourceRepository):
         total = self._sources.count_documents(mongo_query)
 
         # Projection to exclude content for search results
-        projection: dict[str, Any] = {"content": 0}
+        projection: dict[str, Any] = dict(_LIST_PROJECTION)
         if text_query:
             projection["score"] = {"$meta": "textScore"}
 
@@ -228,7 +222,7 @@ class MongoSourceRepository(SourceRepository):
         if text_query:
             cursor = cursor.sort([("score", {"$meta": "textScore"}), ("updated_at", DESCENDING)])
         else:
-            cursor = cursor.sort("updated_at", DESCENDING)
+            cursor = cursor.sort([("updated_at", DESCENDING), ("_id", ASCENDING)])
         docs = cursor.skip(skip).limit(page_size)
 
         return [self._to_source(d) for d in docs], total

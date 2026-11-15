@@ -9,3 +9,7 @@ class SourceContentProvider(ABC):
     @abstractmethod
     def get_content(self, doc_ref_id: DocumentRefId) -> str:
         """Return the raw text of the source identified by ``doc_ref_id``."""
+
+    def get_title(self, doc_ref_id: DocumentRefId) -> str | None:
+        """Return a human-readable title for the source, or None if unknown."""
+        return None

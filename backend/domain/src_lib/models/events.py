@@ -11,7 +11,7 @@ class SourceAdded:
 
     source_id: SourceId
     project_id: UUID
-    file_ref: str
+    file_ref: str | None
     kind: Literal["file", "text"] = "file"  # Default for backward compatibility
 
 

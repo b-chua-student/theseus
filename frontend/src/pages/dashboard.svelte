@@ -258,7 +258,7 @@
         </div>
       </section>
 
-      <SourceLibrary {icon} />
+      <SourceLibrary {icon} projectId={selectedProject?.id ?? ''} />
     </div>
   </main>
 </div>

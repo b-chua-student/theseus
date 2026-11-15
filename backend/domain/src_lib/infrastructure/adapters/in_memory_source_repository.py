@@ -71,6 +71,7 @@ class InMemorySourceRepository(SourceRepository):
         page_size: int = 20,
     ) -> tuple[list[Source], int]:
         """Search text sources with full-text search."""
+        query = query.strip()
         if not query:
             return self.list_text(project_id, content_type, tag, "updatedAt", page, page_size)
 

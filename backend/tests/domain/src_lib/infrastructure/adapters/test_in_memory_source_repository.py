@@ -379,3 +379,64 @@ class TestInMemorySourceRepository:
         sources, total = repo.search_text(project_id, "source", page=1, page_size=2)
         assert total == 5
         assert len(sources) == 2
+
+    def test_search_text_isolated_by_project(self, repo, project_id, other_project_id):
+        """search_text should never return sources from another project."""
+        mine = self.create_text_source(repo, project_id, title="Shared Term")
+        self.create_text_source(repo, other_project_id, title="Shared Term")
+
+        sources, total = repo.search_text(project_id, "shared")
+        assert total == 1
+        assert sources[0].id == mine.id
+
+    def test_search_text_excludes_removed_and_file_sources(self, repo, project_id):
+        """search_text should skip removed and file-kind sources."""
+        active = self.create_text_source(repo, project_id, title="Needle active")
+        removed = self.create_text_source(repo, project_id, title="Needle removed")
+        removed.remove()
+        repo.save(removed)
+        self.create_file_source(repo, project_id, title="Needle file")
+
+        sources, total = repo.search_text(project_id, "needle")
+        assert total == 1
+        assert sources[0].id == active.id
+
+    def test_search_text_no_match_returns_empty(self, repo, project_id):
+        """A query with no matches is valid and returns an empty page."""
+        self.create_text_source(repo, project_id, title="Something")
+
+        sources, total = repo.search_text(project_id, "zzz-nothing")
+        assert sources == []
+        assert total == 0
+
+    def test_save_updates_existing_source(self, repo, project_id):
+        """save should overwrite an existing source and reflect it in get/list/search."""
+        source = self.create_text_source(repo, project_id, title="Old", content="old body")
+
+        source.update_text(
+            title=SourceTitle("New"),
+            content=TextBody("fresh body"),
+            tags=Tags.create(["updated"]),
+            content_type=ContentType.NOTES,
+        )
+        repo.save(source)
+
+        stored = repo.get(source.id)
+        assert stored is not None
+        assert stored.title.value == "New"
+        assert stored.version == 2
+        sources, total = repo.list_text(project_id)
+        assert total == 1
+        assert sources[0].content is not None
+        assert sources[0].content.value == "fresh body"
+        assert repo.search_text(project_id, "old")[1] == 0
+        assert repo.search_text(project_id, "fresh")[1] == 1
+        assert repo.list_text(project_id, tag="updated")[1] == 1
+
+    def test_list_text_title_sort_is_case_insensitive(self, repo, project_id):
+        """Title sort ignores case."""
+        self.create_text_source(repo, project_id, title="bravo")
+        self.create_text_source(repo, project_id, title="Alpha")
+
+        sources, _ = repo.list_text(project_id, sort="title")
+        assert [s.title.value for s in sources] == ["Alpha", "bravo"]

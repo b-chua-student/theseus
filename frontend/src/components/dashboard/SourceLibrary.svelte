@@ -1,8 +1,13 @@
 <script>
   import { listSources, addSource, removeSource, updateSourceMetadata } from '../../lib/api/sources.js';
 
-  /** @type {{ icon: Function }} */
-  let { icon } = $props();
+  import { untrack } from 'svelte';
+  import { getTextSource } from '../../lib/api/textSources.js';
+  import TextSourceList from '../text-sources/TextSourceList.svelte';
+  import TextSourceForm from '../text-sources/TextSourceForm.svelte';
+
+  /** @type {{ icon: Function, projectId?: string }} */
+  let { icon, projectId = '' } = $props();
 
   // ── data ──────────────────────────────────────────────────────────────────────
   /** @type {import('../../lib/api/sources.js').Source[]} */
@@ -30,6 +35,51 @@
   let editError = $state('');
   let editBusy = $state(false);
 
+  // ── text sources ──────────────────────────────────────────────────────────────
+  /** 'list' shows the text source list; 'form' shows the create/edit form. */
+  let textView = $state('list');
+  let textEditing = $state(null);
+  let textRefresh = $state(0);
+  let textError = $state('');
+
+  function openTextCreate() {
+    textEditing = null;
+    textError = '';
+    textView = 'form';
+  }
+
+  async function openTextEdit(summary) {
+    textError = '';
+    try {
+      // The list only carries snippets; the form needs the full content.
+      textEditing = await getTextSource(projectId, summary.id);
+      textView = 'form';
+    } catch (e) {
+      textError = e.message;
+    }
+  }
+
+  function closeTextForm() {
+    textView = 'list';
+    textEditing = null;
+  }
+
+  // Switching projects returns to the list; an open edit belongs to the old project.
+  let lastProjectId = untrack(() => projectId);
+  $effect.pre(() => {
+    if (projectId !== lastProjectId) {
+      lastProjectId = projectId;
+      textView = 'list';
+      textEditing = null;
+      textError = '';
+    }
+  });
+
+  function handleTextSaved() {
+    closeTextForm();
+    textRefresh += 1;
+  }
+
   // ── load ──────────────────────────────────────────────────────────────────────
   $effect(() => { load(); });
 
@@ -38,7 +88,8 @@
     error = '';
     loadFailed = false;
     try {
-      sources = await listSources();
+      // Text sources are listed (with search/filter/paging) by TextSourceList.
+      sources = (await listSources()).filter((s) => s.kind !== 'text');
     } catch (e) {
       error = e.message;
       loadFailed = true;
@@ -180,6 +231,20 @@
       {/each}
     </ul>
   {/if}
+
+  {#if textError}
+    <div class="error-banner" role="alert">{textError}</div>
+  {/if}
+  <!-- Text source endpoints are project-scoped; without a project there is nothing to show. -->
+  {#key projectId}
+    {#if !projectId}
+      <!-- no project selected -->
+    {:else if textView === 'form'}
+      <TextSourceForm {projectId} source={textEditing} onsaved={handleTextSaved} oncancel={closeTextForm} />
+    {:else}
+      <TextSourceList {projectId} oncreate={openTextCreate} onedit={openTextEdit} refreshKey={textRefresh} />
+    {/if}
+  {/key}
 </aside>
 
 <!-- Add dialog -->

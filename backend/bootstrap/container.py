@@ -22,6 +22,9 @@ from domain.assistant.infrastructure.adapters.in_memory_vector_store import (
 from domain.assistant.infrastructure.adapters.manuscript_content_provider import (
     ManuscriptContentProvider,
 )
+from domain.assistant.infrastructure.adapters.source_library_content_provider import (
+    SourceLibraryContentProvider,
+)
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.document_chunker import DocumentChunker
@@ -115,7 +118,11 @@ def build_container(
 
     # Default the content provider to read manuscript sections from the manuscript
     # repository so a ManuscriptSaved event triggers real ingestion by default.
-    source_content_provider = source_content_provider or ManuscriptContentProvider(manuscript_repo)
+    # Text sources are served from the source repository; everything else falls back
+    # to manuscripts.
+    source_content_provider = source_content_provider or SourceLibraryContentProvider(
+        source_repo, ManuscriptContentProvider(manuscript_repo)
+    )
 
     # Default ingestion adapters to in-memory implementations so the pipeline runs
     # end to end without external services. Production deployments can override

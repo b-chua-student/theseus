@@ -86,7 +86,7 @@ class TestSourceAggregate:
 
         assert source.title.value == "Test Text"
         assert source.content.value == "Sample content"
-        assert source.file_ref == ""  # Empty for text sources
+        assert source.file_ref is None  # No file for text sources
         assert source.project_id == project_id
         assert source.kind == "text"
         assert source.description is None
@@ -335,7 +335,7 @@ class TestSourceAggregate:
         assert isinstance(event, SourceAdded)
         assert event.source_id == valid_text_source.id
         assert event.project_id == valid_text_source.project_id
-        assert event.file_ref == ""  # Empty for text sources
+        assert event.file_ref is None  # No file for text sources
         assert event.kind == "text"
 
     def test_events_cleared_after_pull(self, valid_text_source):
@@ -418,3 +418,28 @@ class TestSourceValidation:
 
         assert source.kind == "file"
         assert source.content is None
+
+    def test_text_source_accepts_none_file_ref_in_constructor(self, project_id):
+        """file_ref is optional for text sources (D6)."""
+        source = Source(
+            id=SourceId.new(),
+            title=SourceTitle("Test"),
+            authors=(),
+            year=None,
+            file_ref=None,
+            project_id=project_id,
+            kind="text",
+            content=TextBody("Body"),
+        )
+        assert source.file_ref is None
+
+    def test_file_source_rejects_none_file_ref(self, project_id):
+        with pytest.raises(ValueError, match="File source must have file_ref"):
+            Source(
+                id=SourceId.new(),
+                title=SourceTitle("Test"),
+                authors=(),
+                year=None,
+                file_ref=None,
+                project_id=project_id,
+            )

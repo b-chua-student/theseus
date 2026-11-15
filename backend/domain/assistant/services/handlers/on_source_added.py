@@ -35,9 +35,10 @@ class OnSourceAdded:
 
         if indexed is None:
             # First time we see this source — create a pending IndexedDocument.
-            # Use file_ref as a placeholder title until proper metadata is propagated.
+            # File sources use file_ref as a placeholder title; text sources have no
+            # file_ref, so the title comes from the provider.
             indexed = IndexedDocument.create(
-                title=IndexedDocumentTitle(event.file_ref),
+                title=IndexedDocumentTitle(self._title_for(event, doc_ref_id)),
                 doc_ref_id=doc_ref_id,
                 project_id=ProjectId(event.project_id),
             )
@@ -49,3 +50,9 @@ class OnSourceAdded:
             self._repository.save(indexed)
 
         self._queue.enqueue_index(doc_ref_id)
+
+    def _title_for(self, event: SourceAdded, doc_ref_id: DocumentRefId) -> str:
+        if event.kind != "text":
+            return event.file_ref  # type: ignore[return-value]  # file sources always have it
+        title = self._provider.get_title(doc_ref_id) if self._provider is not None else None
+        return title or f"Text source {event.source_id.value}"
