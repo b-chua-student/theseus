@@ -13,7 +13,8 @@ from domain.src_lib.infrastructure.adapters.mongodb_source_repository import (
     _LIST_PROJECTION,
     MongoSourceRepository,
 )
-from domain.src_lib.models.value_objects import ContentType
+from domain.src_lib.models.aggregates import Source
+from domain.src_lib.models.value_objects import ContentType, SourceTitle, TextBody
 
 
 def legacy_doc() -> dict:
@@ -52,6 +53,22 @@ def test_save_unsets_cleared_optional_fields():
     repo.save(source)
     update = coll.update_one.call_args.args[1]
     assert update["$unset"] == {"description": "", "content": ""}
+
+
+def test_save_text_source_uses_non_conflicting_update_paths():
+    coll = MagicMock()
+    repo = MongoSourceRepository.__new__(MongoSourceRepository)
+    repo._sources = coll
+    source = Source.add_text(SourceTitle("Notes"), TextBody("Research notes"), uuid4())
+
+    repo.save(source)
+
+    update = coll.update_one.call_args.args[1]
+    paths = [path for fields in update.values() for path in fields]
+    assert len(paths) == len(set(paths)), "MongoDB rejects overlapping update paths"
+    assert update["$setOnInsert"] == {"created_at": source.created_at}
+    assert update["$set"]["content"] == "Research notes"
+    assert coll.update_one.call_args.kwargs["upsert"] is True
 
 
 def _collection(indexes: list[dict]) -> MagicMock:

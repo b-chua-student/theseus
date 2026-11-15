@@ -5,7 +5,6 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.collation import Collation
 from pymongo.database import Database
 
-from domain.shared.clock import now
 from domain.src_lib.infrastructure.adapters.mongodb_source_indexes import ensure_source_indexes
 from domain.src_lib.infrastructure.ports.source_repository import SourceRepository
 from domain.src_lib.models.aggregates import Source
@@ -121,13 +120,13 @@ class MongoSourceRepository(SourceRepository):
 
     def save(self, source: Source) -> None:
         doc = self._to_doc(source)
-        update_fields = {k: v for k, v in doc.items() if k != "_id"}
+        update_fields = {k: v for k, v in doc.items() if k not in ("_id", "created_at")}
         # Optional text fields cleared by an update must be removed from the stored doc.
         unset_fields = {k: "" for k in ("description", "content") if k not in update_fields}
 
         update: dict[str, Any] = {
             "$set": update_fields,
-            "$setOnInsert": {"created_at": now()},
+            "$setOnInsert": {"created_at": source.created_at},
         }
         if unset_fields:
             update["$unset"] = unset_fields
