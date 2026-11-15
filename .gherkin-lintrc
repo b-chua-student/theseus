@@ -1,0 +1,45 @@
+{
+  "no-empty-file": "on",
+  "no-files-without-scenarios": "on",
+  "no-unnamed-features": "on",
+  "no-unnamed-scenarios": "on",
+  "no-dupe-feature-names": "on",
+  "no-dupe-scenario-names": "on",
+  "no-duplicate-tags": "on",
+  "no-empty-background": "on",
+  "no-background-only-scenario": "on",
+  "no-examples-in-scenarios": "on",
+  "no-scenario-outlines-without-examples": "on",
+  "no-unused-variables": "on",
+  "no-partially-commented-tag-lines": "on",
+  "no-tags-on-backgrounds": "on",
+  "keywords-in-logical-order": "on",
+  "use-and": "on",
+  "one-space-between-tags": "on",
+  "no-trailing-spaces": "on",
+  "no-multiple-empty-lines": "on",
+  "new-line-at-eof": ["on", "yes"],
+  "indentation": [
+    "on",
+    {
+      "Feature": 0,
+      "Background": 2,
+      "Scenario": 2,
+      "Step": 4,
+      "Examples": 4,
+      "example": 6,
+      "given": 4,
+      "when": 4,
+      "then": 4,
+      "and": 4,
+      "but": 4
+    }
+  ],
+  "name-length": ["on", { "Feature": 80, "Scenario": 100, "Step": 120 }],
+  "scenario-size": ["on", { "steps-length": { "Background": 5, "Scenario": 8 } }],
+  "required-tags": [
+    "on",
+    { "tags": ["^@S-\\d{3}$", "^@criterion-\\d+$"], "ignoreUntagged": false }
+  ],
+  "no-restricted-tags": ["on", { "tags": ["@TBD", "@TODO", "@wip"] }]
+}
