@@ -18,6 +18,10 @@
   "no-trailing-spaces": "on",
   "no-multiple-empty-lines": "on",
   "new-line-at-eof": ["on", "yes"],
+  "no-superfluous-tags": "on",
+  "no-homogenous-tags": "on",
+  "only-one-when": "on"
+
   "indentation": [
     "on",
     {
