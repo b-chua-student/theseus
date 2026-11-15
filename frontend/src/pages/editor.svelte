@@ -43,6 +43,8 @@
   let saveTick = $state(0);
   let notice = $state('');
   let saving = $state(false);
+  let dirty = $state(false);
+  let editVersion = 0;
   // 'loading' until the manuscript content has been fetched; 'error' if the first
   // load failed (the editor stays blank and Save is disabled so nothing is overwritten).
   let loadState = $state('loading');
@@ -231,6 +233,7 @@
           });
 
         editor.commands.setContent({ type: 'doc', content });
+        dirty = false;
         hasLoaded = true;
         loadState = 'ready';
 
@@ -257,6 +260,11 @@
   }
 
   // Reload manuscript content after switching to another draft.
+  async function onMerge(source, target) {
+    await loadManuscript();
+    notice = `Merged "${source}" into "${target}".`;
+  }
+
   function onDraftChange() {
     loadManuscript();
     notice = 'Switched draft.';
@@ -268,6 +276,7 @@
       extensions: [StarterKit.configure({ underline: false }), InlineStyle, Underline, Alignment, PageBreak, SelectionHighlight],
       content: '',
       onTransaction: () => tick++,
+      onUpdate: () => { dirty = true; editVersion++; },
     });
 
     loadManuscript();
@@ -292,6 +301,7 @@
   async function save(message) {
     if (!editor || saving || loadState !== 'ready') return;
     const revisionMessage = typeof message === 'string' && message.trim() ? message.trim() : 'Manual save';
+    const savedVersion = editVersion;
     saving = true;
     notice = 'Saving…';
 
@@ -346,9 +356,11 @@
       // would otherwise not be stored on the draft.
       try {
         const revision = await withTimeout(commitRevision(projectId, manuscriptId, revisionMessage));
+        dirty = editVersion !== savedVersion;
         notice = `Saved to draft "${revision.draft}".`;
       } catch (e) {
         if (e.code === 'revision.no_changes') {
+          dirty = editVersion !== savedVersion;
           notice = 'Saved. No changes since the last revision.';
         } else {
           notice = `Saved, but could not record a revision: ${e.message}`;
@@ -392,7 +404,7 @@
 {/snippet}
 
 <div class="theseus-editor">
-  <EditorHeader {projectId} id={manuscriptId} {title} {editor} {onback} {menuItems} {runMenu} {save} {icon} {onRestore} {onDraftChange} {saveTick} {saving} canSave={loadState === 'ready'} bind:menuOpen bind:open />
+  <EditorHeader {projectId} id={manuscriptId} {title} {editor} {onback} {menuItems} {runMenu} {save} {icon} {onRestore} {onDraftChange} {onMerge} hasUnsavedChanges={dirty} {saveTick} {saving} canSave={loadState === 'ready'} bind:menuOpen bind:open />
 
   <EditorToolbar {editor} {fonts} {sizes} {fontFamily} {fontSize} {setFont} {tools} {active} {runMenu} {showDialog} {isAligned} {align} {outline} {currentPage} {jumpTo} {addPage} {zoom} {changeZoom} {wordCount} {icon} />
 

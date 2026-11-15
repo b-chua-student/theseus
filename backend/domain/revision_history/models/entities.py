@@ -3,7 +3,7 @@ from datetime import datetime
 
 from domain.shared.clock import now
 
-from .value_objects import RevisionId, Snapshot
+from .value_objects import MergeSource, RevisionId, Snapshot
 
 
 @dataclass(frozen=True)
@@ -14,6 +14,7 @@ class Revision:
     message: str
     snapshot: Snapshot
     created_at: datetime = field(default_factory=now)
+    merged_from: MergeSource | None = None
 
 
 @dataclass(eq=False)

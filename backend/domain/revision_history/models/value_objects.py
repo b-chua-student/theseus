@@ -90,3 +90,9 @@ class Snapshot:
     """Immutable copy of all of a manuscript's sections at a point in time."""
 
     sections: tuple[SectionSnapshot, ...]
+
+
+@dataclass(frozen=True)
+class MergeSource:
+    draft_name: str
+    head_revision_id: RevisionId

@@ -1,4 +1,6 @@
 <script>
+  import MergePanel from "./MergePanel.svelte";
+  import { mergeDisabledReason } from "../../lib/mergeDraft.js";
   import { listRevisions, startRevisionHistory, restoreRevision } from "../../lib/api/revisions.js";
   import { listDrafts, createDraft, renameDraft, deleteDraft, switchDraft } from "../../lib/api/drafts.js";
   import { getIndexingStatus } from "../../lib/api/indexing.js";
@@ -16,6 +18,8 @@
     save,
     icon,
     onRestore,
+    onMerge,
+    hasUnsavedChanges = false,
     onDraftChange,
     saveTick,
     saving = false,
@@ -24,6 +28,14 @@
     open = $bindable(false),
   } = $props();
 
+  let mergeOpen = $state(false);
+  let mergeReason = $derived(mergeDisabledReason(draftsStarted, drafts.length, draftBusy || saving || restoringId !== null));
+  async function merged(source, target) {
+    await loadDrafts();
+    mergeOpen = false;
+    await onMerge?.(source, target);
+    loadIndexStatus();
+  }
   let revisions = $state([]);
   let revisionsLoading = $state(false);
   let revisionsError = $state("");
@@ -102,6 +114,7 @@
   onDestroy(() => clearTimeout(indexPollHandle));
 
   loadIndexStatus();
+  loadDrafts();
 
   // Re-check status whenever the parent reports a save (saveTick increments).
   let lastSaveTick = 0;
@@ -110,6 +123,7 @@
     if (tick !== lastSaveTick) {
       lastSaveTick = tick;
       loadIndexStatus();
+      loadDrafts();
     }
   });
 
@@ -247,10 +261,7 @@
   <header class="editor-header">
     <div class="document-controls">
       <button type="button" class="back-button" onclick={onback} title="Back to Project Dashboard" aria-label="Back to Project Dashboard">{@render icon('back')}</button>
-      <!-- TODO(API): MERGE
-           Connect source/target draft IDs, conflict handling, and server confirmation.
-           Enable only after a real merge handler is implemented. -->
-      <button type="button" class="pill" disabled title="Merge is not implemented">{@render icon('merge', 12)} Merge</button>
+      <button type="button" class="pill" disabled={!!mergeReason} title={mergeReason} onclick={() => { menuOpen = null; mergeOpen = true; }}>{@render icon('merge', 12)} Merge</button>
       <!-- ACTIVE API: Drafts panel lists, creates, renames, deletes and switches drafts.
            The manuscript content is the latest revision of the current draft. -->
       <div class="dropdown">
@@ -387,6 +398,9 @@
       <button type="button" class="pill" class:active={open} onclick={() => (open = !open)} aria-expanded={open} aria-controls="theseus-chat">{@render icon('panel', 12)} Chat</button>
     </div>
   </header>
+{#if mergeOpen}
+  <MergePanel {projectId} {id} {currentDraft} {drafts} {hasUnsavedChanges} onmerged={merged} onclose={() => mergeOpen = false} />
+{/if}
 <style>
   .editor-header, .editor-header * { box-sizing: border-box; }
   button { font: inherit; color: inherit; margin: 0; }

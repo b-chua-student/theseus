@@ -181,3 +181,34 @@ curl -b jar -H 'Content-Type: application/json' \
   -d '{"query":"Summarise my introduction"}' \
   localhost:5000/api/projects/$P/conversations/$CID/exchanges            # -> {"answer": "..."}
 ```
+
+
+### Merge a draft
+
+`POST /api/projects/{project_id}/manuscripts/{manuscript_id}/drafts/{name}/merge`
+merges the named source into the current draft. Requires the same logged-in session as commit.
+
+```json
+{"message": "Merge review edits", "resolutions": [
+  {"section_id": "123e4567-e89b-12d3-a456-426614174000", "field": "body", "choice": "source"}
+]}
+```
+
+Send `{}` for the initial attempt. Message is optional (1–256 characters when supplied).
+Resolutions are optional, limited to 1,000 unique section/field pairs. Fields are `heading`,
+`body`, `parent_id`, `ordinal`, or `section`; choices are `target` or `source`.
+
+| Status | Response |
+| --- | --- |
+| 200 | Current draft: `name`, `is_current`, `head`, `revision_count` |
+| 401 | Authentication required |
+| 404 | `History not found`, `Manuscript not found`, or `Draft not found` (code `revision.draft_not_found`) |
+| 409 | `revision.merge_conflict`, with `conflicts` containing `section_id`, `section_heading`, `field`, `kind`, `base`, `target`, `source` |
+| 409 | `revision.no_changes`, `revision.unsaved_changes`, `revision.merge_in_progress`, or `revision.concurrent_modification` |
+| 422 | Invalid request with `details`, or `revision.invalid_resolution` for duplicate/unmatched resolutions |
+| 400 | Self-merge, no shared history (`revision.no_shared_history`), or another domain validation error |
+
+Error responses include `error` and, for domain errors, `code`. Whole-section conflict values
+are objects containing the four fields or `null` for deletion. Submit a choice for each
+conflict; structural conflicts introduced by choices may require another round. Rejected
+merges leave the working copy and history unchanged.

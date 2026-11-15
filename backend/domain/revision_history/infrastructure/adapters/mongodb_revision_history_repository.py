@@ -1,14 +1,17 @@
 from uuid import UUID
 
 from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError
 
 from domain.revision_history.infrastructure.ports.revision_history_repository import (
     RevisionHistoryRepository,
 )
 from domain.revision_history.models.aggregates import MAIN, RevisionHistory
 from domain.revision_history.models.entities import Branch, Revision
+from domain.revision_history.models.errors import ConcurrentModificationError
 from domain.revision_history.models.value_objects import (
     ManuscriptId,
+    MergeSource,
     RevisionId,
     SectionSnapshot,
     Snapshot,
@@ -49,6 +52,12 @@ class MongoRevisionHistoryRepository(RevisionHistoryRepository):
             "manuscript_id": manuscript_key,
             "message": revision.message,
             "created_at": revision.created_at,
+            "merged_from": {
+                "draft": revision.merged_from.draft_name,
+                "head_revision_id": str(revision.merged_from.head_revision_id.value),
+            }
+            if revision.merged_from
+            else None,
             "snapshot": [
                 {
                     "id": str(s.id),
@@ -66,6 +75,12 @@ class MongoRevisionHistoryRepository(RevisionHistoryRepository):
         return Revision(
             id=RevisionId(UUID(doc["_id"])),
             message=doc["message"],
+            merged_from=MergeSource(
+                doc["merged_from"]["draft"],
+                RevisionId.from_str(doc["merged_from"]["head_revision_id"]),
+            )
+            if doc.get("merged_from")
+            else None,
             created_at=doc["created_at"],
             snapshot=Snapshot(
                 tuple(
@@ -103,7 +118,9 @@ class MongoRevisionHistoryRepository(RevisionHistoryRepository):
             d["name"]: Branch(d["name"], [revisions[rid] for rid in d["revisions"]])
             for d in doc["drafts"]
         }
-        return RevisionHistory.rehydrate(manuscript_id, branches, doc.get("current", MAIN))
+        return RevisionHistory.rehydrate(
+            manuscript_id, branches, doc.get("current", MAIN), doc.get("version", 0)
+        )
 
     def add(self, history: RevisionHistory) -> None:
         self.save(history)
@@ -123,18 +140,28 @@ class MongoRevisionHistoryRepository(RevisionHistoryRepository):
         if fresh:
             self._revisions.insert_many(fresh)
 
-        self._histories.replace_one(
-            {"_id": key},
-            {
-                "_id": key,
-                "current": history.current_draft.name,
-                "drafts": [
-                    {"name": b.name, "revisions": [str(r.id.value) for r in b.revisions]}
-                    for b in branches
-                ],
-            },
-            upsert=True,
-        )
+        query = {"_id": key, "version": history.version}
+        if history.version == 0:
+            query = {"_id": key, "$or": [{"version": 0}, {"version": {"$exists": False}}]}
+        try:
+            result = self._histories.replace_one(
+                query,
+                {
+                    "_id": key,
+                    "version": history.version + 1,
+                    "current": history.current_draft.name,
+                    "drafts": [
+                        {"name": b.name, "revisions": [str(r.id.value) for r in b.revisions]}
+                        for b in branches
+                    ],
+                },
+                upsert=history.version == 0,
+            )
+        except DuplicateKeyError as error:
+            raise ConcurrentModificationError("History changed during the operation.") from error
+        if not result.matched_count and result.upserted_id is None:
+            raise ConcurrentModificationError("History changed during the operation.")
+        history.version += 1
 
         orphaned = stored - referenced.keys()
         if orphaned:

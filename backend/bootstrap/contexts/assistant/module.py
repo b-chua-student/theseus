@@ -29,7 +29,7 @@ from domain.assistant.services.handlers.on_source_added import OnSourceAdded
 from domain.assistant.services.handlers.on_source_removed import OnSourceRemoved
 from domain.assistant.services.handlers.on_source_updated import OnSourceUpdated
 from domain.assistant.services.ingestion_worker import IngestionWorker
-from domain.manuscript.models.events import ManuscriptSaved
+from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
 from domain.src_lib.models.events import SourceAdded, SourceRemoved, SourceUpdated
 
@@ -95,6 +95,7 @@ def build_assistant_module(
     event_bus.subscribe(SourceUpdated, on_source_updated)
     event_bus.subscribe(SourceRemoved, on_source_removed)
     event_bus.subscribe(ManuscriptSaved, on_manuscript_saved)
+    event_bus.subscribe(ManuscriptContentReplaced, on_manuscript_saved)
 
     # Wire the IngestionWorker only when all five infrastructure ports are provided.
     # This lets existing tests and containers continue to work without real adapters.

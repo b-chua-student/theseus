@@ -79,3 +79,11 @@ export function switchDraft(projectId, manuscriptId, name) {
     'Failed to switch draft.',
   );
 }
+
+
+export function mergeDraft(projectId, manuscriptId, sourceName, { resolutions = [], message } = {}) {
+  return request(`${base(projectId, manuscriptId)}/${encodeURIComponent(sourceName)}/merge`, {
+    ...json('POST', { resolutions, message }),
+    signal: AbortSignal.timeout(30000),
+  }, 'Merge failed.');
+}

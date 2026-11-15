@@ -158,7 +158,7 @@ def build_container(
         revision_history=build_revision_history_module(
             repo=revision_history_repo,
             reader=ManuscriptRepositoryReader(manuscript_repo),
-            writer=ManuscriptRepositoryWriter(manuscript_repo),
+            writer=ManuscriptRepositoryWriter(manuscript_repo, event_bus),
         ),
     )
 

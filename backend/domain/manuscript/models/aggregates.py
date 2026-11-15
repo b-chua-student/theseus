@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .entities import Section
-from .events import ManuscriptSaved
+from .events import ManuscriptContentReplaced, ManuscriptSaved
 from .value_objects import Heading, ManuscriptId, ManuscriptTitle, ProjectId, SectionId
 
 DEFAULT_THESIS_TEMPLATE = (
@@ -108,3 +108,4 @@ class Manuscript:
     def replace_sections(self, sections: list[Section]) -> None:
         """Replace all sections with the given list."""
         self.sections = list(sections)
+        self._events.append(ManuscriptContentReplaced(self.id.value, self.project_id.value))

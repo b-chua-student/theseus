@@ -20,3 +20,9 @@ class ManuscriptSaved:
     project_id: UUID
     section_id: UUID
     body: str
+
+
+@dataclass(frozen=True)
+class ManuscriptContentReplaced:
+    manuscript_id: UUID
+    project_id: UUID

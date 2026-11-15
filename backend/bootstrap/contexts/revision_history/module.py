@@ -13,6 +13,7 @@ from domain.revision_history.services.get_draft import GetDraftService
 from domain.revision_history.services.get_revision import GetRevisionService
 from domain.revision_history.services.list_drafts import ListDraftsService
 from domain.revision_history.services.list_revisions import ListRevisionsService
+from domain.revision_history.services.merge_draft import MergeDraftService, MergeLocks
 from domain.revision_history.services.rename_draft import RenameDraftService
 from domain.revision_history.services.restore_revision import RestoreRevisionService
 from domain.revision_history.services.start_revision_history import StartRevisionHistoryService
@@ -23,6 +24,7 @@ from domain.revision_history.services.switch_draft import SwitchDraftService
 class RevisionHistoryModule:
     """Bundle of revision history services wired to a shared repository."""
 
+    merge_draft: MergeDraftService
     start: StartRevisionHistoryService
     commit: CommitRevisionService
     list: ListRevisionsService
@@ -44,6 +46,7 @@ def build_revision_history_module(
 ) -> RevisionHistoryModule:
     """Construct a RevisionHistoryModule with services wired to the given adapters."""
     return RevisionHistoryModule(
+        merge_draft=MergeDraftService(repo, reader, writer, MergeLocks()),
         start=StartRevisionHistoryService(repository=repo, reader=reader),
         commit=CommitRevisionService(repository=repo, reader=reader),
         list=ListRevisionsService(repository=repo),

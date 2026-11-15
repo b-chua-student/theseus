@@ -5,10 +5,13 @@ from pydantic import ValidationError
 from domain.identity.api.auth.routes import login_required
 from domain.revision_history.models.entities import Branch, Revision
 from domain.revision_history.models.errors import NoChangesError
+from domain.revision_history.models.merge import Resolution
+from domain.revision_history.services.errors import HistoryNotFound, ManuscriptNotFound
 
 from .requests import (
     CommitRevisionRequest,
     CreateDraftRequest,
+    MergeDraftRequest,
     RenameDraftRequest,
     RestoreRevisionRequest,
 )
@@ -228,4 +231,27 @@ def switch_draft(project_id: str, manuscript_id: str, name: str) -> ResponseRetu
 
     draft = container.revision_history.switch_draft.execute(manuscript_id=manuscript_id, name=name)
 
+    return jsonify(_draft(draft, current=True)), 200
+
+
+@draft_bp.post("/<name>/merge")
+@login_required
+def merge_draft(project_id: str, manuscript_id: str, name: str) -> ResponseReturnValue:
+    try:
+        body = MergeDraftRequest.model_validate(request.get_json(silent=True))
+    except ValidationError as error:
+        return jsonify(
+            error="Invalid request", details=error.errors(include_url=False, include_context=False)
+        ), 422
+    try:
+        draft = current_app.extensions["container"].revision_history.merge_draft.execute(
+            manuscript_id,
+            name,
+            [Resolution(r.section_id, r.field, r.choice) for r in body.resolutions],
+            body.message,
+        )
+    except HistoryNotFound:
+        return jsonify(error="History not found"), 404
+    except ManuscriptNotFound:
+        return jsonify(error="Manuscript not found"), 404
     return jsonify(_draft(draft, current=True)), 200

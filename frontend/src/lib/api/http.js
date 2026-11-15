@@ -30,6 +30,8 @@ export async function apiFetch(url, options, fallbackMessage) {
     const body = await res.json().catch(() => ({}));
     throw Object.assign(new Error(body.error || fallbackMessage), {
       code: body.code,
+      conflicts: body.conflicts,
+      details: body.details,
       status: res.status,
     });
   }

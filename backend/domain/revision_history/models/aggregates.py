@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from .entities import Branch, Revision
-from .errors import NoChangesError, RevisionError
+from .errors import (
+    DraftNotFoundError,
+    MergeConflictError,
+    NoChangesError,
+    NoSharedHistoryError,
+    RevisionError,
+)
+from .merge import Conflicts, merge_snapshots, normalize
 from .value_objects import (
     ManuscriptId,
+    MergeSource,
     RevisionId,
     Snapshot,
 )
@@ -20,17 +28,23 @@ class RevisionHistory:
 
     def __init__(self, manuscript_id: ManuscriptId) -> None:
         self.manuscript_id = manuscript_id
+        self.version = 0
         self._branches: dict[str, Branch] = {}
         self._current: str = MAIN
 
     @classmethod
     def rehydrate(
-        cls, manuscript_id: ManuscriptId, branches: dict[str, Branch], current: str
+        cls,
+        manuscript_id: ManuscriptId,
+        branches: dict[str, Branch],
+        current: str,
+        version: int = 0,
     ) -> RevisionHistory:
         """Rebuild a history from persisted state (used by repositories)."""
         history = cls(manuscript_id)
         history._branches = dict(branches)
         history._current = current
+        history.version = version
         return history
 
     @classmethod
@@ -154,7 +168,7 @@ class RevisionHistory:
         try:
             return self._branches[name]
         except KeyError:
-            raise RevisionError(f"Branch '{name}' not found.") from None
+            raise DraftNotFoundError(f"Draft '{name}' not found.") from None
 
     def _history_up_to(self, revision_id: RevisionId) -> list[Revision]:
         for branch in self._branches.values():
@@ -162,3 +176,42 @@ class RevisionHistory:
                 if r.id == revision_id:
                     return branch.revisions[: i + 1]
         raise RevisionError("Revision not found.")
+
+    def find_merge_base(self, target: str, source: str) -> Revision:
+        target_branch, source_branch = self._branch(target), self._branch(source)
+        source_revisions = {r.id: r for r in source_branch.revisions}
+        base = None
+        for revision in target_branch.revisions:
+            if revision.id in source_revisions:
+                base = source_revisions[revision.id]
+            elif revision.merged_from and revision.merged_from.head_revision_id in source_revisions:
+                base = source_revisions[revision.merged_from.head_revision_id]
+        if base is None:
+            raise NoSharedHistoryError("Drafts have no shared history.")
+        return base
+
+    def plan_merge(self, target, source, resolutions=(), message=None) -> Revision:
+        if target == source:
+            raise RevisionError("A draft cannot be merged into itself.")
+        if message is not None and not 1 <= len(message) <= 256:
+            raise RevisionError("Merge message must contain 1 to 256 characters.")
+        target_branch, source_branch = self._branch(target), self._branch(source)
+        base = self.find_merge_base(target, source)
+        if source_branch.head.id == base.id:
+            raise NoChangesError("Nothing new to merge.")
+        outcome = merge_snapshots(
+            base.snapshot, target_branch.head.snapshot, source_branch.head.snapshot, resolutions
+        )
+        if isinstance(outcome, Conflicts):
+            raise MergeConflictError(outcome.conflicts)
+        if outcome.snapshot == normalize(target_branch.head.snapshot):
+            raise NoChangesError("Nothing new to merge.")
+        return Revision(
+            RevisionId.new(),
+            message if message is not None else f'Merge "{source}" into "{target}"',
+            outcome.snapshot,
+            merged_from=MergeSource(source, source_branch.head.id),
+        )
+
+    def attach(self, branch_name: str, revision: Revision) -> None:
+        self._branch(branch_name).append(revision)

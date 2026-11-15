@@ -6,7 +6,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
 )
 from domain.assistant.models.aggregates import IndexedDocument
 from domain.assistant.models.value_objects import DocumentRefId, IndexedDocumentTitle, ProjectId
-from domain.manuscript.models.events import ManuscriptSaved
+from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class OnManuscriptSaved:
         self._repository = repository
         self._queue = queue
 
-    def __call__(self, event: ManuscriptSaved) -> None:
+    def __call__(self, event: ManuscriptSaved | ManuscriptContentReplaced) -> None:
         """Register the manuscript for indexing, or mark it stale if known, and enqueue indexing."""
         doc_ref_id = DocumentRefId(event.manuscript_id)
 

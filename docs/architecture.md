@@ -120,3 +120,26 @@ snapshot back into the working copy.
 - **Rate limits:** 100/day and 20/hour per IP by default; auth endpoints 5/minute. `/healthz` and static files are exempt.
 - **Single worker:** the event bus, default vector store and limiter counters are in process memory.
 - **Not yet wired:** the PostgreSQL identity adapter and the ChromaDB vector store exist but are unused. The vector store is in-memory, so the index is rebuilt after a restart.
+
+
+### Draft merge semantics
+
+A merge records one new revision on the current draft and replaces its working copy.
+The source draft is unchanged. Merge provenance records the source name and head revision ID.
+The merge base is the latest shared revision in target history, or the source head recorded
+by a later target merge. Matching by revision ID preserves repeat-merge behavior after renames.
+
+The pure merge engine compares heading, body, parent, and sibling rank independently. A
+one-sided change wins; divergent edits require a target/source choice. Deletion versus an
+unchanged section deletes it; deletion versus edits requires a whole-section choice, including
+its descendants. Missing parents and parent cycles are conflicts. Output is deterministic
+pre-order with consecutive sibling ordinals. Rank-based comparison can report ordering
+conflicts when both drafts insert siblings.
+
+The merge service rejects an uncommitted working copy and plans before writing. An in-process
+lock prevents overlapping merges for a manuscript; optimistic history versions reject stale
+repository saves. A failed history save removes the tentative revision and restores the old
+working snapshot (rollback failures are logged). This is compensating rollback, not a database
+transaction: process termination and concurrent manual edits are not covered by the lock.
+Content replacement publishes `ManuscriptContentReplaced` for assistant re-indexing; identical
+snapshots publish no event. Restore and draft switching use the same writer.

@@ -1,4 +1,5 @@
 import logging
+from dataclasses import asdict
 
 from flask import Flask, Response, jsonify
 from werkzeug.exceptions import HTTPException
@@ -18,6 +19,15 @@ from domain.identity.services.auth.errors import (
 )
 from domain.manuscript.api.errors import ManuscriptNotFoundError
 from domain.project.api.errors import ProjectNotFoundError
+from domain.revision_history.models.errors import (
+    ConcurrentModificationError,
+    DraftNotFoundError,
+    InvalidResolutionError,
+    MergeConflictError,
+    MergeInProgressError,
+    NoChangesError,
+    UnsavedChangesError,
+)
 from domain.revision_history.services.errors import (  # CHANGE THIS
     HistoryNotFound,
     ManuscriptNotFound,
@@ -29,6 +39,27 @@ logger = logging.getLogger(__name__)
 
 def register_error_handlers(app: Flask) -> None:
     """Register handlers that map domain and service errors to JSON HTTP responses."""
+
+    @app.errorhandler(DraftNotFoundError)
+    def handle_draft_not_found(e):
+        return jsonify(error="Draft not found", code=e.code), 404
+
+    @app.errorhandler(NoChangesError)
+    @app.errorhandler(UnsavedChangesError)
+    @app.errorhandler(MergeInProgressError)
+    @app.errorhandler(ConcurrentModificationError)
+    def handle_merge_rejected(e):
+        return jsonify(error=e.message, code=e.code), 409
+
+    @app.errorhandler(MergeConflictError)
+    def handle_merge_conflict(e):
+        return jsonify(
+            error=e.message, code=e.code, conflicts=[asdict(c) for c in e.conflicts]
+        ), 409
+
+    @app.errorhandler(InvalidResolutionError)
+    def handle_invalid_resolution(e):
+        return jsonify(error=e.message, code=e.code, details=e.details), 422
 
     @app.errorhandler(InvalidCredentialsError)
     def handle_invalid_credentials(e: Exception) -> tuple[Response, int]:
