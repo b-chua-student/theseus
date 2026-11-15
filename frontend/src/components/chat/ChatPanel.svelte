@@ -16,7 +16,7 @@
   let sourcesLoading = $state(false);
   let sourcesError = $state('');
   let pickerOpen = $state(false);
-  const sessionKey = $derived(contextScope === 'none' ? 'none' : `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`);
+  const sessionKey = $derived(contextScope !== 'source_library' ? contextScope : `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`);
   const messages = $derived(sessions[sessionKey]?.messages ?? []);
 
   async function openSources() {
@@ -111,16 +111,17 @@
 
   async function ask(text) {
     const session = sessions[sessionKey];
+    const manuscriptText = contextScope === "manuscript" ? editor?.getText() ?? "" : "";
     if (!session.conversationId) {
       session.conversationId = await startConversation(projectId);
     }
     try {
-      return await askConversation(projectId, session.conversationId, text, contextScope, selectedSourceIds);
+      return await askConversation(projectId, session.conversationId, text, contextScope, contextScope === "source_library" ? selectedSourceIds : null, manuscriptText);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
         session.conversationId = await startConversation(projectId);
-        return await askConversation(projectId, session.conversationId, text, contextScope, selectedSourceIds);
+        return await askConversation(projectId, session.conversationId, text, contextScope, contextScope === "source_library" ? selectedSourceIds : null, manuscriptText);
       }
       throw e;
     }
@@ -186,9 +187,10 @@
 
         <div class="scholar-scopes" role="group" aria-label="Assistant context">
           <button type="button" class:selected={contextScope === 'none'} aria-pressed={contextScope === 'none'} disabled={loading} onclick={() => switchContext('none')}>None</button>
+          <button type="button" class:selected={contextScope === 'manuscript'} aria-pressed={contextScope === 'manuscript'} disabled={loading || !editor} onclick={() => switchContext('manuscript')}>Manuscript</button>
           <button type="button" class:selected={contextScope === 'source_library'} aria-pressed={contextScope === 'source_library'} disabled={loading} onclick={() => switchContext('source_library')}>Source Library</button>
         </div>
-        <div class="scholar-context">Context: {contextScope === 'none' ? 'None — no library sources used' : selectedSourceIds === null ? 'Source Library — all indexed sources' : `Source Library — ${selectedSourceIds.length} selected`}</div>
+        <div class="scholar-context">Context: {contextScope === 'none' ? 'None — no document context used' : contextScope === 'manuscript' ? 'Manuscript — current text, including unsaved edits' : selectedSourceIds === null ? 'Source Library — all indexed sources' : `Source Library — ${selectedSourceIds.length} selected`}</div>
         {#if contextScope === 'source_library'}
           <div class="source-picker">
             <button type="button" onclick={openSources} disabled={loading} aria-expanded={pickerOpen}>Select sources</button>

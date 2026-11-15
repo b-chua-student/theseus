@@ -27,6 +27,8 @@ class RecordingModel(ChatModel):
         self.context: list[RetrievedChunk] | None = None
 
     def reply(self, history, query, context=None):
+        self.query = query
+        self.history = history
         self.context = context
         return Answer("ok")
 
@@ -142,8 +144,11 @@ def test_context_scope_validation() -> None:
 
     assert AskRequest(query="hello", context_scope="none").context_scope == "none"
     assert AskRequest(query="hello").context_scope == "source_library"
+    assert AskRequest(query="hello", context_scope="manuscript").context_scope == "manuscript"
     with pytest.raises(ValidationError):
-        AskRequest.model_validate({"query": "hello", "context_scope": "manuscript"})
+        AskRequest.model_validate({"query": "hello", "context_scope": "unknown"})
+    with pytest.raises(ValidationError):
+        AskRequest(query="hello", context_scope="manuscript", manuscript_text="x" * 500_001)
 
 
 def test_selected_sources_restrict_retrieval_to_active_project_sources() -> None:
@@ -162,3 +167,35 @@ def test_selected_sources_restrict_retrieval_to_active_project_sources() -> None
     assert model.context[0].doc_ref_id == selected
     svc.ask(cid, "first source", source_ids=[])
     assert model.context == []
+
+
+def test_manuscript_uses_current_text_without_library_retrieval() -> None:
+    model = RecordingModel()
+    svc, _, _, _ = _service(model)
+    svc._retrieve = lambda *_: (_ for _ in ()).throw(AssertionError("retrieval called"))
+    cid = str(svc.start(str(ProjectId.new().value)).value)
+    svc.ask(cid, "Summarize", context_scope="manuscript", manuscript_text="Unsaved draft")
+    assert model.context == []
+    assert "Unsaved draft" in model.query.text
+    assert "Question: Summarize" in model.query.text
+    svc.ask(cid, "Review", context_scope="manuscript", manuscript_text="Updated draft")
+    assert "Updated draft" in model.query.text
+    assert "Unsaved draft" not in model.query.text
+    assert model.history[0].query.text == "Summarize"
+
+
+def test_other_scopes_ignore_supplied_manuscript_text() -> None:
+    model = RecordingModel()
+    svc, _, _, _ = _service(model)
+    cid = str(svc.start(str(ProjectId.new().value)).value)
+    for scope in ("none", "source_library"):
+        svc.ask(cid, "Hello", context_scope=scope, manuscript_text="Private draft")
+        assert model.query.text == "Hello"
+
+
+def test_empty_manuscript_is_explicit_context() -> None:
+    model = RecordingModel()
+    svc, _, _, _ = _service(model)
+    cid = str(svc.start(str(ProjectId.new().value)).value)
+    svc.ask(cid, "Summarize", context_scope="manuscript")
+    assert "(empty manuscript)" in model.query.text
