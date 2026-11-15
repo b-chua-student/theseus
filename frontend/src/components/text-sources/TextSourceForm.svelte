@@ -70,12 +70,14 @@
 
   /** Trim, drop blanks, dedupe (case-sensitive), same as the backend. */
   function parseTags(text) {
-    const seen = new Set();
-    for (const t of text.split(',')) {
-      const v = t.trim();
-      if (v) seen.add(v);
-    }
-    return [...seen];
+    return [
+      ...new Set(
+        text
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
+      ),
+    ];
   }
 
   // Count code points to match the backend's character count.
