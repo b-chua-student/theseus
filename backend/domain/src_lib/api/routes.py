@@ -28,11 +28,18 @@ def list_sources() -> ResponseReturnValue:
     container = current_app.extensions["container"]
 
     sources = container.source.list.execute()
+    if request.args.get("projectId"):
+        try:
+            project_id = UUID(request.args["projectId"])
+        except ValueError:
+            return jsonify(error="Invalid projectId"), 400
+        sources = [source for source in sources if source.project_id == project_id]
 
     return jsonify(
         [
             dict(
                 id=str(s.id.value),
+                kind=s.kind,
                 title=s.title.value,
                 authors=[a.name for a in s.authors],
                 year=s.year,

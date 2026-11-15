@@ -35,13 +35,13 @@ export async function startConversation(projectId) {
  * @param {"none" | "source_library"} contextScope
  * @returns {Promise<string>} answer text
  */
-export async function askConversation(projectId, conversationId, query, contextScope = "source_library") {
+export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null) {
   const res = await apiFetch(
     `/api/projects/${projectId}/conversations/${conversationId}/exchanges`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, context_scope: contextScope }),
+      body: JSON.stringify({ query, context_scope: contextScope, source_ids: sourceIds }),
     },
     'The assistant did not reply. Please try again.',
   );

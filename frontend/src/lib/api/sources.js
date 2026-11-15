@@ -14,8 +14,8 @@ import { apiFetch } from './http.js';
  * Fetch all active sources.
  * @returns {Promise<Source[]>}
  */
-export async function listSources() {
-  const res = await apiFetch('/api/sources', { credentials: 'include' }, 'Failed to load sources.');
+export async function listSources(projectId) {
+  const res = await apiFetch('/api/sources' + (projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''), { credentials: 'include' }, 'Failed to load sources.');
   return res.json();
 }
 

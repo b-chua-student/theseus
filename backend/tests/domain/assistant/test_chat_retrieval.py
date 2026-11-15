@@ -17,13 +17,14 @@ from domain.assistant.models.value_objects import (
     DocumentRefId,
     IndexedDocumentTitle,
     ProjectId,
+    RetrievedChunk,
 )
 from domain.assistant.services.chat import ChatService
 
 
 class RecordingModel(ChatModel):
     def __init__(self) -> None:
-        self.context = None
+        self.context: list[RetrievedChunk] | None = None
 
     def reply(self, history, query, context=None):
         self.context = context
@@ -143,3 +144,21 @@ def test_context_scope_validation() -> None:
     assert AskRequest(query="hello").context_scope == "source_library"
     with pytest.raises(ValidationError):
         AskRequest.model_validate({"query": "hello", "context_scope": "manuscript"})
+
+
+def test_selected_sources_restrict_retrieval_to_active_project_sources() -> None:
+    model = RecordingModel()
+    svc, docs, store, emb = _service(model)
+    project, other = ProjectId.new(), ProjectId.new()
+    _index(docs, store, emb, project, "first source")
+    _index(docs, store, emb, project, "second source")
+    _index(docs, store, emb, other, "foreign source")
+    selected = docs.list_by_project(project)[1].doc_ref_id
+    foreign = docs.list_by_project(other)[0].doc_ref_id
+    cid = str(svc.start(str(project.value)).value)
+    svc.ask(cid, "first source", source_ids=[str(selected.value), str(foreign.value)])
+    assert model.context is not None
+    assert len(model.context) == 1
+    assert model.context[0].doc_ref_id == selected
+    svc.ask(cid, "first source", source_ids=[])
+    assert model.context == []

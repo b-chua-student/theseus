@@ -1,5 +1,6 @@
 <script>
   import { startConversation, askConversation } from "../../lib/api/chat.js";
+  import { listSources } from "../../lib/api/sources.js";
   import { tick as flushUI } from "svelte";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
@@ -9,11 +10,28 @@
 
   // Keep this component mounted while closed to retain the session conversation.
   let contextScope = $state("none");
-  let sessions = $state({
-    none: { messages: [], conversationId: null },
-    source_library: { messages: [], conversationId: null },
-  });
-  const messages = $derived(sessions[contextScope].messages);
+  let sessions = $state({});
+  let selectedSourceIds = $state(null);
+  let sources = $state([]);
+  let sourcesLoading = $state(false);
+  let sourcesError = $state('');
+  let pickerOpen = $state(false);
+  const sessionKey = $derived(contextScope === 'none' ? 'none' : `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`);
+  const messages = $derived(sessions[sessionKey]?.messages ?? []);
+
+  async function openSources() {
+    pickerOpen = !pickerOpen;
+    if (!pickerOpen) return;
+    sourcesLoading = true;
+    sourcesError = '';
+    try { sources = await listSources(projectId); }
+    catch (e) { sourcesError = e.message || 'Could not load sources.'; }
+    finally { sourcesLoading = false; }
+  }
+  function selectSource(id, checked) {
+    const current = selectedSourceIds ?? sources.map(source => source.id);
+    selectedSourceIds = checked ? [...current, id] : current.filter(value => value !== id);
+  }
   let nextMessageId = 0;
   let input = $state("");
   let loading = $state(false);
@@ -92,17 +110,17 @@
   const isRetryable = (e) => !e.status || e.status === 429 || e.status >= 500;
 
   async function ask(text) {
-    const session = sessions[contextScope];
+    const session = sessions[sessionKey];
     if (!session.conversationId) {
       session.conversationId = await startConversation(projectId);
     }
     try {
-      return await askConversation(projectId, session.conversationId, text, contextScope);
+      return await askConversation(projectId, session.conversationId, text, contextScope, selectedSourceIds);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
         session.conversationId = await startConversation(projectId);
-        return await askConversation(projectId, session.conversationId, text, contextScope);
+        return await askConversation(projectId, session.conversationId, text, contextScope, selectedSourceIds);
       }
       throw e;
     }
@@ -114,6 +132,7 @@
     const retry = typeof retryText === "string";
     const text = retry ? retryText : input.trim();
     if (!text || loading) return;
+    sessions[sessionKey] ??= { messages: [], conversationId: null };
     if (!retry) {
       messages.push({ id: nextMessageId++, role: "user", text, timestamp: Date.now() });
       input = "";
@@ -169,7 +188,25 @@
           <button type="button" class:selected={contextScope === 'none'} aria-pressed={contextScope === 'none'} disabled={loading} onclick={() => switchContext('none')}>None</button>
           <button type="button" class:selected={contextScope === 'source_library'} aria-pressed={contextScope === 'source_library'} disabled={loading} onclick={() => switchContext('source_library')}>Source Library</button>
         </div>
-        <div class="scholar-context">Context: {contextScope === 'none' ? 'None — no library sources used' : 'Source Library — indexed sources in this project'}</div>
+        <div class="scholar-context">Context: {contextScope === 'none' ? 'None — no library sources used' : selectedSourceIds === null ? 'Source Library — all indexed sources' : `Source Library — ${selectedSourceIds.length} selected`}</div>
+        {#if contextScope === 'source_library'}
+          <div class="source-picker">
+            <button type="button" onclick={openSources} disabled={loading} aria-expanded={pickerOpen}>Select sources</button>
+            {#if pickerOpen}
+              {#if sourcesLoading}<p role="status">Loading sources…</p>
+              {:else if sourcesError}<p role="alert">{sourcesError}</p><button type="button" onclick={() => { pickerOpen = false; openSources(); }}>Retry</button>
+              {:else}
+                <label><input type="checkbox" checked={selectedSourceIds === null} disabled={loading} onchange={(event) => selectedSourceIds = event.currentTarget.checked ? null : []} />All library sources</label>
+                <div class="source-options">
+                  {#each sources as source (source.id)}
+                    <label><input type="checkbox" checked={selectedSourceIds === null || selectedSourceIds.includes(source.id)} disabled={loading} onchange={(event) => selectSource(source.id, event.currentTarget.checked)} />{source.title}</label>
+                  {:else}<p>No sources in this project. Add sources in the Source Library.</p>{/each}
+                </div>
+                <p>Only indexed content can be used in replies. Changing sources starts a separate conversation.</p>
+              {/if}
+            {/if}
+          </div>
+        {/if}
         {#if messages.length === 0}
         <!-- LOCAL ONLY: quick prompts fill the composer. They do not send requests. -->
         <div class="scholar-prompts" aria-label="Suggested prompts">{#each prompts as prompt (prompt.label)}<button type="button" onclick={() => fillPrompt(prompt.text)}><span aria-hidden="true">✧</span>{prompt.label}</button>{/each}</div>
@@ -209,6 +246,11 @@
     {/if}
 
 <style>
+  .source-picker { padding: 8px 14px; font-size: 11px; border-bottom: 1px solid var(--border); }
+  .source-picker button { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; }
+  .source-picker label { display: flex; align-items: center; gap: 7px; padding: 5px 0; overflow-wrap: anywhere; }
+  .source-picker p { color: var(--text-muted); line-height: 1.5; }
+  .source-options { max-height: 160px; overflow-y: auto; }
   .scholar-chat, .scholar-chat * { box-sizing: border-box; }
   button, select, textarea { font: inherit; color: inherit; margin: 0; }
   button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; line-height: 1.3; }

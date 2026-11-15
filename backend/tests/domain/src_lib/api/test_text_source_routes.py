@@ -104,6 +104,13 @@ class TestAuth:
 
 
 class TestCreate:
+    def test_library_list_identifies_text_sources(self, client, pid):
+        created = create(client, pid)
+        assert created.status_code == 201
+        sources = client.get(f"/api/sources?projectId={pid}").get_json()
+        source = next(s for s in sources if s["id"] == created.get_json()["id"])
+        assert source["kind"] == "text"
+
     def test_minimal_create(self, client, pid):
         res = create(client, pid)
         assert res.status_code == 201

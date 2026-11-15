@@ -64,6 +64,7 @@ class ChatService:
         conversation_id: str,
         text: str,
         context_scope: Literal["none", "source_library"] = "source_library",
+        source_ids: list[str] | None = None,
     ) -> Answer:
         """Answer ``text`` within a conversation and return the answer.
 
@@ -83,7 +84,7 @@ class ChatService:
 
         try:
             context = (
-                self._retrieve(conversation.project_id, query)
+                self._retrieve(conversation.project_id, query, source_ids)
                 if context_scope == "source_library"
                 else []
             )
@@ -102,7 +103,9 @@ class ChatService:
         self._repository.save(conversation)
         return answer
 
-    def _retrieve(self, project_id: ProjectId, query: Query) -> list[RetrievedChunk]:
+    def _retrieve(
+        self, project_id: ProjectId, query: Query, source_ids: list[str] | None = None
+    ) -> list[RetrievedChunk]:
         """Top-k chunks from the project's searchable documents; [] if unavailable."""
         if (
             self._embedding_generator is None
@@ -113,6 +116,9 @@ class ChatService:
             return []
         try:
             allowed = set(self._source_ids(project_id))
+            if source_ids is not None:
+                selected = set(source_ids)
+                allowed = {ref for ref in allowed if str(ref.value) in selected}
             doc_ref_ids = [
                 d.doc_ref_id
                 for d in self._document_repository.list_by_project(project_id)
