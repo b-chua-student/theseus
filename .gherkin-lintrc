@@ -12,7 +12,6 @@
   "no-scenario-outlines-without-examples": "on",
   "no-unused-variables": "on",
   "no-partially-commented-tag-lines": "on",
-  "no-tags-on-backgrounds": "on",
   "keywords-in-logical-order": "on",
   "use-and": "on",
   "one-space-between-tags": "on",
