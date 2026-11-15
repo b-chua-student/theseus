@@ -25,9 +25,9 @@ def configure_logging(log_path: str | None = "logs/app.log") -> None:
     rely on a writable local disk for anything that matters, so the file handler
     used for local development is skipped there.
     """
-    handler = logging.FileHandler(log_path) if log_path else logging.StreamHandler()
     if log_path:
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    handler = logging.FileHandler(log_path) if log_path else logging.StreamHandler()
     handler.setFormatter(
         logging.Formatter(
             "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
