@@ -1,3 +1,4 @@
+import builtins
 import logging
 from collections.abc import Callable
 from typing import Literal
@@ -59,13 +60,23 @@ class ChatService:
         self._repository.save(conversation)
         return conversation.id
 
+    def list(self, project_id: str) -> list[Conversation]:
+        return self._repository.list_by_project(ProjectId.from_str(project_id))
+
+    def get(self, project_id: str, conversation_id: str) -> Conversation:
+        conversation = self._repository.get(ConversationId.from_str(conversation_id))
+        if conversation is None or conversation.project_id != ProjectId.from_str(project_id):
+            raise ConversationNotFoundError(f"Conversation '{conversation_id}' not found")
+        return conversation
+
     def ask(
         self,
         conversation_id: str,
         text: str,
         context_scope: Literal["none", "manuscript", "source_library"] = "source_library",
-        source_ids: list[str] | None = None,
+        source_ids: builtins.list[str] | None = None,
         manuscript_text: str = "",
+        project_id: str | None = None,
     ) -> Answer:
         """Answer ``text`` within a conversation and return the answer.
 
@@ -78,6 +89,9 @@ class ChatService:
         conversation = self._repository.get(ConversationId.from_str(conversation_id))
         if conversation is None:
             raise ConversationNotFoundError(f"Conversation '{conversation_id}' not found")
+
+        if project_id is not None:
+            self.get(project_id, conversation_id)
 
         query = Query(text)
         history = conversation.history
@@ -107,14 +121,16 @@ class ChatService:
             logger.exception("ChatService: model failed unexpectedly")
             raise ChatModelError("The assistant failed to answer.") from exc
 
+        conversation.context_scope = context_scope
+        conversation.source_ids = source_ids
         conversation.answer(exchange.id, answer)
 
         self._repository.save(conversation)
         return answer
 
     def _retrieve(
-        self, project_id: ProjectId, query: Query, source_ids: list[str] | None = None
-    ) -> list[RetrievedChunk]:
+        self, project_id: ProjectId, query: Query, source_ids: builtins.list[str] | None = None
+    ) -> builtins.list[RetrievedChunk]:
         """Top-k chunks from the project's searchable documents; [] if unavailable."""
         if (
             self._embedding_generator is None

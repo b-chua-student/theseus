@@ -46,6 +46,11 @@ class MongoConversationRepository(ConversationRepository):
             "project_id": str(conversation.project_id.value),
             "exchanges": [cls._exchange_to_doc(e) for e in conversation.exchanges],
             "started_at": conversation.started_at,
+            "context_scope": conversation.context_scope,
+            "source_ids": conversation.source_ids,
+            "updated_at": conversation.exchanges[-1].asked_at
+            if conversation.exchanges
+            else conversation.started_at,
         }
 
     @classmethod
@@ -55,6 +60,8 @@ class MongoConversationRepository(ConversationRepository):
             project_id=ProjectId(UUID(doc["project_id"])),
             exchanges=[cls._exchange_from_doc(e) for e in doc["exchanges"]],
             started_at=doc["started_at"],
+            context_scope=doc.get("context_scope", "source_library"),
+            source_ids=doc.get("source_ids"),
         )
 
     # ---- port implementation ----
@@ -66,3 +73,11 @@ class MongoConversationRepository(ConversationRepository):
     def get(self, conversation_id: ConversationId) -> Conversation | None:
         doc = self._conversations.find_one({"_id": str(conversation_id.value)})
         return self._to_conversation(doc) if doc else None
+
+    def list_by_project(self, project_id: ProjectId) -> list[Conversation]:
+        return [
+            self._to_conversation(doc)
+            for doc in self._conversations.find({"project_id": str(project_id.value)}).sort(
+                [("updated_at", -1), ("started_at", -1)]
+            )
+        ]

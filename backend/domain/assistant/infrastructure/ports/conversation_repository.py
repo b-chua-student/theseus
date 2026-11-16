@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from domain.assistant.models.aggregates import Conversation
-from domain.assistant.models.value_objects import ConversationId
+from domain.assistant.models.value_objects import ConversationId, ProjectId
 
 
 class ConversationRepository(ABC):
@@ -14,3 +14,7 @@ class ConversationRepository(ABC):
     @abstractmethod
     def get(self, conversation_id: ConversationId) -> Conversation | None:
         """Return the conversation with the given id, or None if it does not exist."""
+
+    @abstractmethod
+    def list_by_project(self, project_id: ProjectId) -> list[Conversation]:
+        """Return project conversations, most recently active first."""

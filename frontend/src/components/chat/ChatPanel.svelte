@@ -1,5 +1,5 @@
 <script>
-  import { startConversation, askConversation } from "../../lib/api/chat.js";
+  import { startConversation, askConversation, listConversations, getConversation } from "../../lib/api/chat.js";
   import { listSources } from "../../lib/api/sources.js";
   import { tick as flushUI } from "svelte";
   import { marked } from "marked";
@@ -32,6 +32,69 @@
     const current = selectedSourceIds ?? sources.map(source => source.id);
     selectedSourceIds = checked ? [...current, id] : current.filter(value => value !== id);
   }
+  let savedConversations = $state([]);
+  let historyLoading = $state(false);
+  let historyError = $state('');
+  let loadedProject = $state(null);
+  let historyRequest = 0;
+
+  $effect(() => {
+    const id = projectId;
+    if (id !== loadedProject) {
+      loadedProject = id;
+      sessions = {};
+      savedConversations = [];
+      contextScope = 'none';
+      selectedSourceIds = null;
+      refreshHistory(id);
+    }
+  });
+
+  async function refreshHistory(id = projectId) {
+    const request = ++historyRequest;
+    historyLoading = true;
+    historyError = '';
+    try {
+      const conversations = await listConversations(id);
+      if (request === historyRequest) savedConversations = conversations;
+    } catch (e) {
+      if (request === historyRequest) historyError = e.message;
+    } finally {
+      if (request === historyRequest) historyLoading = false;
+    }
+  }
+
+  async function openConversation(id) {
+    if (!id || loading) return;
+    const project = projectId;
+    loading = true;
+    historyError = '';
+    try {
+      const conversation = await getConversation(project, id);
+      if (project !== projectId) return;
+      contextScope = conversation.context_scope;
+      selectedSourceIds = conversation.source_ids;
+      const key = contextScope !== 'source_library' ? contextScope : `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`;
+      sessions[key] = {
+        conversationId: id,
+        messages: conversation.exchanges.flatMap(e => [
+          { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
+          { id: nextMessageId++, role: 'assistant', text: e.answer, timestamp: e.asked_at },
+        ]),
+      };
+      input = '';
+      selectionQuote = '';
+      scrollDown();
+    } catch (e) { historyError = e.message; }
+    finally { loading = false; }
+  }
+
+  function newConversation() {
+    sessions[sessionKey] = { messages: [], conversationId: null };
+    input = '';
+    selectionQuote = '';
+  }
+
   let nextMessageId = 0;
   let input = $state("");
   let loading = $state(false);
@@ -143,6 +206,7 @@
     try {
       const answer = await ask(text);
       messages.push({ id: nextMessageId++, role: "assistant", text: answer, timestamp: Date.now() });
+      refreshHistory();
     } catch (e) {
       messages.push({
         id: nextMessageId++,
@@ -185,6 +249,19 @@
           <button type="button" class="scholar-close" onclick={onclose} aria-label="Close assistant" title="Close assistant">{@render icon('panel')}</button>
         </header>
 
+        <div class="conversation-history">
+          <label for="saved-conversations">Saved conversations</label>
+          <select id="saved-conversations" value={sessions[sessionKey]?.conversationId ?? ''} disabled={loading || historyLoading} onchange={(event) => openConversation(event.currentTarget.value)}>
+            <option value="">{historyLoading ? 'Loading conversations…' : 'Choose a conversation'}</option>
+            {#each savedConversations as conversation (conversation.id)}
+              <option value={conversation.id}>{conversation.title}</option>
+            {/each}
+          </select>
+          <button type="button" disabled={loading} onclick={newConversation}>New chat</button>
+          <button type="button" disabled={historyLoading || loading} onclick={() => refreshHistory()}>Refresh</button>
+          {#if historyError}<p role="alert">{historyError}</p>
+          {:else if !historyLoading && savedConversations.length === 0}<p>No saved conversations yet.</p>{/if}
+        </div>
         <div class="scholar-scopes" role="group" aria-label="Assistant context">
           <button type="button" class:selected={contextScope === 'none'} aria-pressed={contextScope === 'none'} disabled={loading} onclick={() => switchContext('none')}>None</button>
           <button type="button" class:selected={contextScope === 'manuscript'} aria-pressed={contextScope === 'manuscript'} disabled={loading || !editor} onclick={() => switchContext('manuscript')}>Manuscript</button>
@@ -248,6 +325,11 @@
     {/if}
 
 <style>
+  .conversation-history { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px; }
+  .conversation-history label, .conversation-history p { width: 100%; font-size: 11px; margin: 0; }
+  .conversation-history select { width: 100%; min-width: 0; }
+  .conversation-history button, .conversation-history select { padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: inherit; }
+
   .source-picker { padding: 8px 14px; font-size: 11px; border-bottom: 1px solid var(--border); }
   .source-picker button { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; }
   .source-picker label { display: flex; align-items: center; gap: 7px; padding: 5px 0; overflow-wrap: anywhere; }

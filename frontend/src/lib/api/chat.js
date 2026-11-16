@@ -47,3 +47,13 @@ export async function askConversation(projectId, conversationId, query, contextS
   );
   return (await res.json()).answer;
 }
+
+export async function listConversations(projectId) {
+  const res = await apiFetch(`/api/projects/${projectId}/conversations`, {}, 'Could not load conversations.');
+  return res.json();
+}
+
+export async function getConversation(projectId, conversationId) {
+  const res = await apiFetch(`/api/projects/${projectId}/conversations/${conversationId}`, {}, 'Could not open conversation.');
+  return res.json();
+}

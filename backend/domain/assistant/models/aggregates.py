@@ -122,6 +122,8 @@ class Conversation:
     project_id: ProjectId
     exchanges: list[Exchange] = field(default_factory=list)
     started_at: datetime = field(default_factory=now)
+    context_scope: str = "source_library"
+    source_ids: list[str] | None = None
 
     @classmethod
     def start(cls, project_id: ProjectId) -> Conversation:

@@ -1,4 +1,6 @@
-from flask import Blueprint, current_app, jsonify, request
+from datetime import UTC
+
+from flask import Blueprint, current_app, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
@@ -19,6 +21,55 @@ def _chat() -> ChatService:
 
 conversation_bp = Blueprint("conversation", __name__)
 indexing_bp = Blueprint("indexing", __name__)
+
+
+@conversation_bp.before_request
+def check_project_access():
+    if "user_id" not in session:
+        return jsonify(error="Unauthorized"), 401
+    project_id = request.view_args["project_id"]
+    project = current_app.extensions["container"].project.get.execute(project_id=project_id)
+    if project is None or not any(
+        str(member.id.value) == session["user_id"] for member in [project.owner, *project.members]
+    ):
+        return jsonify(error="Project not found"), 404
+
+
+def _conversation_json(conversation, *, include_exchanges=False):
+    result = dict(
+        id=str(conversation.id.value),
+        title=conversation.exchanges[0].query.text[:100]
+        if conversation.exchanges
+        else "New conversation",
+        started_at=conversation.started_at.replace(tzinfo=UTC).isoformat(),
+        context_scope=conversation.context_scope,
+        source_ids=conversation.source_ids,
+    )
+    if include_exchanges:
+        result["exchanges"] = [
+            dict(
+                id=str(e.id.value),
+                query=e.query.text,
+                answer=e.answer.text,
+                asked_at=e.asked_at.replace(tzinfo=UTC).isoformat(),
+            )
+            for e in conversation.history
+        ]
+    return result
+
+
+@conversation_bp.get("")
+@login_required
+def list_conversations(project_id: str) -> ResponseReturnValue:
+    return jsonify([_conversation_json(c) for c in _chat().list(project_id)]), 200
+
+
+@conversation_bp.get("/<conversation_id>")
+@login_required
+def get_conversation(project_id: str, conversation_id: str) -> ResponseReturnValue:
+    return jsonify(
+        _conversation_json(_chat().get(project_id, conversation_id), include_exchanges=True)
+    ), 200
 
 
 @conversation_bp.post("")
@@ -42,6 +93,7 @@ def ask(project_id: str, conversation_id: str) -> ResponseReturnValue:
         ), 400
 
     answer = _chat().ask(
+        project_id=project_id,
         conversation_id=conversation_id,
         text=body.query,
         context_scope=body.context_scope,
