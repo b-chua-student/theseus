@@ -8,7 +8,7 @@ Feature: Manuscript indexing
   Scenario: A saved manuscript becomes searchable
     Given the manuscript has just been saved
     When indexing of the manuscript completes
-    Then the manuscript's indexing status is searchable
+    Then the manuscript is marked as searchable
     And its chunk count is greater than zero
 
   @S-002 @criterion-2
@@ -19,8 +19,9 @@ Feature: Manuscript indexing
     And the manuscript is queued for indexing
 
   @S-003 @edge @criterion-3
-  Scenario: A failed indexing does not affect other manuscripts
+  Scenario: Failed indexing does not affect other manuscripts
     Given indexing of the manuscript has failed
     When another manuscript is saved
     Then the other manuscript is queued for indexing
-    And the assistant keeps processing later changes
+    And the other manuscript is indexed when its turn comes
+    And later changes continue to be processed

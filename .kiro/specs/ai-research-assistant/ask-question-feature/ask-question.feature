@@ -1,33 +1,36 @@
 Feature: Ask the assistant a question
   A project member can ask the assistant a question about their manuscript and receive an answer.
 
-  Background:
-    Given I am signed in as a member of a project
-    And the project has a conversation
-
   @S-016 @criterion-9
   Scenario: A valid question receives an answer
-    Given the manuscript has been saved and indexed
+    Given I am signed in as a member of a project with a valid conversation
+    And the manuscript has been saved and indexed
+    And the assistant is available
     When I ask a valid question
-    Then I receive an answer
+    Then the response has status 201 and contains an answer
 
   @S-017 @criterion-9
   Scenario: The answer is built from relevant indexed content
-    Given the indexed manuscript contains a passage relevant to my question
+    Given I am signed in as a member of a project with a valid conversation
+    And the indexed manuscript contains a passage relevant to my question
+    And the assistant is available
     When I ask a question about that passage
-    Then the answer is produced using the relevant passages retrieved from the indexed manuscript
+    Then the answer is produced using relevant indexed passages as context for Gemini
 
   @S-025 @criterion-9
   Scenario: The complete answer arrives at once
-    Given the manuscript has been saved and indexed
+    Given I am signed in as a member of a project with a valid conversation
+    And the manuscript has been saved and indexed
+    And the assistant is available
     When I ask a valid question
-    Then I receive the complete answer in one piece
-    And no part of the answer is delivered before the rest is ready
+    Then I receive the complete answer in one response
+    And no partial answer is sent before completion
 
   @S-018 @edge @criterion-10
   Scenario Outline: An invalid question is rejected
+    Given I am signed in as a member of a project with a valid conversation
     When I ask <question>
-    Then the request is rejected with validation details
+    Then the request is rejected with status 400 and validation details
 
     Examples:
       | question                               |
@@ -37,36 +40,61 @@ Feature: Ask the assistant a question
 
   @S-019 @edge @criterion-7
   Scenario: Asking in an unknown conversation
+    Given I am signed in as a member of a project
     When I ask a valid question in a conversation that does not exist
-    Then the request is rejected as not found
+    Then the request is rejected with status 404
 
   @S-020 @edge @criterion-11
   Scenario: Asking while a previous answer is pending
-    Given my previous question in the conversation is still being answered
+    Given I am signed in as a member of a project with a valid conversation
+    And my previous question in the conversation is still being answered
     When I ask another valid question
-    Then the request is rejected as a conflict
+    Then the request is rejected with status 409
 
   @S-021 @edge @criterion-12
   Scenario: The AI provider is busy
-    Given the AI provider is busy
+    Given I am signed in as a member of a project with a valid conversation
+    And the AI provider is busy
     When I ask a valid question
-    Then I am told the assistant is busy
-    And I am told when to retry
+    Then the request is rejected with status 429
+    And the response includes a Retry-After indication
 
   @S-022 @edge @criterion-12
   Scenario: The AI provider fails
-    Given the AI provider returns an error
+    Given I am signed in as a member of a project with a valid conversation
+    And the AI provider returns an error
     When I ask a valid question
-    Then I am told the assistant could not produce an answer because of a provider error
+    Then the request is rejected with status 502
 
   @S-023 @edge @criterion-12
-  Scenario: The assistant is not configured
-    Given the assistant has not been configured
+  Scenario: The Gemini API key is missing
+    Given I am signed in as a member of a project with a valid conversation
+    And the Gemini API key is not configured
     When I ask a valid question
-    Then I am told the assistant is not available because it is not configured
+    Then the request is rejected with status 503
 
   @S-024 @edge @criterion-7
   Scenario: Asking without a session
     Given I am not signed in
-    When I ask a valid question
-    Then the request is rejected as unauthorized
+    And a project has a conversation
+    When I ask a valid question in that conversation
+    Then the request is rejected with status 401
+
+  @S-026 @edge @criterion-7
+  Scenario: Asking in an unknown project
+    Given I am signed in
+    When I ask a valid question in a project that does not exist
+    Then the request is rejected as not found
+
+  @S-027 @edge @criterion-10
+  Scenario Outline: A question at the length limits is accepted
+    Given I am signed in as a member of a project with a valid conversation
+    And the manuscript has been saved and indexed
+    And the assistant is available
+    When I ask a non-blank question of <length> characters
+    Then the response has status 201 and contains an answer
+
+    Examples:
+      | length |
+      | 1      |
+      | 4000   |

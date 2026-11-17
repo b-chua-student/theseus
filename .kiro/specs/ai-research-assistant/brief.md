@@ -2,7 +2,7 @@
 ID: THES-160
 Owner: John Patrick Panhilason Salugsugan
 Date: 2026-11-15
-Base SHA: Deferred (see Open Questions)
+Base SHA: dd38e1cf7d2c4817ad4cd7b943a7e6b2cb43d55b (unverified)
 
 ## Goal
 Let project members ask questions about their manuscript and receive answers grounded in its indexed content. Manuscripts and sources are indexed automatically when they change.
@@ -24,7 +24,7 @@ Let project members ask questions about their manuscript and receive answers gro
 - Streaming or partial answers
 - Memory across questions beyond a single conversation
 - Switching between AI providers
-- Wiring the ChromaDB and PostgreSQL adapters
+- Wiring the vector store and database adapters (the epic names ChromaDB and PostgreSQL; see Open Questions)
 - Work tracked in THES-189, THES-190, THES-191 (separate, unassigned tickets)
 
 ## Constraints
@@ -46,28 +46,29 @@ Hints only, not verified:
 ## Assumptions
 - The acceptance criteria on THES-161, 166, 169, 173, 177 are the current source of truth.
 - The index is held in memory and is lost on restart (per the epic); how it is rebuilt is outside this brief.
-- Ticket status codes (400, 401, 404, 409, 429, 502, 503) correspond to the outcomes in the Success Criteria.
+- Identity and sessions, project membership, manuscript save events, and the source library are provided by other bounded contexts. This brief consumes them and does not build them.
+- API response codes are specified in the assigned story acceptance criteria; exchange access for an unknown project is inferred and needs confirmation.
 
 ## Open Questions
-- Base SHA. Deferred: no repository access during intake; add before spec work starts.
+- Base SHA. Deferred: value is recorded but cannot be verified without repository access.
 - THES-189 names a vector index adapter while the epic excludes the ChromaDB/PostgreSQL adapters. Deferred: separate unassigned ticket; confirm with Bernard Ordanel Chua Jr.
 - THES-191 (index reconcile job) is marked pending decision. Deferred: separate ticket; excluded from this brief.
-- Exact retry delay for a busy provider. Deferred: not stated in the tickets.
-- Indexing status values other than not_indexed. Deferred: not listed in the tickets.
+- Exact retry delay for a busy provider. Deferred: Jira requires Retry-After but gives no fixed duration.
+- Other indexing status values. Deferred: not specified in Jira; searchable is a separate Boolean field.
 
 ## Success Criteria
-1. After a saved manuscript finishes indexing, its status shows searchable with a chunk count above zero.
+1. After manuscript indexing completes, searchable is true and chunk_count is greater than zero.
 2. Saving a manuscript returns without waiting for indexing.
 3. When indexing or de-indexing one item fails, other items are still processed.
 4. Adding a source makes its content indexed; removing a source removes its content from the index.
 5. A member checking status sees status, chunk count, and searchable; status is not_indexed until the manuscript is saved and indexed.
 6. Searchable is true only when the assistant can retrieve from the manuscript.
-7. A non-member, or an unknown project, manuscript, or conversation, gets a not-found result; a request with no session is rejected as unauthorized.
-8. A member creating a conversation receives its id.
-9. A valid question in a valid conversation returns an answer built from retrieved indexed chunks.
-10. A blank query, or one outside 1 to 4000 characters, is rejected with validation details.
-11. A question while a previous answer is pending is rejected as a conflict.
-12. A busy provider yields a busy result with a retry hint; a provider error yields a provider-error result; a missing configuration yields a not-configured result.
+7. Status/conversation requests by non-members and requests for unknown project/manuscript or conversation return 404; missing sessions return 401.
+8. A member creating a conversation receives 201 with its id.
+9. A valid question in a valid conversation returns 201 with an answer grounded in relevant indexed chunks passed to Gemini.
+10. Blank or out-of-range (1–4000 characters) questions return 400 with validation details.
+11. A question while a previous answer is pending returns 409.
+12. Provider busy returns 429 with Retry-After; provider error returns 502; missing Gemini API key returns 503.
 
 ## Reference Links
 - https://theseus-inc.atlassian.net/browse/THES-160

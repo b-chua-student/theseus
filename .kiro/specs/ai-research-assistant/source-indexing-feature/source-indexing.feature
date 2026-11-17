@@ -20,3 +20,9 @@ Feature: Source indexing
     Given indexing of a source has failed
     When another source is added to the library
     Then the content of the other source is indexed
+
+  @S-028 @edge @criterion-3
+  Scenario: A failed de-indexing does not affect other changes
+    Given de-indexing of a source has failed
+    When another source is removed from the library
+    Then the content of the other source is removed from the index
