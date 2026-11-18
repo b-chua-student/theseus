@@ -35,6 +35,7 @@ class InMemoryProjectRepository(ProjectRepository):
             self.seed(totalProjects=totalProjects)
 
     def seed(self, totalProjects: int) -> None:
+        """Populate the in-memory repository with sample projects."""
         for _i in range(totalProjects):
             self._db.append(
                 Project.create(
@@ -47,6 +48,7 @@ class InMemoryProjectRepository(ProjectRepository):
             )
 
     def get_projects_owned_by_member_id(self, member_id: MemberId) -> list[Project]:
+        """Return all projects owned by the given member."""
         projects = []
 
         for project in self._db:
@@ -56,25 +58,30 @@ class InMemoryProjectRepository(ProjectRepository):
         return projects
 
     def add_project(self, project: Project) -> None:
+        """Persist a new project in the repository."""
         self._db.append(project)
 
     def get_project_by_id(self, project_id: ProjectId) -> Project | None:
+        """Retrieve a project by its identifier, or None if not found."""
         for project in self._db:
             if project.id == project_id:
                 return project
         return None
 
     def get_project_by_name(self, project_name: ProjectName) -> Project | None:
+        """Retrieve a project by its name, or None if not found."""
         for project in self._db:
             if project.name == project_name:
                 return project
         return None
 
     def update_project(self, new_project: Project) -> None:
+        """Replace an existing project if it exists."""
         for index, project in enumerate(self._db):
             if project.id == new_project.id:
                 self._db[index] = new_project
                 return
 
     def delete_project_by_id(self, project_id: ProjectId) -> None:
+        """Delete a project by its identifier."""
         self._db = [project for project in self._db if project.id != project_id]

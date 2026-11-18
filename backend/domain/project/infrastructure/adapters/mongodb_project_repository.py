@@ -20,6 +20,7 @@ class MongoProjectRepository(ProjectRepository):
     """Projects stored as one document each; the owner and members are embedded."""
 
     def __init__(self, database: Database, *, collection: str = "projects") -> None:
+        """Initialize the MongoDB project repository."""
         self._projects = database[collection]
         self._projects.create_index("owner.id")
 
@@ -70,19 +71,24 @@ class MongoProjectRepository(ProjectRepository):
 
     # ---- port implementation ----
     def get_projects_owned_by_member_id(self, member_id: MemberId) -> list[Project]:
+        """Return all projects owned by the given member."""
         docs = self._projects.find({"owner.id": str(member_id.value)}).sort("created_at", 1)
         return [self._to_project(d) for d in docs]
 
     def add_project(self, project: Project) -> None:
+        """Persist a new project in the repository."""
         self._projects.insert_one(self._to_doc(project))
 
     def get_project_by_id(self, project_id: ProjectId) -> Project | None:
+        """Retrieve a project by its identifier, or None if not found."""
         doc = self._projects.find_one({"_id": str(project_id.value)})
         return self._to_project(doc) if doc else None
 
     def update_project(self, new_project: Project) -> None:
+        """Replace an existing project if it exists."""
         # No upsert: updating a project that no longer exists is a no-op, as in memory.
         self._projects.replace_one({"_id": str(new_project.id.value)}, self._to_doc(new_project))
 
     def delete_project_by_id(self, project_id: ProjectId) -> None:
+        """Delete a project by its identifier."""
         self._projects.delete_one({"_id": str(project_id.value)})
