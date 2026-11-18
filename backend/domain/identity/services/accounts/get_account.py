@@ -1,5 +1,4 @@
 from domain.identity.infrastructure.ports.identity_repository import IdentityRepository
-
 from domain.identity.models.aggregates import User
 from domain.identity.models.value_objects import UserId
 

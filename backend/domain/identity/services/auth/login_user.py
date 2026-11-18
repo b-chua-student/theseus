@@ -1,6 +1,5 @@
 from domain.identity.infrastructure.ports.identity_repository import IdentityRepository
 from domain.identity.infrastructure.ports.password_hasher import PasswordHasher
-
 from domain.identity.models.aggregates import User
 from domain.identity.models.errors import InvalidEmailError
 from domain.identity.models.value_objects import Email
