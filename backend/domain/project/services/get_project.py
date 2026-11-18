@@ -7,6 +7,7 @@ class GetProjectService:
     """Use case: fetch a single project."""
 
     def __init__(self, repository: ProjectRepository) -> None:
+        """Initialize the service with a project repository."""
         self._repository = repository
 
     def execute(self, project_id: str) -> Project | None:

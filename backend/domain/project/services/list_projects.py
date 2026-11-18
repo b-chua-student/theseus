@@ -7,6 +7,7 @@ class ListProjectsService:
     """Use case: list the projects owned by a member."""
 
     def __init__(self, repository: ProjectRepository) -> None:
+        """Initialize the service with a project repository."""
         self._repository = repository
 
     def execute(self, owner_id: str) -> list[Project]:

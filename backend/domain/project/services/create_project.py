@@ -8,6 +8,7 @@ class CreateProjectService:
     """Use case: create a project owned by a given user."""
 
     def __init__(self, repository: ProjectRepository) -> None:
+        """Initialize the service with a project repository."""
         self._repository = repository
 
     def execute(self, project_name: str, owner_id: str, owner_name: str, owner_email: str) -> None:
