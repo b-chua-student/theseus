@@ -1,8 +1,7 @@
+from domain.identity.api.auth.routes import login_required
 from flask import Blueprint, current_app, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
-
-from domain.identity.api.auth.routes import login_required
 
 from .errors import ProjectNotFoundError
 from .requests import (
