@@ -3,20 +3,27 @@
   import { Editor } from "@tiptap/core";
   import StarterKit from "@tiptap/starter-kit";
 
+  /** @type {{ id: string, onback: () => void }} */
   let { id, onback } = $props();
 
-  let element;
+  /** @type {HTMLDivElement | undefined} */
+  let element = $state();
+  /** @type {Editor | null} */
   let editor = $state.raw(null);
   let tick = $state(0);
 
   let open = $state(false);
+  /** @type {{ role: string, text: string }[]} */
   let messages = $state([]);
   let input = $state("");
   let loading = $state(false);
-  let log;
+  /** @type {HTMLDivElement | undefined} */
+  let log = $state();
 
+  /** @param {string} name @param {Record<string, unknown>} [attrs] */
   const active = (name, attrs) => (tick >= 0 ? editor?.isActive(name, attrs) : false);
 
+  /** @type {{ label: string, name?: string, attrs?: Record<string, unknown>, run: (chain: import('@tiptap/core').ChainedCommands) => import('@tiptap/core').ChainedCommands }[]} */
   const tools = [
     { label: "Bold", name: "bold", run: (c) => c.toggleBold() },
     { label: "Italic", name: "italic", run: (c) => c.toggleItalic() },
@@ -30,21 +37,23 @@
   ];
 
   onMount(() => {
-    editor = new Editor({
+    const instance = new Editor({
       element,
       extensions: [StarterKit],
       content: "",
       onTransaction: () => tick++,
     });
+    editor = instance;
 
     fetch(`/api/documents/${id}`)
       .then((r) => r.json())
-      .then((doc) => editor.commands.setContent(doc.content));
+      .then((doc) => instance.commands.setContent(doc.content));
 
-    return () => editor.destroy();
+    return () => instance.destroy();
   });
 
   async function save() {
+    if (!editor) return;
     await fetch("/api/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -58,7 +67,7 @@
 
   async function send() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || !editor) return;
     messages.push({ role: "user", text });
     input = "";
     loading = true;
@@ -82,6 +91,7 @@
     scrollDown();
   }
 
+  /** @param {KeyboardEvent} e */
   function onkey(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -98,7 +108,7 @@
       {#each tools as t (t.label)}
         <button
           class:active={t.name && active(t.name, t.attrs)}
-          onclick={() => t.run(editor.chain().focus()).run()}
+          onclick={() => editor && t.run(editor.chain().focus()).run()}
         >
           {t.label}
         </button>
@@ -117,7 +127,7 @@
         <button onclick={() => (open = false)}>✕</button>
       </div>
       <div class="log" bind:this={log}>
-        {#each messages as m (m.id)}
+        {#each messages as m (m)}
           <div class="msg {m.role}">{m.text}</div>
         {/each}
         {#if loading}<div class="msg assistant">…</div>{/if}
