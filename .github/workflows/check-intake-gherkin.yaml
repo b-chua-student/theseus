@@ -94,5 +94,6 @@ jobs:
     steps:
       - name: Evaluate
         run: |
+          [[ "${{ needs.changes.result }}" == success ]] || exit 1
           [[ "${{ needs.intake.result }}" =~ ^(success|skipped)$ ]] || exit 1
           [[ "${{ needs.gherkin.result }}" =~ ^(success|skipped)$ ]] || exit 1
