@@ -1,6 +1,6 @@
 """Flask application factory."""
 
-from flask import Flask, Response, send_from_directory
+from flask import Flask, Response, abort, send_from_directory
 
 
 def create_app() -> Flask:
@@ -25,5 +25,12 @@ def create_app() -> Flask:
     def health() -> dict[str, str]:
         """Report that the application is running."""
         return {"status": "ok"}
+
+    @app.get("/<path:path>")
+    def frontend_fallback(path: str) -> Response:
+        """Serve the frontend entry point for client-side routes."""
+        if path.partition("/")[0] in {"api", "assets"}:
+            abort(404)
+        return index()
 
     return app
