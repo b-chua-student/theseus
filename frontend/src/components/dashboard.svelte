@@ -1,6 +1,12 @@
+<script module>
+  /** @typedef {{ document_id: string, author: string, last_modified: number, last_commit_id: string }} DocumentSummary */
+</script>
+
 <script>
+  /** @type {{ documents?: DocumentSummary[], onselect?: (id: string) => void, oncreate?: () => void }} */
   let { documents = [], onselect, oncreate } = $props();
 
+  /** @param {number} ts */
   const formatDate = (ts) => new Date(ts * 1000).toLocaleString();
 </script>
 
