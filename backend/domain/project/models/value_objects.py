@@ -44,6 +44,7 @@ class ProjectName:
     value: str
 
     def __post_init__(self) -> None:
+        """Validate that the value is non-empty after trimming whitespace."""
         stripped = self.value.strip()
         if not stripped:
             raise InvalidProjectNameError("must not be blank")
@@ -88,6 +89,7 @@ class DisplayName:
     value: str
 
     def __post_init__(self) -> None:
+        """Validate that the value is non-empty after trimming whitespace."""
         stripped = self.value.strip()
         if not stripped:
             raise InvalidDisplayNameError("must not be blank")
@@ -103,6 +105,7 @@ class Email:
     value: str
 
     def __post_init__(self) -> None:
+        """Validate and normalize the email address without checking deliverability."""
         try:
             info = validate_email(self.value, check_deliverability=False)
         except EmailNotValidError as e:
@@ -110,4 +113,5 @@ class Email:
         object.__setattr__(self, "value", info.normalized)
 
     def __str__(self) -> str:
+        """Return the normalize email address."""
         return self.value
