@@ -2,7 +2,9 @@
   import Dashboard from './components/dashboard.svelte';
   import DocumentEditor from './components/editor.svelte';
 
+  /** @type {import('./components/dashboard.svelte').DocumentSummary[]} */
   let documents = $state([]);
+  /** @type {string | null} */
   let selectedId = $state(null);
 
   $effect(() => {
