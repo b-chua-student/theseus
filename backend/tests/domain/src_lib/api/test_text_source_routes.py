@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from flask import Flask, jsonify
+from flask import Flask, Response, jsonify
 from flask.testing import FlaskClient
 
 from domain.src_lib.api.errors import SourceNotFoundError
@@ -70,7 +70,7 @@ def client(project_id: str) -> FlaskClient:
     )
 
     @app.errorhandler(SourceNotFoundError)
-    def handle_not_found(error: SourceNotFoundError):
+    def handle_not_found(error: SourceNotFoundError) -> tuple[Response, int]:
         return jsonify(error=error.message), 404
 
     app.register_blueprint(
@@ -149,15 +149,27 @@ def test_text_source_lifecycle(client: FlaskClient, project_id: str) -> None:
         {"title": "Notes", "content": " "},
         {"title": "x" * 201, "content": "Valid content"},
         {"title": "Notes", "content": "x" * 100001},
-        {"title": "Notes", "content": "Valid", "contentType": "invalid"},
-        {"title": "Notes", "content": "Valid", "description": "x" * 1001},
-        {"title": "Notes", "content": "Valid", "tags": [str(i) for i in range(11)]},
+        {
+            "title": "Notes",
+            "content": "Valid",
+            "contentType": "invalid",
+        },
+        {
+            "title": "Notes",
+            "content": "Valid",
+            "description": "x" * 1001,
+        },
+        {
+            "title": "Notes",
+            "content": "Valid",
+            "tags": [str(i) for i in range(11)],
+        },
     ],
 )
 def test_create_rejects_invalid_payload(
     client: FlaskClient,
     project_id: str,
-    payload: dict,
+    payload: dict[str, object],
 ) -> None:
     response = client.post(
         f"{BASE_URL}?projectId={project_id}",
