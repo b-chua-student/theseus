@@ -69,7 +69,6 @@ def client(project_id: str) -> FlaskClient:
         ),
     )
 
-
     @app.errorhandler(SourceNotFoundError)
     def handle_not_found(error: SourceNotFoundError):
         return jsonify(error=error.message), 404
