@@ -1,10 +1,11 @@
 from collections.abc import Callable
 from functools import wraps
 
-from bootstrap.extensions import limiter
 from flask import Blueprint, current_app, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
+
+from bootstrap.extensions import limiter
 
 from .requests import LoginRequest, RegisterRequest
 

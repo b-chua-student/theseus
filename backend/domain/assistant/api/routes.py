@@ -1,6 +1,5 @@
 from datetime import UTC
 
-from domain.manuscript.api.errors import ManuscriptNotFoundError
 from flask import Blueprint, current_app, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
@@ -9,6 +8,7 @@ from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.errors import ChatUnavailableError
 from domain.assistant.services.chat import ChatService
 from domain.identity.api.auth.routes import login_required
+from domain.manuscript.api.errors import ManuscriptNotFoundError
 
 from .requests import AskRequest
 
