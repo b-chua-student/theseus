@@ -11,9 +11,9 @@ As a writer, I want to choose what the Assistant can consult for my next questio
 - The panel starts in `none` and resets to `none` when the project changes. The backend default for a new conversation is `source_library`.
 - The panel keeps a separate session (message list and conversation) for each scope and source selection. It says "Changing sources starts a separate conversation." Switching scope therefore shows a different thread and does not carry history across modes.
 - Ticking every source in the picker stores an explicit list of IDs, not "all".
-- The picker lists sources from `listSources(projectId)` (`/api/sources?projectId=`). It does not filter to indexed sources. The backend routes for sources are not on this branch.
+- The picker lists sources from `listSources(projectId)` (`/api/sources?projectId=`). `GET /api/sources?projectId=` returns every active source of the project (`id`, `kind`, `title`, `authors`, `year`, `file_ref`) with no indexing status, so the picker cannot tell indexed sources from others. The backend retrieval already drops sources that are not indexed.
 - The client already sends `POST /api/projects/:projectId/conversations/:conversationId/exchanges` with `{query, context_scope, source_ids, manuscript_text}`. It sends `source_ids: null` and `manuscript_text: ""` when they are unused. The editor text is read at send time.
-- The backend contract in `backend/domain/assistant/api` accepts that body and needs no change. Opening a saved conversation already restores its stored `context_scope` and `source_ids`.
+- The backend contract in `backend/domain/assistant/api` accepts that body and needs no change. The routes are registered in `backend/bootstrap/app.py` at `/api/projects/<project_id>/conversations` and `/api/sources`. Opening a saved conversation already restores its stored `context_scope` and `source_ids`.
 - A failed send leaves the question in the thread with an error reply and a Try again action. A 404 for a missing conversation silently starts a new conversation.
 
 ## In Scope
@@ -46,7 +46,7 @@ Changes to manuscript editing, source uploads, indexing, retrieval ranking, save
 - If a send fails, the writer's chosen mode and source selection stay as they were. The question stays in the thread, and the error reply offers Try again.
 - If the conversation no longer exists (404), the writer is told and the question is kept. The app does not silently start a new conversation.
 - When an existing conversation is opened, the Context button shows its stored `context_scope` and `source_ids`. A new conversation starts at Sources with All sources.
-- The Sources picker lists only eligible sources. If the project has none, Sources stays selectable, the picker says there are no searchable sources, and the Assistant answers without library material. Where the eligible filter is applied (client or API) is an implementation decision. The sources routes are not on this branch.
+- The Sources picker lists only eligible sources. If the project has none, Sources stays selectable, the picker says there are no searchable sources, and the Assistant answers without library material. The source list response has no indexing status, so showing only eligible entries needs the list to carry one. Adding it is a backend change and is the one exception to "no backend change". If it is not added, the picker lists all project sources and retrieval ignores the ones that are not indexed.
 - Manuscript is unavailable until the editor is ready. Context controls are disabled while a message is in flight.
 
 | Menu item | `context_scope` | Reference input for this message |
