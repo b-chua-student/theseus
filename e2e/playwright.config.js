@@ -5,7 +5,7 @@ export default defineConfig({
   webServer: [
     {
       cwd: '../backend',
-      command: 'python -m flask --app api.app run --port 5000',
+      command: 'python -m flask --app bootstrap.app run --port 5000',
       url: 'http://127.0.0.1:5000/api/health',
     },
     {
