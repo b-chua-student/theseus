@@ -17,4 +17,4 @@ COPY backend/ .
 COPY --from=frontend /frontend/dist ./static
 
 EXPOSE 5000
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --access-logfile - --error-logfile - 'api.app:create_app()'"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --access-logfile - --error-logfile - 'bootstrap.app:create_app()'"]
