@@ -1,7 +1,5 @@
 import logging
 
-from domain.src_lib.models.events import SourceUpdated
-
 from domain.assistant.infrastructure.ports.index_job_queue import IndexJobQueue
 from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
@@ -14,6 +12,7 @@ from domain.assistant.models.value_objects import (
     IndexStatus,
     ProjectId,
 )
+from domain.src_lib.models.events import SourceUpdated
 
 logger = logging.getLogger(__name__)
 

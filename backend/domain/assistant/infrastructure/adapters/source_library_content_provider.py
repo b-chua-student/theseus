@@ -5,14 +5,13 @@ id that is not a text source is delegated to the fallback provider (manuscripts)
 so the existing path is unchanged.
 """
 
-from domain.src_lib.infrastructure.ports.source_repository import SourceRepository
-from domain.src_lib.models.aggregates import Source
-from domain.src_lib.models.value_objects import SourceId
-
 from domain.assistant.infrastructure.ports.source_content_provider import (
     SourceContentProvider,
 )
 from domain.assistant.models.value_objects import DocumentRefId
+from domain.src_lib.infrastructure.ports.source_repository import SourceRepository
+from domain.src_lib.models.aggregates import Source
+from domain.src_lib.models.value_objects import SourceId
 
 
 class SourceLibraryContentProvider(SourceContentProvider):

@@ -4,13 +4,13 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from bootstrap.extensions import limiter
-from domain.identity.api.auth.routes import login_required
 from flask import Blueprint, Response, current_app, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from flask_limiter.errors import RateLimitExceeded
 from pydantic import ValidationError
 
+from bootstrap.extensions import limiter
+from domain.identity.api.auth.routes import login_required
 from domain.shared.errors import DomainError
 from domain.src_lib.models.aggregates import Source
 from domain.src_lib.services.errors import SourceNotFound
