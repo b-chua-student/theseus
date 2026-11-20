@@ -102,7 +102,7 @@ function toQuery(params) {
 
 /**
  * @param {string} url
- * @param {RequestInit} [options]
+ * @param {RequestInit | undefined} options
  * @param {string} fallbackMessage
  * @returns {Promise<any>}
  */
@@ -126,7 +126,7 @@ async function request(url, options, fallbackMessage) {
   });
   if (res.status === 429) {
     const ra = Number(res.headers?.get?.('Retry-After'));
-    err.retryAfter = Number.isFinite(ra) ? ra : undefined;
+    throw Object.assign(err, { retryAfter: Number.isFinite(ra) ? ra : undefined });
   }
   throw err;
 }

@@ -14,7 +14,7 @@
 
 /**
  * @param {string} url
- * @param {RequestInit} [options]
+ * @param {RequestInit | undefined} options
  * @param {string} fallbackMessage  Used when the response is not ok but has no
  *   parseable `error` field.
  * @returns {Promise<Response>}

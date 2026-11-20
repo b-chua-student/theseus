@@ -29,7 +29,6 @@
   } = $props();
 
   let mergeOpen = $state(false);
-  let mergeReason = $derived(mergeDisabledReason(draftsStarted, drafts.length, draftBusy || saving || restoringId !== null));
   async function merged(source, target) {
     await loadDrafts();
     mergeOpen = false;
@@ -48,6 +47,7 @@
   let draftsError = $state("");
   let draftsStarted = $state(true);
   let draftBusy = $state(false);
+  let mergeReason = $derived(mergeDisabledReason(draftsStarted, drafts.length, draftBusy || saving || restoringId !== null));
   let newDraftName = $state("");
   let creating = $state(false);
   let renamingName = $state(null);

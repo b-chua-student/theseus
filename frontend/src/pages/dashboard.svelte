@@ -9,7 +9,7 @@
     renameManuscript,
   } from "../lib/api/manuscripts.js";
 
-  /** @type {{ selectedProject: {id: string, name: string} | null, refreshKey?: number, oncount?: (count: number) => void, onselect: (id: string, projectId: string) => void, onback: () => void }} */
+  /** @type {{ selectedProject: {id: string, name: string} | null, refreshKey?: number, oncount?: (count: number) => void, onselect: (id: string, projectId: string, title: string) => void, onback: () => void }} */
   let { selectedProject = null, refreshKey = 0, oncount, onselect, onback } = $props();
 
   // ── data state ───────────────────────────────────────────────────────────────

@@ -35,11 +35,7 @@ export async function commitRevision(projectId, manuscriptId, message, branch) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(branch ? { message, branch } : { message }),
     credentials: 'include',
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw Object.assign(new Error(err.error || 'Failed to commit revision.'), { code: err.code });
-  }
+  }, 'Failed to commit revision.');
   return res.json();
 }
 

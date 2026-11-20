@@ -55,8 +55,12 @@
   let citationDialog = $state(false);
   let citationText = $state('');
   let dialogElement = $state();
-  const fontFamily = $derived((tick, editor?.getAttributes('manuscriptStyle').fontFamily || 'Times New Roman'));
-  const fontSize = $derived((tick, editor?.getAttributes('manuscriptStyle').fontSize || '16px'));
+  const manuscriptStyle = $derived.by(() => {
+    tick;
+    return editor?.getAttributes('manuscriptStyle');
+  });
+  const fontFamily = $derived(manuscriptStyle?.fontFamily || 'Times New Roman');
+  const fontSize = $derived(manuscriptStyle?.fontSize || '16px');
   const outline = $derived.by(() => {
     tick;
     const pages = [{ number: 1, pos: 0, sections: [] }];
@@ -188,7 +192,10 @@
   }
   function windowKey(event) { if (event.key === 'Escape') menuOpen = null; }
 
-  const active = (name, attrs) => (tick, editor?.isActive(name, attrs));
+  const active = (name, attrs) => {
+    tick;
+    return editor?.isActive(name, attrs);
+  };
 
   const tools = [
     { label: "Bold", name: "bold", run: (c) => c.toggleBold() },

@@ -81,6 +81,12 @@ export function switchDraft(projectId, manuscriptId, name) {
 }
 
 
+/**
+ * @param {string} projectId
+ * @param {string} manuscriptId
+ * @param {string} sourceName
+ * @param {{resolutions?: ReturnType<typeof import('../mergeDraft.js').toResolutions>, message?: string}} [options]
+ */
 export function mergeDraft(projectId, manuscriptId, sourceName, { resolutions = [], message } = {}) {
   return request(`${base(projectId, manuscriptId)}/${encodeURIComponent(sourceName)}/merge`, {
     ...json('POST', { resolutions, message }),

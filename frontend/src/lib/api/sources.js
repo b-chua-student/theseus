@@ -7,7 +7,7 @@
 import { apiFetch } from './http.js';
 
 /**
- * @typedef {{ id: string, title: string, authors: string[], year: number|null, file_ref: string }} Source
+ * @typedef {{ id: string, kind?: string, title: string, authors: string[], year: number|null, file_ref: string }} Source
  */
 
 /**

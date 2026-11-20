@@ -9,6 +9,7 @@
   let { projectId, editor, tick, open, onclose, notice = $bindable() } = $props();
 
   // Keep this component mounted while closed to retain the session conversation.
+  /** @type {'none' | 'manuscript' | 'source_library'} */
   let contextScope = $state("none");
   let sessions = $state({});
   let selectedSourceIds = $state(null);
@@ -16,7 +17,10 @@
   let sourcesLoading = $state(false);
   let sourcesError = $state('');
   let pickerOpen = $state(false);
-  const sessionKey = $derived(contextScope !== 'source_library' ? contextScope : `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`);
+  const sessionKey = $derived.by(() => {
+    if (contextScope !== 'source_library') return contextScope;
+    return `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`;
+  });
   const messages = $derived(sessions[sessionKey]?.messages ?? []);
 
   async function openSources() {
@@ -107,7 +111,10 @@
 
 
   // Browser-local timestamps and writing tools.
-  const hasSelection = $derived((tick, !!editor && !editor.state.selection.empty));
+  const hasSelection = $derived.by(() => {
+    tick;
+    return !!editor && !editor.state.selection.empty;
+  });
   let composer = $state();
   let selectionQuote = $state('');
   const formatTime = (value) => new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -124,7 +131,7 @@
     }
   });
   function renderMarkdown(text) {
-    return DOMPurify.sanitize(marked.parse(text ?? ''), { ADD_ATTR: ['target'] });
+    return DOMPurify.sanitize(marked.parse(text ?? '', { async: false }), { ADD_ATTR: ['target'] });
   }
   const fullTime = (value) => new Date(value).toLocaleString();
   const prompts = [

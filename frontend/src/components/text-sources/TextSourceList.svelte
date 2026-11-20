@@ -22,7 +22,11 @@
   let tagInput = $state('');
   let query = $state('');
   let tag = $state('');
+  /** @typedef {import('../../lib/api/textSources.js').TextContentType} TextContentType */
+  /** @typedef {import('../../lib/api/textSources.js').TextSourceSort} TextSourceSort */
+  /** @type {TextContentType | ''} */
   let contentType = $state('');
+  /** @type {TextSourceSort} */
   let sort = $state('updatedAt');
   let page = $state(1);
 
@@ -145,7 +149,7 @@
     </label>
     <label>
       <span class="sr-only">Filter by type</span>
-      <select value={contentType} onchange={(e) => setFilter(() => (contentType = e.currentTarget.value))}>
+      <select value={contentType} onchange={(e) => setFilter(() => (contentType = /** @type {TextContentType | ''} */ (e.currentTarget.value)))}>
         <option value="">All types</option>
         <option value="documentation">Documentation</option>
         <option value="notes">Notes</option>
@@ -163,7 +167,7 @@
         value={sort}
         disabled={searching}
         title={searching ? 'Search results are ordered by relevance' : undefined}
-        onchange={(e) => setFilter(() => (sort = e.currentTarget.value))}
+        onchange={(e) => setFilter(() => (sort = /** @type {TextSourceSort} */ (e.currentTarget.value)))}
       >
         <option value="updatedAt">Recently updated</option>
         <option value="title">Title</option>
