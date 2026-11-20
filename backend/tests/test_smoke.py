@@ -1,7 +1,11 @@
 """Smoke tests for the application factory."""
 
+import pytest
+
 from bootstrap.app import create_app
 from domain.assistant.models.value_objects import IndexStatus, ProjectId
+
+pytestmark = pytest.mark.integration
 
 
 def test_contexts_share_dependencies() -> None:

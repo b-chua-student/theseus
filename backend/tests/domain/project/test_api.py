@@ -26,6 +26,8 @@ from domain.project.services.remove_project_description import RemoveProjectDesc
 from domain.project.services.rename_project import RenameProjectService
 from domain.project.services.transfer_project_ownership import TransferProjectOwnershipService
 
+pytestmark = pytest.mark.integration
+
 
 @dataclass
 class _FakeUser:
