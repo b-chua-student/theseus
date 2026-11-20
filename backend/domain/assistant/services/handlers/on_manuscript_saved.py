@@ -1,13 +1,12 @@
 import logging
 
-from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
-
 from domain.assistant.infrastructure.ports.index_job_queue import IndexJobQueue
 from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
 )
 from domain.assistant.models.aggregates import IndexedDocument
 from domain.assistant.models.value_objects import DocumentRefId, IndexedDocumentTitle, ProjectId
+from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
 
 logger = logging.getLogger(__name__)
 

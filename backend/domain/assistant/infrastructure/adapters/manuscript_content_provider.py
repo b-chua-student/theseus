@@ -5,15 +5,14 @@ fetches the manuscript by its UUID and concatenates all section headings and
 bodies into a single string.
 """
 
-from domain.manuscript.infrastructure.ports.manuscript_repository import (
-    ManuscriptRepository,
-)
-from domain.manuscript.models.value_objects import ManuscriptId
-
 from domain.assistant.infrastructure.ports.source_content_provider import (
     SourceContentProvider,
 )
 from domain.assistant.models.value_objects import DocumentRefId
+from domain.manuscript.infrastructure.ports.manuscript_repository import (
+    ManuscriptRepository,
+)
+from domain.manuscript.models.value_objects import ManuscriptId
 
 
 class ManuscriptContentProvider(SourceContentProvider):

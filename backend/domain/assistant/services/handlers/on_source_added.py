@@ -1,5 +1,3 @@
-from domain.src_lib.models.events import SourceAdded
-
 from domain.assistant.infrastructure.ports.index_job_queue import IndexJobQueue
 from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
@@ -7,6 +5,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
 from domain.assistant.infrastructure.ports.source_content_provider import SourceContentProvider
 from domain.assistant.models.aggregates import IndexedDocument
 from domain.assistant.models.value_objects import DocumentRefId, IndexedDocumentTitle, ProjectId
+from domain.src_lib.models.events import SourceAdded
 
 
 class OnSourceAdded:
