@@ -1,7 +1,6 @@
-from domain.src_lib.infrastructure.ports.event_publisher import EventPublisher
-
 from domain.manuscript.infrastructure.ports.manuscript_repository import ManuscriptRepository
 from domain.manuscript.models.value_objects import ManuscriptId, SectionId
+from domain.src_lib.infrastructure.ports.event_publisher import EventPublisher
 
 
 class EditSectionBodyService:

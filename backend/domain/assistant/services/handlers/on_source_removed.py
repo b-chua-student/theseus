@@ -1,11 +1,10 @@
 import logging
 
-from domain.src_lib.models.events import SourceRemoved
-
 from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
 )
 from domain.assistant.models.value_objects import DocumentRefId, IndexStatus
+from domain.src_lib.models.events import SourceRemoved
 
 logger = logging.getLogger(__name__)
 
