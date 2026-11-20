@@ -13,11 +13,13 @@
       "node"
     ],
     "skipLibCheck": true,
+    "strict": false,
     "checkJs": true
   },
   "include": [
     "src/**/*.d.ts",
     "src/**/*.js",
-    "src/**/*.svelte"
+    "src/**/*.svelte",
+    "vitest.setup.js"
   ]
 }
