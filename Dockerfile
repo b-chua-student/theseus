@@ -1,5 +1,5 @@
 # Stage 1: build frontend
-FROM node:20-slim AS frontend
+FROM node:24-slim AS frontend
 WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci
