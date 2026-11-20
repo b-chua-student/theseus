@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  # CodeRabbit requires manual review requests for public repositories with fewer than 10 stars.
+  # Comment `@coderabbitai review` on a pull request to request a free OSS review.
+  auto_review:
+    enabled: false
