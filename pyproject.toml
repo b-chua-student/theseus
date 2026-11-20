@@ -21,6 +21,9 @@ ignore = [
     "D203", "D213",  # conflict with D211/D212
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["domain"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
