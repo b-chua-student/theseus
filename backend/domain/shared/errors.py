@@ -9,7 +9,7 @@ class DomainError(Exception):
     code: str = "domain.error"
 
     def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
-        """Initialize the domain error."""
+        """Initialize the error with a message and optional details."""
         super().__init__(message)
         self.message = message
         self.details = details or {}

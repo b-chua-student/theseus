@@ -39,4 +39,4 @@ namespace_packages = true
 [tool.pytest.ini_options]
 pythonpath = ["backend"]
 testpaths = ["backend/tests"]
-markers = ["integration: integration tests"]
+markers = ["integration: exercises multiple components together"]
