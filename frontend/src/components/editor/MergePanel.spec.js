@@ -1,0 +1,43 @@
+import { beforeEach, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+import MergePanel from './MergePanel.svelte';
+import { mergeDraft } from '../../lib/api/drafts.js';
+vi.mock('../../lib/api/drafts.js', () => ({ mergeDraft: vi.fn() }));
+beforeEach(() => {
+  vi.clearAllMocks();
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+});
+const props = () => ({ projectId:'p', id:'m', currentDraft:'main', drafts:[{name:'main'},{name:'feature'}], onmerged:vi.fn(), onclose:vi.fn() });
+it('requires every conflict choice before resubmitting and retains choices after failure', async () => {
+  const conflicts = ['body','heading'].map(field => ({section_id:'a', section_heading:'Intro',field,target:'ours',source:'theirs'}));
+  mergeDraft.mockRejectedValueOnce(Object.assign(new Error(), {code:'revision.merge_conflict',conflicts}));
+  mergeDraft.mockRejectedValueOnce(new Error('offline'));
+  const p = props();
+  render(MergePanel, { props:p });
+  const button = screen.getByRole('button', {name:'Merge'});
+  expect(button).toBeDisabled();
+  await fireEvent.change(screen.getByRole('combobox'), {target:{value:'feature'}});
+  await fireEvent.click(button);
+  await screen.findByRole('radio', {name:'Intro body: source'});
+  expect(button).toBeDisabled();
+  await fireEvent.click(screen.getByRole('radio', {name:'Intro body: source'}));
+  expect(button).toBeDisabled();
+  await fireEvent.click(screen.getByRole('radio', {name:'Intro heading: target'}));
+  expect(button).toBeEnabled();
+  await fireEvent.click(button);
+  await screen.findByText('Merge failed: offline');
+  expect(screen.getByRole('radio', {name:'Intro body: source'})).toBeChecked();
+  expect(mergeDraft.mock.calls[1][3].resolutions).toHaveLength(2);
+  mergeDraft.mockResolvedValueOnce({});
+  await fireEvent.click(button);
+  await waitFor(() => expect(p.onmerged).toHaveBeenCalledWith('feature','main'));
+});
+it('blocks unsaved changes and closes on Escape cancellation', async () => {
+  const p = props();
+  render(MergePanel, {props:{...p, hasUnsavedChanges:true}});
+  await fireEvent.change(screen.getByRole('combobox'), {target:{value:'feature'}});
+  expect(screen.getByRole('button', {name:'Merge'})).toBeDisabled();
+  await fireEvent(screen.getByRole('dialog'), new Event('cancel'));
+  expect(p.onclose).toHaveBeenCalledOnce();
+  expect(mergeDraft).not.toHaveBeenCalled();
+});
