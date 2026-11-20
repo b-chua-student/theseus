@@ -21,6 +21,9 @@ ignore = [
     "D203", "D213",  # conflict with D211/D212
 ]
 
+[tool.ruff.lint.isort]
+known-first-party = ["domain"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
@@ -39,3 +42,4 @@ namespace_packages = true
 [tool.pytest.ini_options]
 pythonpath = ["backend"]
 testpaths = ["backend/tests"]
+markers = ["integration: exercises multiple components together"]
