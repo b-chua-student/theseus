@@ -153,7 +153,8 @@ describe('@accessibility @ui', () => {
     document.body.focus();
     for (let i = 0; i < 20 && reached.size < targets.length; i++) {
       await user.tab();
-      if (targets.includes(document.activeElement)) reached.add(document.activeElement);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && targets.includes(active)) reached.add(active);
     }
     expect(reached.size).toBe(targets.length);
 

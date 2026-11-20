@@ -25,6 +25,7 @@ import { listTextSources, deleteTextSource } from '../../lib/api/textSources.js'
 import TextSourceForm from './TextSourceForm.svelte';
 import TextSourceList from './TextSourceList.svelte';
 
+/** @returns {import('../../lib/api/textSources.js').TextSourceSummary} */
 const item = (n) => ({
   id: `id${n}`,
   kind: 'text',
@@ -45,8 +46,8 @@ const audit = (node) =>
 beforeEach(() => {
   localStorage.clear();
   vi.resetAllMocks();
-  listTextSources.mockResolvedValue({ items: [item(1), item(2)], total: 2, page: 1, pageSize: 20 });
-  deleteTextSource.mockResolvedValue(undefined);
+  vi.mocked(listTextSources).mockResolvedValue({ items: [item(1), item(2)], total: 2, page: 1, pageSize: 20 });
+  vi.mocked(deleteTextSource).mockResolvedValue(undefined);
 });
 afterEach(cleanup);
 

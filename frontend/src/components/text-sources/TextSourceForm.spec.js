@@ -19,6 +19,20 @@ vi.mock('../../lib/api/textSources.js', async () => {
 const api = await import('../../lib/api/textSources.js');
 const KEY = 'theseus:text-draft:p1';
 
+/** @type {import('../../lib/api/textSources.js').TextSource} */
+const source = {
+  id: 's9',
+  kind: 'text',
+  title: 'Old',
+  content: 'old body',
+  description: 'd',
+  tags: ['x'],
+  contentType: 'notes',
+  version: 1,
+  createdAt: '2025-01-01T00:00:00Z',
+  updatedAt: '2025-01-01T00:00:00Z',
+};
+
 const type = (el, value) => fireEvent.input(el, { target: { value } });
 
 beforeEach(() => {
@@ -79,18 +93,19 @@ describe('TextSourceForm', () => {
     first.unmount();
 
     render(TextSourceForm, { projectId: 'p1' });
-    expect(screen.getByLabelText('Title').value).toBe('My draft');
-    expect(screen.getByLabelText('Content').value).toBe('body');
+    expect(screen.getByLabelText('Title')).toHaveValue('My draft');
+    expect(screen.getByLabelText('Content')).toHaveValue('body');
     expect(screen.getByText(/Draft restored/)).toBeTruthy();
   });
 
   it('creates, normalizes input, and clears the draft', async () => {
     localStorage.setItem(KEY, JSON.stringify({ title: ' Hi ', tags: 'a, b, a,, ', content: 'x' }));
-    api.createTextSource.mockResolvedValue({ id: 's1' });
+    const created = { ...source, id: 's1', title: 'Hi', content: 'x' };
+    vi.mocked(api.createTextSource).mockResolvedValue(created);
     const onsaved = vi.fn();
     render(TextSourceForm, { projectId: 'p1', onsaved });
     await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
-    await vi.waitFor(() => expect(onsaved).toHaveBeenCalledWith({ id: 's1' }));
+    await vi.waitFor(() => expect(onsaved).toHaveBeenCalledWith(created));
     expect(api.createTextSource).toHaveBeenCalledWith('p1', {
       title: 'Hi',
       content: 'x',
@@ -102,18 +117,10 @@ describe('TextSourceForm', () => {
   });
 
   it('edit mode prefills and calls update', async () => {
-    const source = {
-      id: 's9',
-      title: 'Old',
-      content: 'old body',
-      description: 'd',
-      tags: ['x'],
-      contentType: 'notes',
-    };
-    api.updateTextSource.mockResolvedValue({ ...source, version: 2 });
+    vi.mocked(api.updateTextSource).mockResolvedValue({ ...source, version: 2 });
     const onsaved = vi.fn();
     render(TextSourceForm, { projectId: 'p1', source, onsaved });
-    expect(screen.getByLabelText('Title').value).toBe('Old');
+    expect(screen.getByLabelText('Title')).toHaveValue('Old');
     await type(screen.getByLabelText('Title'), 'New');
     await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await vi.waitFor(() => expect(onsaved).toHaveBeenCalled());
@@ -125,7 +132,7 @@ describe('TextSourceForm', () => {
   });
 
   it('shows server field errors', async () => {
-    api.createTextSource.mockRejectedValue(
+    vi.mocked(api.createTextSource).mockRejectedValue(
       new api.TextSourceValidationError({ title: 'Title already bad' }),
     );
     render(TextSourceForm, { projectId: 'p1' });

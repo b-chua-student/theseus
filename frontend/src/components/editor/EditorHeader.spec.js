@@ -6,9 +6,30 @@ import { listDrafts } from '../../lib/api/drafts.js';
 vi.mock('../../lib/api/drafts.js', () => ({ listDrafts:vi.fn(), createDraft:vi.fn(), renameDraft:vi.fn(), deleteDraft:vi.fn(), switchDraft:vi.fn() }));
 vi.mock('../../lib/api/indexing.js', () => ({getIndexingStatus:vi.fn().mockResolvedValue({status:'indexed',chunk_count:1})}));
 beforeEach(() => { vi.clearAllMocks(); });
-const props = () => ({id:'m',projectId:'p',title:'Test',icon:createRawSnippet(() => ({render:() => '<span></span>'})),menuItems:Object.fromEntries(['File','Edit','View','Insert','Format','Tools','Help'].map(x => [x,[]]))});
+const props = () => ({
+  id: 'm',
+  projectId: 'p',
+  title: 'Test',
+  editor: null,
+  icon: createRawSnippet(() => ({ render: () => '<span></span>' })),
+  menuItems: Object.fromEntries(['File', 'Edit', 'View', 'Insert', 'Format', 'Tools', 'Help'].map(name => [name, []])),
+  onback: vi.fn(),
+  runMenu: vi.fn(),
+  save: vi.fn(),
+  onRestore: vi.fn(),
+  onMerge: vi.fn(),
+  onDraftChange: vi.fn(),
+  saveTick: 0,
+});
+const draft = (name, isCurrent = false) => ({
+  name,
+  is_current: isCurrent,
+  head: { id: name, message: 'Initial revision', created_at: '2025-01-01T00:00:00Z' },
+  revision_count: 1,
+});
+
 it('enables merging with two drafts and disables it while saving', async () => {
-  listDrafts.mockResolvedValue([{name:'main',is_current:true},{name:'feature'}]);
+  vi.mocked(listDrafts).mockResolvedValue([draft('main', true), draft('feature')]);
   const p = props();
   const view = render(EditorHeader, {props:p});
   const button = screen.getByRole('button', {name:'Merge'});
@@ -18,7 +39,7 @@ it('enables merging with two drafts and disables it while saving', async () => {
   expect(button).toHaveAttribute('title','A draft operation is in progress');
 });
 it('disables merging with one draft', async () => {
-  listDrafts.mockResolvedValue([{name:'main',is_current:true}]);
+  vi.mocked(listDrafts).mockResolvedValue([draft('main', true)]);
   render(EditorHeader, {props:props()});
   const button = screen.getByRole('button', {name:'Merge'});
   await waitFor(() => expect(listDrafts).toHaveBeenCalled());
@@ -26,7 +47,7 @@ it('disables merging with one draft', async () => {
   expect(button).toHaveAttribute('title','At least two drafts are required');
 });
 it('disables merging when tracking has not started', async () => {
-  listDrafts.mockRejectedValue(new Error('Not found'));
+  vi.mocked(listDrafts).mockRejectedValue(new Error('Not found'));
   render(EditorHeader, {props:props()});
   const button = screen.getByRole('button', {name:'Merge'});
   await waitFor(() => expect(button).toHaveAttribute('title','Draft tracking has not started'));

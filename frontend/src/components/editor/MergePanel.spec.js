@@ -10,8 +10,8 @@ beforeEach(() => {
 const props = () => ({ projectId:'p', id:'m', currentDraft:'main', drafts:[{name:'main'},{name:'feature'}], onmerged:vi.fn(), onclose:vi.fn() });
 it('requires every conflict choice before resubmitting and retains choices after failure', async () => {
   const conflicts = ['body','heading'].map(field => ({section_id:'a', section_heading:'Intro',field,target:'ours',source:'theirs'}));
-  mergeDraft.mockRejectedValueOnce(Object.assign(new Error(), {code:'revision.merge_conflict',conflicts}));
-  mergeDraft.mockRejectedValueOnce(new Error('offline'));
+  vi.mocked(mergeDraft).mockRejectedValueOnce(Object.assign(new Error(), {code:'revision.merge_conflict',conflicts}));
+  vi.mocked(mergeDraft).mockRejectedValueOnce(new Error('offline'));
   const p = props();
   render(MergePanel, { props:p });
   const button = screen.getByRole('button', {name:'Merge'});
@@ -27,8 +27,8 @@ it('requires every conflict choice before resubmitting and retains choices after
   await fireEvent.click(button);
   await screen.findByText('Merge failed: offline');
   expect(screen.getByRole('radio', {name:'Intro body: source'})).toBeChecked();
-  expect(mergeDraft.mock.calls[1][3].resolutions).toHaveLength(2);
-  mergeDraft.mockResolvedValueOnce({});
+  expect(vi.mocked(mergeDraft).mock.calls[1][3].resolutions).toHaveLength(2);
+  vi.mocked(mergeDraft).mockResolvedValueOnce({});
   await fireEvent.click(button);
   await waitFor(() => expect(p.onmerged).toHaveBeenCalledWith('feature','main'));
 });

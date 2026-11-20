@@ -20,15 +20,7 @@ let calls;
 function mockFetch(status, body, headers = {}) {
   globalThis.fetch = async (url, init) => {
     calls.push({ url: String(url), init });
-    return {
-      ok: status >= 200 && status < 300,
-      status,
-      headers: new Headers(headers),
-      json: async () => {
-        if (body === undefined) throw new Error('no body');
-        return body;
-      },
-    };
+    return new Response(body === undefined ? null : JSON.stringify(body), { status, headers });
   };
 }
 
@@ -103,6 +95,7 @@ test('400 with errors becomes TextSourceValidationError with fieldErrors', async
   });
   await assert.rejects(createTextSource(P, { title: '', content: '' }), (e) => {
     assert.ok(e instanceof TextSourceValidationError);
+    assert.ok(e && typeof e === 'object' && 'status' in e);
     assert.equal(e.status, 400);
     assert.deepEqual(e.fieldErrors, { title: 'too long', content: 'required' });
     return true;
@@ -112,7 +105,9 @@ test('400 with errors becomes TextSourceValidationError with fieldErrors', async
 test('400 without field errors falls back to a plain error', async () => {
   mockFetch(400, { error: 'Bad body' });
   await assert.rejects(createTextSource(P, { title: 't', content: 'c' }), (e) => {
+    assert.ok(e instanceof Error);
     assert.equal(e.message, 'Bad body');
+    assert.ok(e && typeof e === 'object' && 'status' in e);
     assert.equal(e.status, 400);
     assert.equal(e instanceof TextSourceValidationError, false);
     return true;
@@ -122,7 +117,9 @@ test('400 without field errors falls back to a plain error', async () => {
 test('404 uses fallback message and status', async () => {
   mockFetch(404, undefined);
   await assert.rejects(getTextSource(P, 'x'), (e) => {
+    assert.ok(e instanceof Error);
     assert.equal(e.message, 'Text source not found.');
+    assert.ok(e && typeof e === 'object' && 'status' in e);
     assert.equal(e.status, 404);
     return true;
   });
@@ -131,7 +128,9 @@ test('404 uses fallback message and status', async () => {
 test('429 exposes retryAfter seconds', async () => {
   mockFetch(429, { error: 'Slow down' }, { 'Retry-After': '30' });
   await assert.rejects(createTextSource(P, { title: 't', content: 'c' }), (e) => {
+    assert.ok(e && typeof e === 'object' && 'status' in e);
     assert.equal(e.status, 429);
+    assert.ok('retryAfter' in e);
     assert.equal(e.retryAfter, 30);
     return true;
   });

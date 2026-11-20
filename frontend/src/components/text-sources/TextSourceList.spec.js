@@ -12,6 +12,7 @@ import { getTextSource, listTextSources, searchTextSources, deleteTextSource } f
 import TextSourceList from './TextSourceList.svelte';
 import TextSourceCard from './TextSourceCard.svelte';
 
+/** @returns {import('../../lib/api/textSources.js').TextSourceSummary} */
 const item = (n, over = {}) => ({
   id: `id${n}`,
   kind: 'text',
@@ -32,14 +33,14 @@ const setup = (props = {}) =>
 
 beforeEach(() => {
   vi.resetAllMocks();
-  listTextSources.mockResolvedValue(page([item(1), item(2)]));
-  searchTextSources.mockResolvedValue(page([item(3)]));
-  deleteTextSource.mockResolvedValue(undefined);
+  vi.mocked(listTextSources).mockResolvedValue(page([item(1), item(2)]));
+  vi.mocked(searchTextSources).mockResolvedValue(page([item(3)]));
+  vi.mocked(deleteTextSource).mockResolvedValue(undefined);
 });
 
 describe('TextSourceList', () => {
   it('renders cards with title, type, tags and snippet (as text)', async () => {
-    listTextSources.mockResolvedValue(
+    vi.mocked(listTextSources).mockResolvedValue(
       page([item(1, { title: '<img src=x onerror=alert(1)>', snippet: '<b>hi</b>' })]),
     );
     const { container } = setup();
@@ -53,7 +54,7 @@ describe('TextSourceList', () => {
 
   it('loads full content on demand, preserves literal markup, and closes it', async () => {
     const content = 'Full source\n<script>alert(1)</script>\n  indented code';
-    getTextSource.mockResolvedValue({ ...item(1), content });
+    vi.mocked(getTextSource).mockResolvedValue({ ...item(1), content });
     const { container } = setup();
     const card = await screen.findByRole('article', { name: 'Source 1' });
     expect(getTextSource).not.toHaveBeenCalled();
@@ -66,7 +67,7 @@ describe('TextSourceList', () => {
   });
 
   it('shows content loading failures and allows retry', async () => {
-    getTextSource.mockRejectedValueOnce(new Error('Content unavailable'))
+    vi.mocked(getTextSource).mockRejectedValueOnce(new Error('Content unavailable'))
       .mockResolvedValueOnce({ ...item(1), content: 'Complete content' });
     setup();
     const card = await screen.findByRole('article', { name: 'Source 1' });
@@ -77,7 +78,7 @@ describe('TextSourceList', () => {
   });
 
   it('shows the empty state with a create action when there are no sources', async () => {
-    listTextSources.mockResolvedValue(page([]));
+    vi.mocked(listTextSources).mockResolvedValue(page([]));
     const oncreate = vi.fn();
     setup({ oncreate });
     expect(await screen.findByText('No text sources yet')).toBeInTheDocument();
@@ -86,7 +87,7 @@ describe('TextSourceList', () => {
   });
 
   it('shows a no-results state when filters match nothing', async () => {
-    searchTextSources.mockResolvedValue(page([]));
+    vi.mocked(searchTextSources).mockResolvedValue(page([]));
     setup();
     await screen.findByText('Source 1');
     await fireEvent.input(screen.getByPlaceholderText('Search text sources'), { target: { value: 'zzz' } });
@@ -116,7 +117,7 @@ describe('TextSourceList', () => {
   });
 
   it('paginates with Next / Previous', async () => {
-    listTextSources.mockResolvedValue(page([item(1)], 45));
+    vi.mocked(listTextSources).mockResolvedValue(page([item(1)], 45));
     setup({ pageSize: 20 });
     expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
@@ -146,7 +147,7 @@ describe('TextSourceList', () => {
     const onchange = vi.fn();
     setup({ onchange });
     await fireEvent.click(await screen.findByRole('button', { name: 'Delete Source 1' }));
-    listTextSources.mockResolvedValue(page([item(2)]));
+    vi.mocked(listTextSources).mockResolvedValue(page([item(2)]));
     await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(screen.queryByText('Source 1')).toBeNull());
     expect(deleteTextSource).toHaveBeenCalledWith('p1', 'id1');
@@ -154,7 +155,7 @@ describe('TextSourceList', () => {
   });
 
   it('keeps the confirm open and shows the error when delete fails', async () => {
-    deleteTextSource.mockRejectedValue(new Error('boom'));
+    vi.mocked(deleteTextSource).mockRejectedValue(new Error('boom'));
     setup();
     await fireEvent.click(await screen.findByRole('button', { name: 'Delete Source 1' }));
     await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
@@ -163,7 +164,7 @@ describe('TextSourceList', () => {
   });
 
   it('shows an error with retry when loading fails', async () => {
-    listTextSources.mockRejectedValueOnce(new Error('down'));
+    vi.mocked(listTextSources).mockRejectedValueOnce(new Error('down'));
     setup();
     expect(await screen.findByRole('alert')).toHaveTextContent('down');
     await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
