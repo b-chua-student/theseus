@@ -1,66 +1,49 @@
-# Feature intake — Assistant Context
+# Feature intake — Assistant chat context dropdown
 
 ## Goal
 
-As a writer, I want to choose what the Assistant can consult for my next question while staying in the manuscript editor.
-
-## Starting State
-
-- The Assistant sidebar is `frontend/src/components/chat/ChatPanel.svelte`, shown by `frontend/src/pages/editor.svelte`.
-- The panel has three toggle buttons (None, Manuscript, Source Library) marked with `aria-pressed`, a context summary line, and a "Select sources" picker with an "All library sources" checkbox.
-- The panel starts in `none` and resets to `none` when the project changes. The backend default for a new conversation is `source_library`.
-- The panel keeps a separate session (message list and conversation) for each scope and source selection. It says "Changing sources starts a separate conversation." Switching scope therefore shows a different thread and does not carry history across modes.
-- Ticking every source in the picker stores an explicit list of IDs, not "all".
-- The picker lists sources from `listSources(projectId)` (`/api/sources?projectId=`). `GET /api/sources?projectId=` returns every active source of the project (`id`, `kind`, `title`, `authors`, `year`, `file_ref`) with no indexing status, so the picker cannot tell indexed sources from others. The backend retrieval already drops sources that are not indexed.
-- The client already sends `POST /api/projects/:projectId/conversations/:conversationId/exchanges` with `{query, context_scope, source_ids, manuscript_text}`. It sends `source_ids: null` and `manuscript_text: ""` when they are unused. The editor text is read at send time.
-- The backend contract in `backend/domain/assistant/api` accepts that body and needs no change. The routes are registered in `backend/bootstrap/app.py` at `/api/projects/<project_id>/conversations` and `/api/sources`. Opening a saved conversation already restores its stored `context_scope` and `source_ids`.
-- A failed send leaves the question in the thread with an error reply and a Try again action. A 404 for a missing conversation silently starts a new conversation.
+A writer can ask “Does this source support the claim in my manuscript?” and have the Assistant consult both the current draft and the chosen source for the same answer.
 
 ## In Scope
 
-- Replace the three scope buttons with one compact **Context** button. Its collapsed label shows the current choice.
-- Offer exactly three radio items in one menu: **Manuscript**, **Sources**, and **None**. Sources refers to the current project's Source Library. There is no combined Manuscript and Source Library choice.
-- Make **Sources** the default for a new conversation (a change from the current `none`).
-- In Sources mode, let the writer use all eligible project sources or narrow retrieval to specific library entries. The source picker sits inside Sources mode.
-- Use one conversation per chat. Switching mode or source selection does not start another conversation and does not hide earlier exchanges.
-- Block sending an over-long manuscript before any request is made.
+Replace the separate context buttons and source picker with one **Context** dropdown. It lists **Manuscript** first, then each searchable source in the current project's Source Library by title, then **None**. The writer can include the manuscript, one source, or both.
+
+- Toggle Manuscript independently. Choosing a different source replaces the previous source and preserves the Manuscript setting.
+- Choosing None clears both selections. Removing the last selected item also selects None. Choosing any material clears None.
+- Each toggle takes effect immediately. The menu stays open so the writer can make both selections in one visit. The button summarizes the selection, for example **Manuscript + Methods**.
 
 ## Non-Goals
 
-Changes to manuscript editing, source uploads, indexing, retrieval ranking, saved-conversation listing, or the backend exchange contract are outside this feature.
-
-## Definitions
-
-- **Eligible source:** a source in the current project whose indexed document has status `INDEXED` (searchable). Sources from other projects, and sources not yet indexed or failed, are not eligible.
-- **All sources:** the default picker state. The request sends `source_ids: null`.
-- **Narrowed selection:** at least one eligible entry is unchecked. The request sends the checked IDs. If the writer checks every entry again, the picker returns to All sources and the request sends `source_ids: null`.
-- **Cleared selection:** every entry is unchecked. The request sends `source_ids: []`.
-- **Sends no X:** the client sends `null` for `source_ids` or `""` for `manuscript_text`. The backend ignores both outside the scope that uses them.
+Source uploads, indexing jobs, retrieval ranking, selecting multiple library sources for one message, and changes to chat history are outside this feature.
 
 ## Constraints
 
-- Choose one mode per message and read the active mode, selection, and editor text when the writer sends.
-- “None” controls new reference material for a turn. The conversation history stays available in every mode.
-- The source selection is kept when the writer switches to another mode and back within the same conversation.
-- The editor sends `manuscript_text` of at most 500,000 characters and at most 1,000 `source_ids`. If the manuscript is longer in Manuscript mode, the composer tells the writer and does not send. The typed question stays in the composer.
-- If a send fails, the writer's chosen mode and source selection stay as they were. The question stays in the thread, and the error reply offers Try again.
-- If the conversation no longer exists (404), the writer is told and the question is kept. The app does not silently start a new conversation.
-- When an existing conversation is opened, the Context button shows its stored `context_scope` and `source_ids`. A new conversation starts at Sources with All sources.
-- The Sources picker lists only eligible sources. If the project has none, Sources stays selectable, the picker says there are no searchable sources, and the Assistant answers without library material. The source list response has no indexing status, so showing only eligible entries needs the list to carry one. Adding it is a backend change and is the one exception to "no backend change". If it is not added, the picker lists all project sources and retrieval ignores the ones that are not indexed.
-- Manuscript is unavailable until the editor is ready. Context controls are disabled while a message is in flight.
+A searchable source is an indexed entry in the current project. The source list response (`GET /api/sources?projectId=`) exposes an `indexed` flag. The source library reads it through a callable that bootstrap injects, so it does not import the assistant context. Each menu item identifies its source by UUID.
 
-| Menu item | `context_scope` | Reference input for this message |
-| --- | --- | --- |
-| Manuscript | `manuscript` | Send the current editor text as `manuscript_text`, including unsaved edits. Send no source IDs and skip library retrieval. |
-| Sources | `source_library` | Send no manuscript text. Send `source_ids` as `null` for all eligible sources, the chosen IDs for a narrowed selection, or `[]` for a cleared selection. |
-| None | `none` | Send no manuscript text and no source IDs. Skip library retrieval. |
+Extend the exchange and saved conversation contracts to recognize `manuscript_and_source`. Keep the three existing scopes valid. This changes the accepted scope values in the request model, the chat service, and the stored conversation. For this scope the chat service retrieves from the chosen source and adds the manuscript text to the same model call. The composer sends the following values according to the selection at send time.
+
+| Selection | `context_scope` | `manuscript_text` | `source_ids` |
+| --- | --- | --- | --- |
+| None | `none` | Empty string | `null` |
+| Manuscript | `manuscript` | Current editor text | `null` |
+| One source | `source_library` | Empty string | List containing the selected UUID |
+| Manuscript + one source | `manuscript_and_source` | Current editor text | List containing the selected UUID |
+
+- Combined requests require exactly one source UUID. Reject a missing, empty, or multi-ID selection before retrieval or model invocation.
+- Read manuscript text at send time, including unsaved edits. If Manuscript is selected and the text exceeds 500,000 characters, keep the typed question and tell the writer why sending is blocked.
+- A new conversation starts on Manuscript when the editor is ready and on None otherwise. Manuscript is unavailable while the editor is loading.
+- Restore a saved selection once the editor and source list are ready. If the stored source is no longer eligible, drop that source and keep Manuscript if it was selected. A legacy source-only selection with zero, multiple, or null source IDs opens on None. A saved `manuscript_and_source` selection with null, empty, or multiple source IDs opens on Manuscript.
+- Opening the menu focuses the first checked item in display order. Arrow keys move focus, Space or Enter toggles the focused item, and Escape closes the menu and returns focus to the button. Activating the button also closes the menu. Moving focus alone preserves the selection.
+- Activating None while it is checked changes nothing.
+- Changing context keeps earlier exchanges in the same conversation. Disable the control during a send and keep the selection if the send fails.
 
 ## Success Criteria
 
-1. The composer has one Context button. In a new conversation it shows Sources. Opening it exposes exactly the three named radio items with only Sources checked.
-2. Selecting an item checks only that item, updates the button label, and closes the menu. A keyboard user can open it (focus starts on the checked item), move between choices, confirm a choice, or dismiss it with Escape.
-3. In Manuscript mode, the Assistant receives the text visible in the editor at send time and retrieves no sources.
-4. In Sources mode, retrieval uses only eligible sources from the current project within the chosen selection. A cleared selection retrieves nothing. The request sends no manuscript text.
-5. In None mode, the next message has no new manuscript or library material. Prior exchanges remain available in the conversation, as they are in every mode.
-6. Switching modes before sending applies only the final choice to that message, however many times the writer switched. The thread and its earlier exchanges stay visible and unchanged.
-7. A failed send keeps the chosen mode and source selection. Reopening an existing conversation restores its stored mode and selection.
+1. One dropdown lists Manuscript, searchable project sources by title, and None. An empty source list leaves Manuscript and None available when the editor is ready.
+2. A writer can toggle Manuscript and a source in either order, replace or deselect a source, or clear both. The button and checked items reflect the same selection after mouse or keyboard interaction.
+3. Manuscript alone supplies the latest editor text and skips library retrieval. The manuscript size limit applies whenever Manuscript is selected, including alongside a source.
+4. A source selection restricts retrieval to that source. Choosing another source limits the next answer to passages from the newly selected source, alongside manuscript text if selected.
+5. None clears both inputs for the next message. The Assistant receives no new manuscript text and performs no library retrieval for that message.
+6. New and reopened conversations display their initial or saved choices. Changing context preserves the thread, and the control is disabled while a send is in flight.
+7. After a failed send, the selected context stays visible and the question remains in the thread with a **Try again** action.
+8. With Manuscript and one source selected, the same model call receives the latest manuscript text and matching passages retrieved only from that source, so one answer can compare the two.
