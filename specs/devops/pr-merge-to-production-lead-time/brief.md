@@ -41,7 +41,8 @@ Give Theseus maintainers a baseline for how long merged pull requests take to re
 
 ## Open Questions
 
-- Which Render service and branch should be treated as production? Deferred: the ticket leaves these identifiers open.
+- Resolved: `main` is the production branch.
+- Which Render service should be treated as production? Deferred: the ticket leaves the service unspecified.
 
 ## Success Criteria
 
