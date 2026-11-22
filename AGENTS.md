@@ -13,8 +13,11 @@ The ticket is the source input. Everything else is derived from it.
 Human-facing issue template: `.github/ISSUE_TEMPLATE/sdd-ticket.md`
 
 ## Output Paths
-- Intake: `specs/<feature>/intake.md`
-- Gherkin: `specs/<feature>/<name>.feature`
+Each feature lives in `specs/<context>/<feature_name>/`.
+
+- Intake brief: `brief.md`
+- Gherkin: `gherkin.feature`
+- Spec files: `requirements.md`, `design.md`, and `tasks.md`
 
 ## Creating a Ticket
 1. Read `specs/templates/ticket.md`.
