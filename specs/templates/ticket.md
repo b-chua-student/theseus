@@ -34,8 +34,11 @@
 <!-- Anything ambiguous. Resolved during intake. -->
 
 ## Output Paths
-- Intake: `specs/<feature>/intake.md`
-- Gherkin: `specs/<feature>/<name>.feature`
+Each feature lives in `specs/<context>/<feature_name>/`.
+
+- Intake brief: `brief.md`
+- Gherkin: `gherkin.feature`
+- Spec files: `requirements.md`, `design.md`, and `tasks.md`
 
 ## Definition of Done
 - [ ] Intake generated and approved

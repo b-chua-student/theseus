@@ -3,7 +3,8 @@
 # the only source of behavior. If it is ambiguous, ask before writing.
 #
 # Scope and coverage
-# Write one .feature file per user-facing capability. Stay within In Scope
+# Save the scenarios as specs/<context>/<feature_name>/gherkin.feature.
+# Stay within In Scope
 # and exclude all Non-Goals. Use the brief's domain terms and roles.
 # Cover every numbered Success Criterion and every Constraint that affects
 # behavior. Do not infer rules, inspect the codebase, or write spec documents.
@@ -12,7 +13,7 @@
 # Put happy paths first, followed by error and boundary cases tagged @edge.
 # Use at most eight non-edge scenarios per feature.
 # Give every Scenario and Scenario Outline a unique @S-### tag across all
-# feature files for the brief. Start at @S-001 for a new brief. When revising,
+# features in the context. Use the next available ID. When revising,
 # preserve existing IDs and never renumber them or reuse retired IDs.
 # Add @criterion-N for each numbered Success Criterion the scenario covers.
 #

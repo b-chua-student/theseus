@@ -7,7 +7,7 @@
 
 <!--
 Write an intake brief from the ticket, request, or notes supplied by the user.
-Save the completed brief as brief.md. Keep it to 80 lines or fewer.
+Save it as specs/<context>/<feature_name>/brief.md. Keep it to 80 lines or fewer.
 Preserve the headings and header fields in the order shown. Replace all
 placeholders and remove these comments from the completed brief.
 
