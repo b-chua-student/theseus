@@ -12,7 +12,7 @@ Feature: Verify sources cited in Assistant answers
   Scenario: Open the source supporting a statement from the answer
     Given the sample size in an Assistant answer is supported by "Trial Report"
     When I open the sample size citation from the answer
-    Then I see the "Trial Report" item in the Source Library
+    Then the "Trial Report" item opens in the Source Library
 
   @S-003 @criterion-2
   Scenario: Find the supporting page in a paginated source
@@ -32,4 +32,33 @@ Feature: Verify sources cited in Assistant answers
     Given an Assistant answer cites "Workshop Summary" with no page number or passage location
     And the citation identifies "Workshop Summary"
     When I open that citation from the answer
-    Then I see the "Workshop Summary" item in the Source Library
+    Then the "Workshop Summary" item opens in the Source Library
+
+  @S-006 @constraint
+  Scenario: Citations only refer to sources used as evidence for the answer
+    Given the Source Library contains "Trial Report" and "Unrelated Memo"
+    And an Assistant answer uses only "Trial Report" as evidence
+    When I read the answer
+    Then every citation in the answer identifies "Trial Report"
+    And no citation identifies "Unrelated Memo"
+
+  @S-007 @constraint
+  Scenario: An answer without source evidence shows no citations
+    Given an Assistant answer uses no Source Library item as evidence
+    When I read the answer
+    Then the answer shows no citations
+
+  @S-008 @criterion-1 @open-question
+  Scenario: A saved answer still shows its citations when reopened
+    Given I saved an Assistant answer that cites "Trial Report" on page 12
+    When I reopen the conversation later
+    Then the citation still identifies "Trial Report" and shows page 12
+
+  @S-009 @criterion-1 @open-question
+  Scenario: A citation to a removed source is marked unavailable
+    Given a saved Assistant answer cites "Trial Report"
+    And "Trial Report" has since been removed from the Source Library
+    When I read the citation
+    Then it still identifies "Trial Report"
+    And it shows that the source is no longer available
+    And I cannot open the source
