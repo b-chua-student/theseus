@@ -7,7 +7,7 @@ Feature: Compare manuscript claims with selected library sources
 
   @S-063 @criterion-1 @component
   Scenario: Add a second source without losing the first source or the manuscript
-    Given "Manuscript" and "Methods" are checked in the Context dropdown
+    Given "Manuscript" and "Methods" are checked and "Web" is unchecked in the Context dropdown
     When I check "Replication" in the same dropdown
     Then "Manuscript", "Methods" and "Replication" are checked
     And "Pilot" and "Web" are unchecked
@@ -128,8 +128,8 @@ Feature: Compare manuscript claims with selected library sources
   @S-076 @criterion-1 @component
   Scenario: Changing the context keeps the same conversation
     Given I asked a question with only "Manuscript" checked
-    When I clear the selection and ask a second question
-    And I check "Methods" and ask a third question
+    And I cleared the selection and asked a second question
+    When I check "Methods" and ask a third question
     Then all three exchanges belong to the same conversation
 
   @S-077 @criterion-4 @service
@@ -207,3 +207,38 @@ Feature: Compare manuscript claims with selected library sources
     Then the answer names "Methods" and reports that no relevant passage was found
     And it says the claim could not be verified from the selection
     And any general explanation is distinguished from evidence from "Methods"
+
+  @S-086 @criterion-1 @component
+  Scenario Outline: Selecting Manuscript or a source keeps Web as it was
+    Given "Web" is <web state> in the Context dropdown
+    When I check "Manuscript" and "Methods"
+    Then "Web" is still <web state>
+    And "Manuscript" and "Methods" are checked
+
+    Examples:
+      | web state |
+      | checked   |
+      | unchecked |
+
+  @S-087 @criterion-1 @component
+  Scenario: Clearing the last selected item leaves Web checked
+    Given "Web" and "Manuscript" are checked
+    When I uncheck "Manuscript"
+    Then only "Web" is checked
+
+  @S-088 @criterion-3 @service
+  Scenario: Quoting without Manuscript shares only the quoted passage
+    Given "Web" and "Methods" are checked and "Manuscript" is unchecked
+    And my draft says "Adults recovered in 8 days" and "Children recovered in 5 days"
+    And I quoted "Children recovered in 5 days" from the editor
+    When I ask "How does this passage compare with Methods?"
+    Then the exchange carries the quote "Children recovered in 5 days" exactly as written
+    And the exchange carries no other manuscript text
+
+  @S-089 @criterion-1 @criterion-3 @component
+  Scenario: Quoting leaves the context selection unchanged
+    Given "Web" and "Methods" are checked and "Manuscript" is unchecked
+    And I quoted "Children recovered in 5 days" from the editor
+    When I send my question
+    Then "Manuscript" is still unchecked
+    And "Web" and "Methods" are still checked
