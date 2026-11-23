@@ -19,7 +19,7 @@ Feature: Choose the Assistant's reference material from one dropdown
 
   @S-034 @criterion-1 @component
   Scenario: The writer can still choose a context when the library has no searchable sources
-    Given the current project has no indexed sources
+    Given the current project has no indexed sources and the editor is ready
     When I open the "Context" dropdown
     Then the only items are "Manuscript" and "None"
 
@@ -37,6 +37,7 @@ Feature: Choose the Assistant's reference material from one dropdown
       | None                  | Source 1   | "Source 1"                  | Source 1              |
       | Manuscript            | Source 1   | "Manuscript" and "Source 1" | Manuscript + Source 1 |
       | Source 1              | Manuscript | "Manuscript" and "Source 1" | Manuscript + Source 1 |
+      | Source 1              | Source 2   | "Source 2"                  | Source 2              |
       | Manuscript + Source 1 | Source 2   | "Manuscript" and "Source 2" | Manuscript + Source 2 |
       | Manuscript + Source 1 | Manuscript | "Source 1"                  | Source 1              |
       | Manuscript + Source 1 | Source 1   | "Manuscript"                | Manuscript            |
@@ -261,3 +262,41 @@ Feature: Choose the Assistant's reference material from one dropdown
       | null source IDs              |
       | an empty list of source IDs  |
       | two distinct source UUIDs    |
+
+  @S-059 @criterion-6 @service
+  Scenario: A saved conversation keeps the combined scope and its source
+    Given a conversation is saved with scope "manuscript_and_source" and the ID of indexed source "Source 1"
+    When the conversation is loaded
+    Then its stored scope is "manuscript_and_source"
+    And its stored source IDs contain exactly the UUID of "Source 1"
+
+  @S-060 @criterion-6 @service
+  Scenario Outline: The existing scopes are still accepted
+    Given the exchange request includes scope "<scope>" with a valid manuscript text and source IDs for that scope
+    When the Assistant receives the request
+    Then the exchange is accepted as valid
+
+    Examples:
+      | scope          |
+      | none           |
+      | manuscript     |
+      | source_library |
+
+  @S-061 @criterion-3 @component
+  Scenario Outline: A long manuscript does not block a send that excludes it
+    Given the "Context" button displays "<selection>" and the editor holds more than 500000 characters
+    When I type "Summarise this" and send it
+    Then the request uses scope "<scope>" with empty manuscript text
+    And the composer shows no manuscript length warning
+
+    Examples:
+      | selection | scope          |
+      | Source 1  | source_library |
+      | None      | none           |
+
+  @S-062 @criterion-3 @component
+  Scenario: A manuscript of exactly 500000 characters is sent
+    Given the "Context" button displays "Manuscript" and the editor holds exactly 500000 characters
+    When I type "Summarise this" and send it
+    Then the request uses scope "manuscript" with the current editor text
+    And the composer shows no manuscript length warning
