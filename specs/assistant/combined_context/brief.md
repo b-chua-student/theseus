@@ -40,9 +40,8 @@ Definitions used below:
 
 7. All indexed sources checks every indexed source currently in the project, including entries hidden by a title filter. It preserves Web and Manuscript. Unchecking one source retains the others and clears the all-selected indicator. Checking every source restores the indicator. Disable this option when no sources are indexed.
 
-## Open Decisions
+## Decisions
 
-Product choices not yet made. They do not change the scenarios above but must be settled before build:
-- What makes a passage relevant enough to count as a match, and whether each selected source gets a guaranteed share of retrieved passages.
-- Whether a saved conversation restores its selection, including Manuscript.
-- How to process large selections within retrieval and request limits while honoring All indexed sources.
+- **Relevance and source coverage.** Attempt to search every selected source. A passage is relevant when it provides evidence that supports, qualifies or contradicts the specific claim or quoted passage. Each source gets a chance to contribute, with no fixed quota of passages per source. Report “no relevant passage” only after a completed search. If a source could not be searched, identify it as unavailable. Set the numerical relevance threshold and passage budget during design and testing.
+- **Saved conversations.** Reopening a chat restores the Web and Manuscript settings and the source selection from its last successful exchange. If a saved source has become unavailable, identify it by name and preserve the remaining choices. New chats start on Web.
+- **Large selections.** All indexed sources selects the entire indexed library in the active project at the time of selection, including titles hidden by a filter. Use that set for the exchange, subject to the writer’s later changes. Newly indexed sources are included only if the writer selects them. Support selections larger than the current 1,000-ID request limit without silent truncation. If any selected sources cannot be checked, identify them in the result. Batching and request representation are design decisions.

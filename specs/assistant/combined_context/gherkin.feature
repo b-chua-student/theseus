@@ -45,7 +45,7 @@ Feature: Compare manuscript claims with selected library sources
     Given my manuscript says the trial enrolled 18 participants
     And "Methods" reports 18 participants and "Replication" reports 24 for the same trial
     And the unselected source "Pilot" also reports 18 participants
-    And I selected "Manuscript", "Methods" and "Replication"
+    And I selected "Manuscript", "Methods" and "Replication" with "Web" unchecked
     When I ask "Which selected studies support my enrollment figure?"
     Then one answer identifies "Methods" as supporting the draft's figure of 18
     And it explains that "Replication" reports 24 for the same trial
@@ -85,7 +85,7 @@ Feature: Compare manuscript claims with selected library sources
 
   @S-072 @criterion-5 @acceptance
   Scenario Outline: Explain a gap in one selected source while using the other
-    Given I selected "Manuscript", "Methods" and "Replication"
+    Given I selected "Manuscript", "Methods" and "Replication" with "Web" unchecked
     And "Methods" has a passage supporting the claim
     And "Replication" <condition>
     When I ask which selected studies support the claim
@@ -100,7 +100,7 @@ Feature: Compare manuscript claims with selected library sources
 
   @S-073 @criterion-5 @acceptance
   Scenario: None of the selected sources supplies usable evidence
-    Given I selected "Manuscript", "Methods" and "Replication"
+    Given I selected "Manuscript", "Methods" and "Replication" with "Web" unchecked
     And "Methods" is unavailable and "Replication" has no relevant passage
     And unselected "Pilot" contains a matching passage
     When I ask whether the selected studies support the claim
@@ -242,3 +242,46 @@ Feature: Compare manuscript claims with selected library sources
     When I send my question
     Then "Manuscript" is still unchecked
     And "Web" and "Methods" are still checked
+
+  @S-090 @criterion-1 @component
+  Scenario: Reopening a chat restores the selection from its last successful exchange
+    Given my last successful exchange used "Web", "Manuscript" and "Methods"
+    And I then unchecked "Web" and checked "Replication"
+    And my next question failed
+    When I reopen that chat from the saved conversations
+    Then "Web", "Manuscript" and "Methods" are checked
+    And "Replication" is unchecked
+
+  @S-091 @criterion-1 @component
+  Scenario: Reopening a chat names a source that is no longer available
+    Given my last successful exchange used "Web", "Manuscript", "Methods" and "Replication"
+    And "Replication" has since been removed from the library
+    When I reopen that chat from the saved conversations
+    Then the Assistant names "Replication" as unavailable
+    And "Web", "Manuscript" and "Methods" remain checked
+
+  @S-092 @criterion-7 @service
+  Scenario: Choosing all indexed sources checks every source in a large library
+    Given the project has 1,001 indexed sources including "Methods", "Replication" and "Pilot"
+    When I choose "All indexed sources" and ask about sample size
+    Then the exchange selects all 1,001 sources
+    And retrieval attempts to check all 1,001 sources
+    And no selected source is silently dropped
+
+  @S-093 @criterion-7 @service
+  Scenario: A source indexed after selecting all sources stays excluded until chosen
+    Given I chose "All indexed sources"
+    And a new source "Appendix" finishes indexing afterward
+    When I ask about sample size
+    Then "Appendix" is unchecked and is not searched
+    And "Methods", "Replication" and "Pilot" are still searched
+    And checking "Appendix" makes it searchable in my next exchange
+
+  @S-094 @criterion-2 @criterion-5 @service
+  Scenario: A source with many matches does not crowd out another selected source
+    Given I selected "Manuscript", "Methods" and "Replication" with "Web" unchecked
+    And "Methods" has many relevant passages
+    And "Replication" has one relevant passage
+    When I ask which selected studies support the claim
+    Then both "Methods" and "Replication" are searched
+    And the model receives the relevant passage from "Replication"
