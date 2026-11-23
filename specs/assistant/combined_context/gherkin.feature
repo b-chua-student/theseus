@@ -10,7 +10,7 @@ Feature: Compare manuscript claims with selected library sources
     Given "Manuscript" and "Methods" are checked in the Context dropdown
     When I check "Replication" in the same dropdown
     Then "Manuscript", "Methods" and "Replication" are checked
-    And "Pilot" and "None" are unchecked
+    And "Pilot" and "Web" are unchecked
 
   @S-064 @criterion-1 @component
   Scenario: Removing one source narrows the next exchange
@@ -21,16 +21,16 @@ Feature: Compare manuscript claims with selected library sources
     And the exchange belongs to the same conversation
 
   @S-065 @criterion-1 @component
-  Scenario: Clear a combined selection with None
+  Scenario: Clear a combined selection to return to Web
     Given "Manuscript", "Methods" and "Replication" are checked
-    When I choose "None" in the Context dropdown
-    Then only "None" is checked
+    When I activate "Clear selection" in the Context dropdown
+    Then only "Web" is checked
 
   @S-066 @criterion-1 @component
-  Scenario: Clearing the last item selects None
+  Scenario: Clearing the last item returns to Web
     Given only "Methods" is checked
     When I uncheck "Methods"
-    Then only "None" is checked
+    Then only "Web" is checked
 
   @S-067 @criterion-2 @component
   Scenario: A combined send uses the draft as it reads when the writer asks
@@ -73,7 +73,7 @@ Feature: Compare manuscript claims with selected library sources
       | selection             | draft input       | retrieval behavior          |
       | Manuscript alone      | the current draft | is skipped                  |
       | only Methods selected | no text           | searches only Methods       |
-      | only None selected    | no text           | is skipped                  |
+      | only Web selected     | no text           | is skipped                  |
 
   @S-071 @criterion-1 @component
   Scenario: Add a source to a combined selection with the keyboard
@@ -114,7 +114,7 @@ Feature: Compare manuscript claims with selected library sources
     And "Manuscript" and "Methods" are checked
     When I filter for "Replication", check it, and clear the filter
     Then "Methods" and "Replication" are both checked
-    And "Manuscript" and "None" remain visible while I scroll the sources
+    And "Manuscript", "Web" and "Clear selection" remain visible while I scroll the sources
     And the closed button reads "Manuscript + 2 sources"
 
   @S-075 @criterion-3 @service
@@ -128,7 +128,7 @@ Feature: Compare manuscript claims with selected library sources
   @S-076 @criterion-1 @component
   Scenario: Changing the context keeps the same conversation
     Given I asked a question with only "Manuscript" checked
-    When I choose "None" and ask a second question
+    When I clear the selection and ask a second question
     And I check "Methods" and ask a third question
     Then all three exchanges belong to the same conversation
 
@@ -157,3 +157,53 @@ Feature: Compare manuscript claims with selected library sources
     Then the model receives "Methods" marked unavailable
     And the model receives "Replication" marked as searched without a match
     And the model receives no passage from "Pilot"
+
+  @S-080 @criterion-1 @criterion-4 @component
+  Scenario: Start in general chat using the existing API scope
+    Given I start a new chat
+    When I send a question without changing context
+    Then the Context button displays "Web"
+    And the request uses scope "none" with empty manuscript text and null source IDs
+
+  @S-081 @criterion-7 @component
+  Scenario: Select all indexed sources while filtering by title
+    Given "Web" and "Manuscript" are checked
+    And only "Methods" matches my title filter
+    When I choose "All indexed sources"
+    Then "Methods", "Replication" and "Pilot" are selected
+    And "Web" and "Manuscript" remain checked
+
+  @S-082 @criterion-7 @component
+  Scenario Outline: Keep the all-selected indicator in sync with individual selections
+    Given "Methods" and "Replication" are checked and "Pilot" is <initial>
+    When I toggle "Pilot"
+    Then "All indexed sources" is <result>
+    And "Methods" and "Replication" remain checked
+
+    Examples:
+      | initial   | result    |
+      | checked   | unchecked |
+      | unchecked | checked   |
+
+  @S-083 @criterion-7 @component
+  Scenario: No indexed sources are available
+    Given I switch to a project with no indexed sources
+    When I open the Context dropdown
+    Then "All indexed sources" is disabled
+    And "Web" and "Manuscript" remain available
+
+  @S-084 @criterion-1 @criterion-4 @acceptance
+  Scenario: Turn off Web while keeping the manuscript and source selected
+    Given "Web", "Manuscript" and "Methods" are selected
+    When I uncheck "Web" and ask whether my claim is supported
+    Then the answer draws only on the manuscript and selected source for its factual findings
+    And the selection still includes "Manuscript" and "Methods"
+
+  @S-085 @criterion-5 @acceptance
+  Scenario: General knowledge cannot stand in for missing source evidence
+    Given "Web", "Manuscript" and "Methods" are selected
+    And "Methods" is searched and returns no relevant passage
+    When I ask whether "Methods" verifies my claim
+    Then the answer names "Methods" and reports that no relevant passage was found
+    And it says the claim could not be verified from the selection
+    And any general explanation is distinguished from evidence from "Methods"
