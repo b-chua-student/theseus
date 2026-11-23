@@ -120,7 +120,7 @@ Password-based sign-in adds friction (forgotten passwords, resets, weak credenti
 
 ## 14. Acceptance Criteria
 
-Each scenario in `oauth-email-login.feature` has a stable ID and a criterion tag.
+Each scenario in `gherkin.feature` has a stable ID and a criterion tag.
 
 | Tag | Success criterion |
 |---|---|
