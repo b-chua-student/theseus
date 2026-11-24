@@ -4,9 +4,7 @@
 
 Allow a user to sign in to the application using the email identity held by a third-party OAuth 2.0 / OpenID Connect provider, instead of creating and managing a separate password.
 
-- Reduce sign-up and sign-in friction.
-- Reduce password-reset support tickets.
-- Rely on provider-verified emails to improve account trust.
+Reduce sign-up and sign-in friction, reduce password-reset support tickets, and rely on provider-verified emails to improve account trust.
 
 ## Non-Goals
 
