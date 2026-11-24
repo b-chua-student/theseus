@@ -7,7 +7,7 @@
 
 ## Goal
 
-Report production deployment counts so Theseus maintainers can see how often changes reach production.
+Report elapsed time between production deployments so Theseus maintainers can see how often changes reach production.
 
 ## Users / Roles
 
@@ -15,7 +15,7 @@ Report production deployment counts so Theseus maintainers can see how often cha
 
 ## In Scope
 
-- Identify the reporting period and report the count of deployments that reached production during that period.
+- Report the elapsed time between consecutive production deployments.
 
 ## Non-Goals
 
@@ -24,8 +24,9 @@ Report production deployment counts so Theseus maintainers can see how often cha
 
 ## Constraints
 
-- Count each deployment that reached production once.
+- Measure each interval using the times when the two deployments reached production.
 - Exclude staging deployments and deployment attempts that never reach production.
+- Apply the same measurement rules to manually triggered deployments.
 
 ## Known Touchpoints
 
@@ -37,14 +38,15 @@ Report production deployment counts so Theseus maintainers can see how often cha
 
 ## Open Questions
 
-- What reporting period and cadence should be used? Deferred: The ticket leaves both choices open.
-- How should rollbacks and redeployments be counted? Deferred: The ticket leaves their treatment open.
+- What reporting cadence and deployment history window should be used?
+- Which rollbacks and redeployments should qualify as production deployments for this metric?
 
 ## Success Criteria
 
-1. The report identifies the reporting period and counts each deployment that reached production during that period once.
-2. Staging deployments and deployment attempts that never reach production contribute zero to the reported count.
-3. When one manually triggered deployment reaches production and another manually triggered attempt in the same reporting period never reaches production, the two runs contribute one deployment to the count.
+1. The report shows the elapsed time between each pair of consecutive production deployments.
+2. Staging deployments and attempts that never reach production do not create or split an interval.
+3. A manually triggered deployment that reaches production can form an interval with another production deployment. A manual attempt that never reaches production does not affect that interval.
+4. When fewer than two deployments have reached production, the report indicates that an interval is unavailable.
 
 ## Reference Links
 
