@@ -1,5 +1,6 @@
 import os
 from collections.abc import Sequence
+from typing import Protocol
 
 from dotenv import load_dotenv
 from google import genai
@@ -7,8 +8,13 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.models.entities import Exchange
-from domain.assistant.models.errors import ChatModelError, ChatModelRateLimitedError
+from domain.assistant.models.errors import (
+    ChatModelError,
+    ChatModelRateLimitedError,
+    ChatRequestTooLargeError,
+)
 from domain.assistant.models.value_objects import (
     Answer,
     Query,
@@ -98,25 +104,60 @@ def build_prompt(
     return "\n\n".join([*sections, f"Question: {question}"]) if sections else question
 
 
-class GeminiChatModel(ChatModel):
-    """ChatModel adapter backed by the Google Gemini API."""
+class ChatModels(Protocol):
+    """The part of ``genai.Client.models`` this adapter uses."""
 
-    def __init__(
+    def generate_content(
+        self, *, model: str, contents: list[types.Content], config: types.GenerateContentConfig
+    ) -> types.GenerateContentResponse:
+        """Generate a response to ``contents``."""
+        ...
+
+
+class ChatClient(Protocol):
+    """The part of ``genai.Client`` this adapter uses."""
+
+    @property
+    def models(self) -> ChatModels:
+        """Return the models API."""
+        ...
+
+
+class GeminiChatModel(ChatModel):
+    """ChatModel adapter backed by the Google Gemini API.
+
+    With a ``token_counter`` and a ``context_window``, the assembled request is counted before
+    it is sent, and one that cannot fit in the window is refused instead of failing at the
+    provider. The evidence budget already keeps room for the response; this check covers what
+    that budget cannot see, such as the instructions and formatting added here.
+    """
+
+    def __init__(  # noqa: PLR0913
         self,
         api_key: str | None = None,
         model: str = DEFAULT_MODEL,
         system_instruction: str | None = None,
         timeout_ms: int = DEFAULT_TIMEOUT_MS,
+        token_counter: TokenCounter | None = None,
+        context_window: int | None = None,
+        client: ChatClient | None = None,
     ) -> None:
-        """Configure the Gemini client, model, and request options."""
-        load_dotenv()
-        key = api_key or os.getenv("GEMINI_API_KEY")
-        if not key:
-            raise ValueError("GEMINI_API_KEY is not set")
+        """Configure the Gemini client, model, and request options.
 
-        self._client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=timeout_ms))
+        Raises:
+            ValueError: If no client is given and GEMINI_API_KEY is not set.
+        """
+        if client is None:
+            load_dotenv()
+            key = api_key or os.getenv("GEMINI_API_KEY")
+            if not key:
+                raise ValueError("GEMINI_API_KEY is not set")
+            client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=timeout_ms))
+        self._client = client
         self._model = model
         self._config = types.GenerateContentConfig(system_instruction=system_instruction)
+        self._counter = token_counter
+        self._window = context_window
 
     def reply(
         self,
@@ -143,6 +184,8 @@ class GeminiChatModel(ChatModel):
             )
         )
 
+        self._ensure_fits(contents)
+
         try:
             response = self._client.models.generate_content(
                 model=self._model,
@@ -165,6 +208,25 @@ class GeminiChatModel(ChatModel):
             raise ChatModelError("The AI provider returned an empty response.")
 
         return Answer(text)
+
+    def _ensure_fits(self, contents: list[types.Content]) -> None:
+        """Count the assembled request and refuse one larger than the context window.
+
+        Raises:
+            ChatRequestTooLargeError: If the request cannot fit in the window.
+        """
+        if self._counter is None or self._window is None:
+            return
+        total = sum(
+            self._counter.count(part.text)
+            for content in contents
+            for part in content.parts or []
+            if part.text
+        )
+        if total > self._window:
+            raise ChatRequestTooLargeError(
+                f"The request takes {total} tokens; the context window is {self._window}."
+            )
 
     @staticmethod
     def _turn(role: str, text: str) -> types.Content:

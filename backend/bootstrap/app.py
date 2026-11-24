@@ -24,15 +24,6 @@ from .error_handlers import register_error_handlers
 from .extensions import limiter
 
 
-def _build_chat_model() -> ChatModel | None:
-    if not os.getenv("GEMINI_API_KEY"):
-        return None
-
-    from domain.assistant.infrastructure.adapters.gemini_chat_model import GeminiChatModel
-
-    return GeminiChatModel()
-
-
 def _build_embedding_generator() -> EmbeddingGenerator | None:
     """Use semantic Gemini embeddings when a key is set; otherwise keep the in-memory default."""
     if not os.getenv("GEMINI_API_KEY"):
@@ -83,6 +74,18 @@ def _build_evidence_settings() -> _EvidenceSettings:
     )
 
 
+def _build_chat_model(evidence: _EvidenceSettings) -> ChatModel | None:
+    """Use Gemini when a key is set. It counts each request against the same context window."""
+    if not os.getenv("GEMINI_API_KEY"):
+        return None
+
+    from domain.assistant.infrastructure.adapters.gemini_chat_model import GeminiChatModel
+
+    return GeminiChatModel(
+        token_counter=evidence.token_counter, context_window=evidence.context_window
+    )
+
+
 def create_app(
     config: Mapping[str, object] | None = None,
     container: Container | None = None,
@@ -103,9 +106,9 @@ def create_app(
         app.config.setdefault("RATELIMIT_ENABLED", False)
 
     if container is None:
-        chat_model = None if app.testing else _build_chat_model()
         embedding_generator = None if app.testing else _build_embedding_generator()
         evidence = _EvidenceSettings() if app.testing else _build_evidence_settings()
+        chat_model = None if app.testing else _build_chat_model(evidence)
         if not app.testing and (uri := app.config["MONGODB_URI"]):
             if not app.secret_key:
                 raise RuntimeError("Set SECRET_KEY when running with MongoDB.")

@@ -7,6 +7,7 @@ from werkzeug.exceptions import HTTPException
 from domain.assistant.models.errors import (
     ChatModelError,
     ChatModelRateLimitedError,
+    ChatRequestTooLargeError,
     ChatUnavailableError,
     ConversationNotFoundError,
     PendingExchangeError,
@@ -120,6 +121,15 @@ def register_error_handlers(app: Flask) -> None:
         )
         response.headers["Retry-After"] = "30"
         return response, 429
+
+    @app.errorhandler(ChatRequestTooLargeError)
+    def handle_request_too_large(e: ChatRequestTooLargeError) -> tuple[Response, int]:
+        logger.warning("Assistant request too large: %s", e)
+        return jsonify(
+            error="The selected context is too large for the assistant. "
+            "Uncheck some sources or quote a shorter passage, then try again.",
+            code=e.code,
+        ), 413
 
     @app.errorhandler(ChatModelError)
     def handle_model_error(e: ChatModelError) -> tuple[Response, int]:

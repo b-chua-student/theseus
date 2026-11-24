@@ -1,0 +1,128 @@
+[
+  {
+    "query": "Which studies support my enrollment figure of 18 participants?",
+    "passages": [
+      {"label": "supporting", "text": "The trial enrolled 18 participants across two sites."},
+      {"label": "qualifying", "text": "Eighteen adults were enrolled in the adult arm; a separate pediatric arm enrolled nine more."},
+      {"label": "contradicting", "text": "In total the trial enrolled 24 participants after the second recruitment wave."},
+      {"label": "unrelated", "text": "Participants received a small travel stipend after each clinic visit."},
+      {"label": "unrelated", "text": "The harbor dredging project was completed ahead of schedule."}
+    ]
+  },
+  {
+    "query": "How does this passage compare with Methods?",
+    "quote": "Children recovered in 5 days",
+    "passages": [
+      {"label": "supporting", "text": "Children recovered in a median of 5 days."},
+      {"label": "qualifying", "text": "Children under six recovered in 5 days, while older children took longer."},
+      {"label": "contradicting", "text": "Children recovered in 7 days on average."},
+      {"label": "unrelated", "text": "Recovery was assessed with parent-reported symptom diaries."},
+      {"label": "unrelated", "text": "Quarterly revenue rose three percent on strong retail demand."}
+    ]
+  },
+  {
+    "query": "Do the selected studies support that sleep improves memory consolidation?",
+    "passages": [
+      {"label": "supporting", "text": "Participants who slept after learning recalled 20 percent more word pairs than those who stayed awake."},
+      {"label": "qualifying", "text": "Sleep improved recall of word pairs, but only for material learned within two hours of bedtime."},
+      {"label": "contradicting", "text": "Recall did not differ between participants who slept and those who stayed awake."},
+      {"label": "unrelated", "text": "Participants were recruited from three university dormitories."},
+      {"label": "unrelated", "text": "The bridge was repainted in a pale shade of green."}
+    ]
+  },
+  {
+    "query": "Which of my sources back the claim that nitrogen fertilizer raises wheat yield?",
+    "quote": "Nitrogen fertilizer raised wheat yield by 12 percent",
+    "passages": [
+      {"label": "supporting", "text": "Plots treated with nitrogen fertilizer yielded 12 percent more wheat than untreated plots."},
+      {"label": "qualifying", "text": "Nitrogen fertilizer raised wheat yield, but only in plots with low baseline soil nitrogen."},
+      {"label": "contradicting", "text": "Wheat yield was unchanged by nitrogen fertilizer in all trial plots."},
+      {"label": "unrelated", "text": "Soil samples were dried and sieved before the laboratory analysis."},
+      {"label": "unrelated", "text": "The orchestra performed a program of nineteenth century symphonies."}
+    ]
+  },
+  {
+    "query": "Do the selected studies agree that tutoring raises reading scores?",
+    "passages": [
+      {"label": "supporting", "text": "Pupils who received weekly tutoring gained eight points more on reading tests than their peers."},
+      {"label": "qualifying", "text": "Tutoring raised reading scores for younger pupils, with no effect in the oldest grade."},
+      {"label": "contradicting", "text": "Reading scores of tutored and untutored pupils were statistically identical."},
+      {"label": "unrelated", "text": "Tutors were recruited through a local volunteer network and trained for one day."},
+      {"label": "unrelated", "text": "Rainfall in the valley was above average for the third consecutive year."}
+    ]
+  },
+  {
+    "query": "How does this passage compare with the cited study?",
+    "quote": "Urban parks lowered summer street temperature by 2 degrees",
+    "passages": [
+      {"label": "supporting", "text": "Streets next to urban parks were on average 2 degrees cooler in summer."},
+      {"label": "qualifying", "text": "Large urban parks lowered summer street temperature by 2 degrees, but small parks had little effect."},
+      {"label": "contradicting", "text": "Summer street temperature near urban parks was no lower than elsewhere in the city."},
+      {"label": "unrelated", "text": "Temperature sensors were mounted two meters above the pavement."},
+      {"label": "unrelated", "text": "The museum extended its opening hours on public holidays."}
+    ]
+  },
+  {
+    "query": "Which selected studies report that the battery keeps 80 percent capacity after 500 cycles?",
+    "passages": [
+      {"label": "supporting", "text": "After 500 charge cycles the cells retained 80 percent of their original capacity."},
+      {"label": "qualifying", "text": "Cells kept 80 percent capacity after 500 cycles when charged at room temperature only."},
+      {"label": "contradicting", "text": "Capacity fell to 62 percent after 500 charge cycles."},
+      {"label": "unrelated", "text": "The cells were assembled in a dry room with controlled humidity."},
+      {"label": "unrelated", "text": "The city council approved a new bicycle lane on the main avenue."}
+    ]
+  },
+  {
+    "query": "Is my statement that the vaccine is safe for adults supported by the library?",
+    "quote": "The vaccine is safe for adults",
+    "passages": [
+      {"label": "supporting", "text": "No serious adverse events were attributed to the vaccine in adults across the trial."},
+      {"label": "qualifying", "text": "The vaccine was safe in adults under 65; data for older adults were insufficient."},
+      {"label": "contradicting", "text": "Serious adverse events occurred in 4 percent of adult recipients and were linked to the vaccine."},
+      {"label": "unrelated", "text": "Vaccine doses were stored at minus twenty degrees until shortly before use."},
+      {"label": "unrelated", "text": "The football season opens with a derby between the two city clubs."}
+    ]
+  },
+  {
+    "query": "Do my sources back up that remote workers report higher job satisfaction?",
+    "passages": [
+      {"label": "supporting", "text": "Remote workers rated their job satisfaction higher than office workers on every survey wave."},
+      {"label": "qualifying", "text": "Remote workers reported higher job satisfaction, though only those with a dedicated home workspace."},
+      {"label": "contradicting", "text": "Remote workers reported lower job satisfaction than their office-based colleagues."},
+      {"label": "unrelated", "text": "The survey was administered online and took about ten minutes to complete."},
+      {"label": "unrelated", "text": "Cheese production in the region has grown steadily since 2010."}
+    ]
+  },
+  {
+    "query": "How does this passage compare with Replication?",
+    "quote": "The coral reef lost 30 percent of its cover after the heatwave",
+    "passages": [
+      {"label": "supporting", "text": "Live coral cover on the reef dropped by 30 percent following the marine heatwave."},
+      {"label": "qualifying", "text": "The reef lost 30 percent of its coral cover after the heatwave, but only in shallow zones."},
+      {"label": "contradicting", "text": "Coral cover on the reef declined by only 5 percent after the heatwave."},
+      {"label": "unrelated", "text": "Divers surveyed the reef along fixed transects using waterproof cameras."},
+      {"label": "unrelated", "text": "The software update fixes a bug in the printer driver."}
+    ]
+  },
+  {
+    "query": "Which selected studies find that mindfulness reduces anxiety?",
+    "passages": [
+      {"label": "supporting", "text": "Anxiety scores fell by a third in the group that completed the eight-week mindfulness course."},
+      {"label": "qualifying", "text": "Mindfulness reduced anxiety in participants with mild symptoms but not in severe cases."},
+      {"label": "contradicting", "text": "Anxiety scores did not change after the mindfulness course."},
+      {"label": "unrelated", "text": "The course was taught in the evenings by two certified instructors."},
+      {"label": "unrelated", "text": "A recipe for sourdough bread calls for a long, cool fermentation."}
+    ]
+  },
+  {
+    "query": "How does this passage compare with the pilot report?",
+    "quote": "Median survival was 14 months with the new regimen",
+    "passages": [
+      {"label": "supporting", "text": "Patients on the new regimen had a median survival of 14 months."},
+      {"label": "qualifying", "text": "Median survival was 14 months with the new regimen in patients without prior treatment."},
+      {"label": "contradicting", "text": "Median survival with the new regimen was 9 months."},
+      {"label": "unrelated", "text": "Patients were followed up by telephone every three months."},
+      {"label": "unrelated", "text": "The lighthouse was restored with funds from a heritage grant."}
+    ]
+  }
+]

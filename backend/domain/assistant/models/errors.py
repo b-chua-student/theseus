@@ -107,6 +107,12 @@ class ChatModelError(AssistantError):
     code = "assistant.model_error"
 
 
+class ChatRequestTooLargeError(ChatModelError):
+    """The assembled request does not fit in the model's context window."""
+
+    code = "assistant.request_too_large"
+
+
 class ChatModelRateLimitedError(ChatModelError):
     """The AI provider rejected the request because of rate limiting."""
 
