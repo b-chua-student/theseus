@@ -45,8 +45,8 @@ jobs:
           fail=0
           for f in ${{ needs.changes.outputs.intake_files }}; do
             [ -f "$f" ] || continue
-            for h in "## Goal" "## In Scope" "## Non-Goals" "## Constraints" "## Success Criteria"; do
-              grep -q "^$h" "$f" || { echo "::error file=$f::Missing section: $h"; fail=1; }
+            for h in "Goal" "In Scope" "Non-Goals" "Constraints" "Success Criteria"; do
+              grep -qE "^##[[:blank:]]+([0-9]+\.[[:blank:]]+)?${h}[[:space:]]*$" "$f" || { echo "::error file=$f::Missing section: ## $h"; fail=1; }
             done
             grep -qiE 'TBD|TODO' "$f" && { echo "::error file=$f::Unresolved TBD/TODO"; fail=1; }
             [ "$(wc -l < "$f")" -le 80 ] || { echo "::error file=$f::Exceeds 80 lines"; fail=1; }
