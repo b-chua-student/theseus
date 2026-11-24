@@ -157,6 +157,9 @@ class Panel {
 
   async setChecked(name, value) {
     const box = await this.item(name);
+    if (!(box instanceof HTMLInputElement) || box.type !== 'checkbox') {
+      throw new Error(`Expected "${name}" to be a checkbox`);
+    }
     if (box.checked !== value) await this.user.click(box);
   }
 
