@@ -321,9 +321,9 @@ def resolve_revision(parser, argument, value):
     )
     # Only full Git object IDs can reach the diff command.
     object_id = re.fullmatch(rb"([0-9a-f]{40}|[0-9a-f]{64})\n", result.stdout)
-    if result.returncode or object_id is None:
-        parser.error(f"argument {argument}: expected a Git revision that resolves to one object")
-    return object_id[1].decode("ascii")
+    if result.returncode == 0 and object_id is not None:
+        return object_id[1].decode("ascii")
+    parser.error(f"argument {argument}: expected a Git revision that resolves to one object")
 
 
 def main():
