@@ -3,8 +3,8 @@ name: check-intake-gherkin
 on:
   pull_request:
     paths:
-      - '.kiro/specs/*/brief.md'
-      - '.kiro/specs/*/*/*.feature'
+      - 'specs/*/*/brief.md'
+      - 'specs/*/*/gherkin.feature'
 
 jobs:
   changes:
@@ -23,14 +23,14 @@ jobs:
           list-files: shell
           filters: |
             intake:
-              - '.kiro/specs/*/brief.md'
+              - 'specs/*/*/brief.md'
             gherkin:
-              - '.kiro/specs/*/*/*.feature'
+              - 'specs/*/*/gherkin.feature'
       - name: Collect affected contexts
         id: ctx
         run: |
           ctxs=$(for f in ${{ steps.f.outputs.gherkin_files }}; do
-            echo "$f" | cut -d/ -f1-3
+            dirname -- "${f%/*}"
           done | sort -u | tr '\n' ' ')
           echo "contexts=$ctxs" >> "$GITHUB_OUTPUT"
 
@@ -45,8 +45,8 @@ jobs:
           fail=0
           for f in ${{ needs.changes.outputs.intake_files }}; do
             [ -f "$f" ] || continue
-            for h in "## Goal" "## In Scope" "## Non-Goals" "## Constraints" "## Success Criteria"; do
-              grep -q "^$h" "$f" || { echo "::error file=$f::Missing section: $h"; fail=1; }
+            for h in "Goal" "In Scope" "Non-Goals" "Constraints" "Success Criteria"; do
+              grep -qE "^##[[:blank:]]+([0-9]+\.[[:blank:]]+)?${h}[[:space:]]*$" "$f" || { echo "::error file=$f::Missing section: ## $h"; fail=1; }
             done
             grep -qiE 'TBD|TODO' "$f" && { echo "::error file=$f::Unresolved TBD/TODO"; fail=1; }
             [ "$(wc -l < "$f")" -le 80 ] || { echo "::error file=$f::Exceeds 80 lines"; fail=1; }
@@ -81,7 +81,7 @@ jobs:
           # IDs must be unique across all features within a context
           for d in ${{ needs.changes.outputs.gherkin_contexts }}; do
             [ -d "$d" ] || continue
-            dup=$(find "$d" -mindepth 2 -name '*.feature' -print0 \
+            dup=$(find "$d" -mindepth 2 -maxdepth 2 -type f -name gherkin.feature -print0 \
               | xargs -0 grep -ohE '@S-[0-9]{3}' 2>/dev/null | sort | uniq -d)
             [ -z "$dup" ] || { echo "::error::Duplicate IDs in $d: $(echo $dup)"; fail=1; }
           done
