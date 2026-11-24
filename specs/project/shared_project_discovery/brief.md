@@ -1,31 +1,29 @@
-# Intake Brief: Shared Project Discovery
+# Intake Brief: Shared Project Discovery (#137)
 
-- **Issue:** #137 ([shared-project-discovery])
-- **Bounded Context:** project
-- **User Story:** As a collaborator, I can find projects shared with me.
+## Goal
+Allow authenticated users to discover and open both projects they own and projects shared with them in a unified project list (`GET /api/projects`) with optional `scope` filtering (`all`, `owned`, `shared`), ownership indicators, and effective role visibility.
 
-## Intent
-Show projects where the signed-in user is a member in the project workspace so collaborators can discover and open shared projects.
+## In Scope
+- Extend project query/repository filtering (`backend/domain/project/`) to match projects where the authenticated user is either `Project.owner_id` or a `Member` (`Member.id` of type `MemberId` in `Project.members`).
+- Update `GET /api/projects` to accept optional `?scope=all|owned|shared` (default `all`, `400` on invalid scope) and return `ownership` (`owned` or `shared`) and effective `role` (`owner`, `editor`, or `viewer`) for each project.
+- Enforce membership authorization on `GET /api/projects/<project_id>` so owners and active members receive project details (`200`) with their effective role, while non-members or removed members receive `403` without leaking project metadata.
+- Frontend workspace project list support displaying shared projects alongside owned projects with scope filter controls.
 
-## Context & Existing Domain State
-- ackend/domain/project/models/aggregates.py defines Project with owner_id: UUID and members: list[Member], where each Member holds user_id: UUID and ole: Role (VIEWER or EDITOR).
-- Currently, ProjectRepository and project listing endpoints only filter by owner_id (or need a membership query ind_by_member_id(user_id) / unified list_accessible_projects(user_id)).
-- Collaborators who accept a project invitation need a reliable way to list and open projects shared with them, along with their effective role (owner, editor, or iewer).
+## Non-Goals
+- Sending or accepting project invitations (covered in #134).
+- Updating member roles or removing members (covered in #135).
+- Per-manuscript role overrides (covered in #118).
 
-## Scope
-- Query and return all non-deleted projects where the authenticated user is listed in Project.members (and optionally unify with owned projects via a relationship/role indicator).
-- Allow a collaborator who is a member of a shared project to open/retrieve that project (GET /api/projects/<project_id>), while returning 403 or 404 for users who are neither owner nor member.
-- Include the signed-in user's role (owner, editor, iewer) in the project summary response so the frontend workspace can filter or badge shared projects cleanly.
+## Constraints
+- Follow DDD/Clean Architecture layers (`models/`, `services/`, `infrastructure/`, `api/`) with zero framework imports inside `domain/project/models/`.
+- Require authentication (`@login_required` -> `401` if unauthenticated) on all endpoints.
+- Pending invitations must not expose projects in `GET /api/projects` until accepted; `403` responses must never reveal project title or owner.
 
-## Out of Scope
-- Inviting collaborators or accepting invitations (covered under Issue #134 [project-invitations]).
-- Adding, updating, or removing project members (covered under Issue #135 [project-member-management]).
-- Per-manuscript access role overrides (covered under Issue #118 [projects-manuscript-access]).
-
-## Expected Outcomes
-- A collaborator can find and open a project they joined from their project list.
-- Users who are neither the owner nor a member of a project cannot view or open it.
+## Success Criteria
+- `GET /api/projects` (default `scope=all`) returns owned and shared projects without duplicates, including `ownership` and effective `role`.
+- `GET /api/projects?scope=shared` returns only shared projects (empty list `200` if user only owns projects), and `?scope=owned` returns only owned projects.
+- Active collaborators can open shared project details via `GET /api/projects/<project_id>` (`200`), while non-members and removed members receive `403` without leaked metadata.
 
 ## Open Questions & Proposed Resolutions
-1. **Should shared projects appear in the same list as owned projects or in a separate view?**
-   - **Proposed Resolution:** Return a unified list from GET /api/projects containing both owned and shared projects, enriched with ownership (owned | shared) and current_user_role (owner | editor | iewer), plus an optional query filter ?scope=all|owned|shared (default ll) so the UI can render either a combined workspace list or separate "Owned" / "Shared with me" tabs from a single endpoint.
+1. **Unified list vs. separate view:** Return owned and shared projects in a single unified `GET /api/projects` endpoint with `ownership` (`owned`/`shared`) and an optional `?scope=all|owned|shared` filter (default `all`).
+2. **Non-member detail response:** Return `403 Forbidden` with a generic error payload (no project title or owner details leaked) when a signed-in non-member requests `GET /api/projects/<project_id>`.
