@@ -143,7 +143,11 @@ class Embedding:
 
 @dataclass(frozen=True)
 class RetrievedChunk:
-    """A chunk returned from a similarity query, ranked by ``score`` (higher = closer)."""
+    """A chunk returned from a similarity query, ranked by ``score`` (higher = closer).
+
+    ``title`` is the title of the source the chunk belongs to. Vector stores leave it blank;
+    the chat service fills it in.
+    """
 
     chunk_id: ChunkId
     doc_ref_id: DocumentRefId
@@ -151,6 +155,7 @@ class RetrievedChunk:
     position: str
     location: str
     score: float
+    title: str = ""
 
 
 @dataclass(frozen=True)

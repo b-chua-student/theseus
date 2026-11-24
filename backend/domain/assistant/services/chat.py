@@ -1,6 +1,7 @@
 import builtins
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Literal
 
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
@@ -110,7 +111,7 @@ class ChatService:
         try:
             selected = list(context.source_ids) if context.source_ids is not None else None
             retrieved = (
-                self._retrieve(conversation.project_id, query, selected)
+                self._retrieve(conversation.project_id, query, selected, context.quote)
                 if context.search_library
                 else []
             )
@@ -158,9 +159,18 @@ class ChatService:
         return Query("\n\n".join([*sections, f"Question: {query.text}"]))
 
     def _retrieve(
-        self, project_id: ProjectId, query: Query, source_ids: builtins.list[str] | None = None
+        self,
+        project_id: ProjectId,
+        query: Query,
+        source_ids: builtins.list[str] | None = None,
+        quote: str | None = None,
     ) -> builtins.list[RetrievedChunk]:
-        """Top-k chunks from the project's searchable documents; [] if unavailable."""
+        """Passages from the selected, searchable sources of the project; [] if unavailable.
+
+        Each source is searched on its own, so a source with many matches cannot use up the
+        share of another. Every passage carries its source ID and title. Passages are returned
+        in rounds, best passage of each source first, and the total is capped at ``top_k``.
+        """
         if (
             self._embedding_generator is None
             or self._vector_store is None
@@ -173,22 +183,46 @@ class ChatService:
             if source_ids is not None:
                 selected = set(source_ids)
                 allowed = {ref for ref in allowed if str(ref.value) in selected}
-            doc_ref_ids = [
-                d.doc_ref_id
+            titles = {
+                d.doc_ref_id: d.title.value
                 for d in self._document_repository.list_by_project(project_id)
                 if d.is_searchable and d.doc_ref_id in allowed
-            ]
-            if not doc_ref_ids:
+            }
+            if not titles:
                 return []
-            # The generator embeds chunks, so wrap the question as a throwaway chunk.
-            probe = Chunk(
-                id=ChunkId.new(), text=query.text, position="", location="", content_hash=""
-            )
+            # The generator embeds chunks, so wrap the question (with the quoted claim, when
+            # there is one) as a throwaway chunk.
+            text = f"{quote}\n{query.text}" if quote else query.text
+            probe = Chunk(id=ChunkId.new(), text=text, position="", location="", content_hash="")
             [embedding] = self._embedding_generator.generate([probe])
-            return self._vector_store.query(
-                embedding.vector, k=self._top_k, doc_ref_ids=doc_ref_ids
-            )
+            vector = embedding.vector
+            store = self._vector_store
         except Exception:
-            # Retrieval is best-effort: a vector store outage shouldn't block chat.
+            # Retrieval is best-effort: an outage shouldn't block chat.
             logger.exception("ChatService: retrieval failed; answering without context")
             return []
+
+        per_source: builtins.list[builtins.list[RetrievedChunk]] = []
+        for doc_ref_id, title in titles.items():
+            try:
+                found = store.query(vector, k=self._top_k, doc_ref_ids=[doc_ref_id])
+            except Exception:
+                logger.exception("ChatService: searching source %s failed", doc_ref_id.value)
+                continue
+            passages = [
+                replace(chunk, doc_ref_id=doc_ref_id, title=title)
+                for chunk in found
+                if chunk.doc_ref_id == doc_ref_id
+            ]
+            if passages:
+                per_source.append(sorted(passages, key=lambda chunk: chunk.score, reverse=True))
+        per_source.sort(key=lambda passages: passages[0].score, reverse=True)
+
+        admitted: builtins.list[RetrievedChunk] = []
+        rank = 0
+        while len(admitted) < self._top_k and any(len(p) > rank for p in per_source):
+            for passages in per_source:
+                if len(passages) > rank and len(admitted) < self._top_k:
+                    admitted.append(passages[rank])
+            rank += 1
+        return admitted

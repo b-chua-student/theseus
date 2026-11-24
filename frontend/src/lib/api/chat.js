@@ -51,6 +51,16 @@ export async function askConversation(projectId, conversationId, query, contextS
   return (await res.json()).answer;
 }
 
+/**
+ * List the IDs of the project's library sources the assistant can search.
+ * @param {string} projectId
+ * @returns {Promise<string[]>}
+ */
+export async function listIndexedSourceIds(projectId) {
+  const res = await apiFetch(`/api/projects/${projectId}/indexed-sources`, {}, 'Could not load indexed sources.');
+  return (await res.json()).source_ids;
+}
+
 export async function listConversations(projectId) {
   const res = await apiFetch(`/api/projects/${projectId}/conversations`, {}, 'Could not load conversations.');
   return res.json();

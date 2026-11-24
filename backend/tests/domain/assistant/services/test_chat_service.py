@@ -70,16 +70,31 @@ class Library:
         self.embedder = InMemoryEmbeddingGenerator()
         self.active: list[DocumentRefId] = []
 
-    def add_source(self, text: str, *, indexed: bool = True, active: bool = True) -> DocumentRefId:
+    def add_source(
+        self,
+        text: str,
+        *,
+        indexed: bool = True,
+        active: bool = True,
+        title: str = "Source",
+        more_passages: int = 0,
+    ) -> DocumentRefId:
         ref = DocumentRefId.new()
-        document = IndexedDocument.create(IndexedDocumentTitle("Source"), ref, self.project_id)
+        document = IndexedDocument.create(IndexedDocumentTitle(title), ref, self.project_id)
         if indexed:
-            chunk = Chunk(
-                id=ChunkId.new(), text=text, position="1", location="p1", content_hash=text
-            )
+            chunks = [
+                Chunk(
+                    id=ChunkId.new(),
+                    text=text if index == 0 else f"{text} {index}",
+                    position=str(index + 1),
+                    location=f"p{index + 1}",
+                    content_hash=f"{text}{index}",
+                )
+                for index in range(more_passages + 1)
+            ]
             document.start_indexing()
-            document.complete_indexing([chunk])
-            self.vectors.upsert(ref, self.embedder.generate([chunk]), [chunk])
+            document.complete_indexing(chunks)
+            self.vectors.upsert(ref, self.embedder.generate(chunks), chunks)
         self.documents.add(document)
         if active:
             self.active.append(ref)
@@ -524,3 +539,87 @@ def test_ask_accepts_a_decoded_context(
     [(_, query, _)] = model.calls
     assert "Current manuscript:\nChapter one." in query.text
     assert service.get(project_id, conversation_id).context_scope == "manuscript"
+
+
+def test_ask_retrieval_labels_each_passage_with_its_source_id_and_title(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(conversation_id, "Question?")
+
+    context = model.calls[0][2]
+    assert context is not None
+    assert [(chunk.doc_ref_id, chunk.title) for chunk in context] == [(methods, "Methods")]
+
+
+def test_ask_retrieval_searches_each_source_on_its_own(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    refs = [library.add_source(f"Text {index}", title=f"S{index}") for index in range(3)]
+    searched: list[list[DocumentRefId] | None] = []
+    original = library.vectors.query
+
+    def recording_query(
+        vector: list[float], k: int = 5, doc_ref_ids: list[DocumentRefId] | None = None
+    ) -> list[RetrievedChunk]:
+        searched.append(doc_ref_ids)
+        return original(vector, k, doc_ref_ids)
+
+    library.vectors.query = recording_query  # type: ignore[method-assign,assignment]
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(conversation_id, "Question?")
+
+    assert sorted(searched, key=str) == sorted([[ref] for ref in refs], key=str)
+
+
+def test_ask_retrieval_lets_a_source_with_many_matches_share_with_another(
+    repository: InMemoryConversationRepository,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    many = library.add_source("Sample size", title="Methods", more_passages=4)
+    one = library.add_source("Sample size", title="Replication")
+    service = ChatService(
+        repository,
+        model,
+        embedding_generator=library.embedder,
+        vector_store=library.vectors,
+        document_repository=library.documents,
+        top_k=2,
+        source_ids=lambda _project: list(library.active),
+    )
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(conversation_id, "Sample size")
+
+    context = model.calls[0][2]
+    assert context is not None
+    assert {chunk.doc_ref_id for chunk in context} == {many, one}
+
+
+def test_ask_retrieval_uses_the_quote_with_the_question_to_find_passages(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    library.add_source("Children recovered in 7 days", title="Methods")
+    library.add_source("Unrelated words", title="Other")
+    embedded: list[str] = []
+    original = library.embedder.generate
+
+    def recording_generate(chunks: list[Chunk]) -> list:  # type: ignore[type-arg]
+        embedded.extend(chunk.text for chunk in chunks)
+        return original(chunks)
+
+    library.embedder.generate = recording_generate  # type: ignore[method-assign]
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "How does this compare?",
+        context=ExchangeContext.decode("source_library", quote="Children recovered in 5 days"),
+    )
+
+    assert embedded == ["Children recovered in 5 days\nHow does this compare?"]

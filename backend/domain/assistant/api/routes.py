@@ -22,9 +22,11 @@ def _chat() -> ChatService:
 
 conversation_bp = Blueprint("conversation", __name__)
 indexing_bp = Blueprint("indexing", __name__)
+library_bp = Blueprint("assistant_library", __name__)
 
 
 @conversation_bp.before_request
+@library_bp.before_request
 def check_project_access() -> ResponseReturnValue | None:
     """Require a signed-in user who owns or belongs to the project."""
     if "user_id" not in session:
@@ -131,3 +133,11 @@ def indexing_status(project_id: str, manuscript_id: str) -> ResponseReturnValue:
         chunk_count=len(document.chunks),
         searchable=document.is_searchable,
     ), 200
+
+
+@library_bp.get("/indexed-sources")
+@login_required
+def indexed_sources(project_id: str) -> ResponseReturnValue:
+    """List the IDs of the project's library sources the assistant can search."""
+    service = current_app.extensions["container"].assistant.indexed_sources
+    return jsonify(source_ids=[str(ref.value) for ref in service.execute(project_id)]), 200

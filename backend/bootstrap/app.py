@@ -8,7 +8,7 @@ import click
 from dotenv import load_dotenv
 from flask import Flask, Response, abort, send_from_directory
 
-from domain.assistant.api.routes import conversation_bp, indexing_bp
+from domain.assistant.api.routes import conversation_bp, indexing_bp, library_bp
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
 from domain.identity.api.auth.routes import auth_bp
@@ -94,6 +94,7 @@ def create_app(
     app.register_blueprint(revision_bp, url_prefix=f"{manuscripts}/<manuscript_id>/revisions")
     app.register_blueprint(indexing_bp, url_prefix=manuscripts)
     app.register_blueprint(conversation_bp, url_prefix="/api/projects/<project_id>/conversations")
+    app.register_blueprint(library_bp, url_prefix="/api/projects/<project_id>")
 
     limiter.exempt(app.send_static_file)
 

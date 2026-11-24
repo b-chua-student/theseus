@@ -1,6 +1,7 @@
 <script>
-  import { startConversation, askConversation, listConversations, getConversation } from "../../lib/api/chat.js";
-  import { listSources } from "../../lib/api/sources.js";
+  import { startConversation, askConversation, listConversations, getConversation, listIndexedSourceIds } from "../../lib/api/chat.js";
+  import ContextDropdown from "./ContextDropdown.svelte";
+  import { encodeSelection, initialSelection, selectionFromConversation } from "./contextSelection.js";
   import { tick as flushUI } from "svelte";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
@@ -9,33 +10,10 @@
   let { projectId, editor, tick, open, onclose, notice = $bindable() } = $props();
 
   // Keep this component mounted while closed to retain the session conversation.
-  /** @type {'none' | 'manuscript' | 'source_library'} */
-  let contextScope = $state("none");
-  let sessions = $state({});
-  let selectedSourceIds = $state(null);
-  let sources = $state([]);
-  let sourcesLoading = $state(false);
-  let sourcesError = $state('');
-  let pickerOpen = $state(false);
-  const sessionKey = $derived.by(() => {
-    if (contextScope !== 'source_library') return contextScope;
-    return `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`;
-  });
-  const messages = $derived(sessions[sessionKey]?.messages ?? []);
-
-  async function openSources() {
-    pickerOpen = !pickerOpen;
-    if (!pickerOpen) return;
-    sourcesLoading = true;
-    sourcesError = '';
-    try { sources = await listSources(projectId); }
-    catch (e) { sourcesError = e.message || 'Could not load sources.'; }
-    finally { sourcesLoading = false; }
-  }
-  function selectSource(id, checked) {
-    const current = selectedSourceIds ?? sources.map(source => source.id);
-    selectedSourceIds = checked ? [...current, id] : current.filter(value => value !== id);
-  }
+  // One conversation continues across context changes; the selection is read at send time.
+  let selection = $state(initialSelection());
+  let conversationId = $state(null);
+  let messages = $state([]);
   let savedConversations = $state([]);
   let historyLoading = $state(false);
   let historyError = $state('');
@@ -46,10 +24,10 @@
     const id = projectId;
     if (id !== loadedProject) {
       loadedProject = id;
-      sessions = {};
+      conversationId = null;
+      messages = [];
       savedConversations = [];
-      contextScope = 'none';
-      selectedSourceIds = null;
+      selection = initialSelection();
       refreshHistory(id);
     }
   });
@@ -76,16 +54,16 @@
     try {
       const conversation = await getConversation(project, id);
       if (project !== projectId) return;
-      contextScope = conversation.context_scope;
-      selectedSourceIds = conversation.source_ids;
-      const key = contextScope !== 'source_library' ? contextScope : `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`;
-      sessions[key] = {
-        conversationId: id,
-        messages: conversation.exchanges.flatMap(e => [
-          { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
-          { id: nextMessageId++, role: 'assistant', text: e.answer, timestamp: e.asked_at },
-        ]),
-      };
+      // A saved all-library record has no source list, so it needs the current indexed sources.
+      const needsIndexed = conversation.context_scope === 'source_library' && !conversation.source_ids;
+      const indexedIds = needsIndexed ? await listIndexedSourceIds(project) : [];
+      if (project !== projectId) return;
+      selection = selectionFromConversation(conversation, indexedIds);
+      conversationId = id;
+      messages = conversation.exchanges.flatMap(e => [
+        { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
+        { id: nextMessageId++, role: 'assistant', text: e.answer, timestamp: e.asked_at },
+      ]);
       input = '';
       selectionQuote = '';
       scrollDown();
@@ -94,7 +72,9 @@
   }
 
   function newConversation() {
-    sessions[sessionKey] = { messages: [], conversationId: null };
+    conversationId = null;
+    messages = [];
+    selection = initialSelection();
     input = '';
     selectionQuote = '';
   }
@@ -103,11 +83,6 @@
   let input = $state("");
   let loading = $state(false);
   let log = $state();
-  function switchContext(scope) {
-    if (loading) return;
-    contextScope = scope;
-    scrollDown();
-  }
 
 
   // Browser-local timestamps and writing tools.
@@ -170,26 +145,24 @@
     flushUI().then(() => { if (log) log.scrollTop = log.scrollHeight; });
   }
 
-  // Each scope has its own conversation history to keep source context isolated.
   // Failures worth offering a retry for: network errors (no status), rate limits,
   // AI provider errors and an unavailable assistant. Validation errors (4xx) won't
   // succeed on retry, so they are not retryable.
   const isRetryable = (e) => !e.status || e.status === 429 || e.status >= 500;
 
   async function ask(text, quote) {
-    const session = sessions[sessionKey];
-    const manuscriptText = contextScope === "manuscript" ? editor?.getText() ?? "" : "";
-    const sourceIds = contextScope === "source_library" ? selectedSourceIds : null;
-    if (!session.conversationId) {
-      session.conversationId = await startConversation(projectId);
+    // Read the selection and the draft now, as they are when the writer asks.
+    const { contextScope, sourceIds, manuscriptText } = encodeSelection(selection, editor?.getText() ?? "");
+    if (!conversationId) {
+      conversationId = await startConversation(projectId);
     }
     try {
-      return await askConversation(projectId, session.conversationId, text, contextScope, sourceIds, manuscriptText, quote);
+      return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
-        session.conversationId = await startConversation(projectId);
-        return await askConversation(projectId, session.conversationId, text, contextScope, sourceIds, manuscriptText, quote);
+        conversationId = await startConversation(projectId);
+        return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote);
       }
       throw e;
     }
@@ -203,7 +176,6 @@
     if (!text || loading) return;
     // The quote travels as its own field, exactly as selected, never inside the question.
     const quote = retry ? retryQuote : selectionQuote || null;
-    sessions[sessionKey] ??= { messages: [], conversationId: null };
     if (!retry) {
       messages.push({ id: nextMessageId++, role: "user", text, quote, timestamp: Date.now() });
       input = "";
@@ -260,7 +232,7 @@
 
         <div class="conversation-history">
           <label for="saved-conversations">Saved conversations</label>
-          <select id="saved-conversations" value={sessions[sessionKey]?.conversationId ?? ''} disabled={loading || historyLoading} onchange={(event) => openConversation(event.currentTarget.value)}>
+          <select id="saved-conversations" value={conversationId ?? ''} disabled={loading || historyLoading} onchange={(event) => openConversation(event.currentTarget.value)}>
             <option value="">{historyLoading ? 'Loading conversations…' : 'Choose a conversation'}</option>
             {#each savedConversations as conversation (conversation.id)}
               <option value={conversation.id}>{conversation.title}</option>
@@ -271,30 +243,7 @@
           {#if historyError}<p role="alert">{historyError}</p>
           {:else if !historyLoading && savedConversations.length === 0}<p>No saved conversations yet.</p>{/if}
         </div>
-        <div class="scholar-scopes" role="group" aria-label="Assistant context">
-          <button type="button" class:selected={contextScope === 'none'} aria-pressed={contextScope === 'none'} disabled={loading} onclick={() => switchContext('none')}>None</button>
-          <button type="button" class:selected={contextScope === 'manuscript'} aria-pressed={contextScope === 'manuscript'} disabled={loading || !editor} onclick={() => switchContext('manuscript')}>Manuscript</button>
-          <button type="button" class:selected={contextScope === 'source_library'} aria-pressed={contextScope === 'source_library'} disabled={loading} onclick={() => switchContext('source_library')}>Source Library</button>
-        </div>
-        <div class="scholar-context">Context: {contextScope === 'none' ? 'None — no document context used' : contextScope === 'manuscript' ? 'Manuscript — current text, including unsaved edits' : selectedSourceIds === null ? 'Source Library — all indexed sources' : `Source Library — ${selectedSourceIds.length} selected`}</div>
-        {#if contextScope === 'source_library'}
-          <div class="source-picker">
-            <button type="button" onclick={openSources} disabled={loading} aria-expanded={pickerOpen}>Select sources</button>
-            {#if pickerOpen}
-              {#if sourcesLoading}<p role="status">Loading sources…</p>
-              {:else if sourcesError}<p role="alert">{sourcesError}</p><button type="button" onclick={() => { pickerOpen = false; openSources(); }}>Retry</button>
-              {:else}
-                <label><input type="checkbox" checked={selectedSourceIds === null} disabled={loading} onchange={(event) => selectedSourceIds = event.currentTarget.checked ? null : []} />All library sources</label>
-                <div class="source-options">
-                  {#each sources as source (source.id)}
-                    <label><input type="checkbox" checked={selectedSourceIds === null || selectedSourceIds.includes(source.id)} disabled={loading} onchange={(event) => selectSource(source.id, event.currentTarget.checked)} />{source.title}</label>
-                  {:else}<p>No sources in this project. Add sources in the Source Library.</p>{/each}
-                </div>
-                <p>Only indexed content can be used in replies. Changing sources starts a separate conversation.</p>
-              {/if}
-            {/if}
-          </div>
-        {/if}
+        <ContextDropdown {projectId} bind:selection manuscriptAvailable={!!editor} />
         {#if messages.length === 0}
         <!-- LOCAL ONLY: quick prompts fill the composer. They do not send requests. -->
         <div class="scholar-prompts" aria-label="Suggested prompts">{#each prompts as prompt (prompt.label)}<button type="button" onclick={() => fillPrompt(prompt.text)}><span aria-hidden="true">✧</span>{prompt.label}</button>{/each}</div>
@@ -339,11 +288,6 @@
   .conversation-history select { width: 100%; min-width: 0; }
   .conversation-history button, .conversation-history select { padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: inherit; }
 
-  .source-picker { padding: 8px 14px; font-size: 11px; border-bottom: 1px solid var(--border); }
-  .source-picker button { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; }
-  .source-picker label { display: flex; align-items: center; gap: 7px; padding: 5px 0; overflow-wrap: anywhere; }
-  .source-picker p { color: var(--text-muted); line-height: 1.5; }
-  .source-options { max-height: 160px; overflow-y: auto; }
   .scholar-chat, .scholar-chat * { box-sizing: border-box; }
   button, select, textarea { font: inherit; color: inherit; margin: 0; }
   button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; line-height: 1.3; }
@@ -356,11 +300,6 @@
   .scholar-avatar { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 10px; background: var(--accent); color: white; font: 600 17px var(--sans); flex-shrink: 0; position: relative; }.scholar-avatar > span { position: absolute; width: 7px; height: 7px; background: #bed1cb; border: 2px solid var(--surface); border-radius: 50%; right: -2px; top: 0; }.scholar-close { background: transparent; border: 0; padding: 3px; color: var(--text-muted); }
 
   .scholar-prompts { display: flex; gap: 5px; overflow-x: auto; padding: 9px 12px; background: var(--surface-muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); scrollbar-width: thin; flex-shrink: 0; }.scholar-prompts button { white-space: nowrap; border: 1px solid #c9d5cc; border-radius: 999px; background: #e7eee8; color: var(--accent); padding: 5px 9px; font-size: 9px; font-weight: 500; }.scholar-prompts button span { color: var(--accent); }
-  .scholar-scopes { display: flex; margin: 0 14px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-muted); gap: 3px; flex-shrink: 0; }
-  .scholar-scopes button { flex: 1; padding: 7px 3px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: 10px var(--sans); white-space: nowrap; }
-  .scholar-scopes button:disabled { opacity: 1; cursor: default; }
-  .scholar-scopes .selected { background: var(--accent); color: white; font-weight: 600; }
-  .scholar-context { padding: 8px 15px 10px; font: 9px var(--sans); color: var(--text-muted); flex-shrink: 0; border-bottom: 1px solid var(--border); }
   .scholar-composer-tools select { max-width: 145px; padding: 4px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font: 9px var(--sans); }
   .scholar-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 17px 12px; display: flex; flex-direction: column; gap: 19px; scrollbar-width: thin; scrollbar-color: #bac9be transparent; }
   .scholar-welcome { margin: auto 0; padding: 24px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }.welcome-label { font: 8px var(--mono); letter-spacing: .06em; color: var(--accent); }.scholar-welcome h4 { font: 600 19px/1.3 var(--sans); margin: 10px 0; }.scholar-welcome p { font-size: 11px; line-height: 1.7; color: var(--text-muted); margin: 0 0 18px; }.welcome-note { font: 8px/1.5 var(--mono); color: var(--text-muted); }
