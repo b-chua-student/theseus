@@ -1,13 +1,13 @@
 Feature: Track DORA deployment frequency
   Theseus maintainers can see how much time passes between deployments that reach production.
 
-  @S-012 @criterion-1
+  @S-023 @criterion-1
   Scenario: Report elapsed time between consecutive production deployments
     Given deployments reached production at 09:00, 11:00, and 14:00 UTC on the same day
     When a maintainer reviews the deployment frequency report
     Then the report shows intervals of 2 hours and 3 hours
 
-  @S-013 @edge @criterion-2
+  @S-024 @edge @criterion-2
   Scenario: Exclude deployments that never reach production from intervals
     Given two deployments reached production 4 hours apart with no other production deployments between them
     And a staging-only deployment and an attempt that never reached production occurred between them
