@@ -3,8 +3,8 @@ name: check-intake-gherkin
 on:
   pull_request:
     paths:
-      - 'specs/*/*/brief.md'
-      - 'specs/*/*/gherkin.feature'
+      - '.kiro/specs/*/brief.md'
+      - '.kiro/specs/*/*/*.feature'
 
 jobs:
   changes:
@@ -23,14 +23,14 @@ jobs:
           list-files: shell
           filters: |
             intake:
-              - 'specs/*/*/brief.md'
+              - '.kiro/specs/*/brief.md'
             gherkin:
-              - 'specs/*/*/gherkin.feature'
+              - '.kiro/specs/*/*/*.feature'
       - name: Collect affected contexts
         id: ctx
         run: |
           ctxs=$(for f in ${{ steps.f.outputs.gherkin_files }}; do
-            dirname -- "${f%/*}"
+            echo "$f" | cut -d/ -f1-3
           done | sort -u | tr '\n' ' ')
           echo "contexts=$ctxs" >> "$GITHUB_OUTPUT"
 
@@ -81,7 +81,7 @@ jobs:
           # IDs must be unique across all features within a context
           for d in ${{ needs.changes.outputs.gherkin_contexts }}; do
             [ -d "$d" ] || continue
-            dup=$(find "$d" -mindepth 2 -maxdepth 2 -type f -name gherkin.feature -print0 \
+            dup=$(find "$d" -mindepth 2 -name '*.feature' -print0 \
               | xargs -0 grep -ohE '@S-[0-9]{3}' 2>/dev/null | sort | uniq -d)
             [ -z "$dup" ] || { echo "::error::Duplicate IDs in $d: $(echo $dup)"; fail=1; }
           done

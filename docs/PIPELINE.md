@@ -13,7 +13,7 @@ Open the pull request’s **Checks** tab or the workflow run under **Actions** t
 
 ## Intake and Gherkin validation
 
-[Intake and Gherkin validation](../.github/workflows/check-intake-gherkin.yaml) runs on pull requests that change `specs/*/*/brief.md` or `specs/*/*/gherkin.feature`.
+[Intake and Gherkin validation](.github/workflows/check-intake-gherkin.yaml) runs on pull requests that change `.kiro/specs/*/brief.md` or `.kiro/specs/*/*/*.feature`.
 
 - `changes` identifies affected files and Gherkin contexts.
 - `intake` checks changed briefs for required headings, unresolved `TBD` or `TODO` placeholders, and an 80-line limit.
