@@ -283,6 +283,7 @@ Feature: Compare manuscript claims with selected library sources
     Given I selected "Manuscript", "Methods" and "Replication" with "Web" unchecked
     And "Methods" has many relevant passages
     And "Replication" has one relevant passage
+    And the available context window has room for a relevant passage from each source
     When I ask which selected studies support the claim
     Then both "Methods" and "Replication" are searched
     And the model receives the relevant passage from "Replication"
@@ -294,3 +295,13 @@ Feature: Compare manuscript claims with selected library sources
     When the Assistant completes the search of "Methods" for my question
     Then the model receives "Methods" marked as searched without a match
     And the model receives no passage from "Methods"
+
+  @S-096 @criterion-5 @criterion-7 @service
+  Scenario: Report a matching source whose evidence exceeds the available context window
+    Given I selected "Manuscript", "Methods" and "Replication"
+    And each selected source has one relevant passage
+    And the remaining evidence budget fits the passage from "Methods" but the passage from "Replication" exceeds it
+    When I ask which selected studies support my claim
+    Then both sources are searched
+    And the model request stays within budget and includes only the passage from "Methods" as library evidence
+    And the answer names "Replication" as a match whose evidence could not fit
