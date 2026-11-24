@@ -7,13 +7,15 @@ This metric helps maintainers see how often Theseus delivers changes to producti
 The Theseus DevOps requirements call for this metric. [DORA metric definitions](https://dora.dev/guides/dora-metrics/)
 
 ## Scope
-- Report the count of deployments that reach production in a reporting period.
+- Report the elapsed time between consecutive production deployments.
 
 ## Expected Outcomes
-- [ ] The report identifies the period and counts each deployment that reached production once.
+- [ ] Each interval runs from when one deployment reached production to when the next deployment reached production.
+- [ ] The report indicates that an interval is unavailable when fewer than two deployments have reached production.
 
 ## Rules / Constraints
 - Exclude staging and deployment attempts that never reach production.
+- Apply the same measurement rules to manually triggered deployments.
 
 ## Non-Functional Requirements
 No additional non-functional requirements specified.
@@ -22,7 +24,7 @@ No additional non-functional requirements specified.
 - Changes to deployment operations and reporting for other metrics.
 
 ## Open Questions
-- What reporting period and cadence should we use? How should rollbacks and redeployments be counted?
+- What reporting cadence and deployment history window should we use? Which rollbacks and redeployments should qualify as production deployments for this metric?
 
 ## Output Paths
 This feature lives in `specs/devops/dora-deployment-frequency/`.
