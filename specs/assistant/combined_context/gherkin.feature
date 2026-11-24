@@ -286,3 +286,11 @@ Feature: Compare manuscript claims with selected library sources
     When I ask which selected studies support the claim
     Then both "Methods" and "Replication" are searched
     And the model receives the relevant passage from "Replication"
+
+  @S-095 @criterion-5 @service
+  Scenario: A completed search with only below-threshold passages yields no match
+    Given I selected "Manuscript" and "Methods"
+    And the highest cosine similarity score in "Methods" for my question is below the configured relevance threshold
+    When the Assistant completes the search of "Methods" for my question
+    Then the model receives "Methods" marked as searched without a match
+    And the model receives no passage from "Methods"
