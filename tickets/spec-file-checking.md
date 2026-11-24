@@ -39,6 +39,11 @@ Pull requests already get checks for intake briefs and Gherkin. The requirements
 
 - Should a pull request that changes only a template, ticket, or Gherkin file also trigger spec validation?
 
+## Security Acceptance Criteria
+
+- [ ] The spec check rejects option-like values in either revision argument and reports which input is invalid.
+- [ ] Valid revision inputs continue to select changes for the spec check, with or without a head revision.
+
 ## Output Paths
 
 Each feature lives in `specs/<context>/<feature_name>/`.
