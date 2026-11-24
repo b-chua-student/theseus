@@ -25,7 +25,7 @@ flowchart TD
 
 ## Checklist
 
-- [x] **T1 — Confirm evidence and reporting settings.** Record the production service ID, deployment evidence and history coverage, GitHub feature PR classification, supported merge strategies, and authoritative promotion evidence. Confirm the weekly UTC schedule and publication surface. (R2–R5)
+- [ ] **T1 — Confirm evidence and reporting settings.** Record the production service ID, deployment evidence and history coverage, GitHub feature PR classification, supported merge strategies, and authoritative promotion evidence. Confirm the weekly UTC schedule and publication surface. (R2–R5)
 - [x] **T2 — Retrieve GitHub and Render evidence.** Implement paginated retrieval of PRs, deployed revisions, and production deployment records. Validate required fields and history coverage. Report retrieval and coverage failures safely. (R2–R4)
 - [x] **T3 — Resolve PR provenance.** Resolve original feature PRs for direct merges, promotions containing multiple PRs, and supported rewritten histories. Fail when the deployed feature PRs cannot be identified. (R2, R4)
 - [x] **T4 — Calculate and format the report.** Deduplicate by PR identity using its earliest successful live deployment, apply the UTC window, and compute the count and median. Cover empty windows, even sample counts, and window boundaries. (R1–R3)
