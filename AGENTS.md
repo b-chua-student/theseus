@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Workflow
-Ticket → Intake & Gherkin → Spec Files (requirements.md, design.md, tasks.md) -> Implementation
+Ticket → Intake & Gherkin → Spec Files (requirements.md, design.md, tasks.md) → Create Tests from Gherkin → Implementation → Verification
 
 The ticket is the source input. Everything else is derived from it.
 
@@ -55,7 +55,8 @@ After intake and Gherkin approval, fill in the three spec templates in the featu
 - Behavior changes update the ticket, then intake, Gherkin, spec files, and code in that order.
 
 ## Implementation
+- After generating the spec files, first create executable tests from the approved `gherkin.feature` using the appropriate test runner. Use the scenarios' observable outcomes as the source for assertions and record the scenario IDs in `tasks.md`.
+- Run the tests before changing application code. For new or changed behavior that is still missing, confirm the tests fail for the expected reason.
 - Follow the prerequisites and verification in `tasks.md`.
-- Write step definitions before application code.
-- All scenarios in the `.feature` file must pass.
+- After implementation, rerun the tests and confirm every scenario in the `.feature` file is covered by passing tests.
 - Keep spec, Gherkin, and code in sync.
