@@ -4,7 +4,7 @@ Issue #120 · assistant-combined-context
 
 ## Goal
 
-A writer can ask which selected sources support a claim in the current draft, or quote a particular passage and ask how the evidence compares. The Assistant uses the draft and evidence from the selected sources in one answer.
+A writer can ask which of the selected sources support a claim in the current draft, or quote a particular passage and ask how the evidence compares. The Assistant uses the draft and evidence from the selected sources in one answer.
 
 ## In Scope
 

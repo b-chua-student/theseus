@@ -1,5 +1,5 @@
 Feature: Compare manuscript claims with selected library sources
-  A writer can use the current manuscript and evidence from selected sources in one answer.
+  A writer can use the current manuscript together with evidence from the selected sources in one answer.
 
   Background:
     Given I have a manuscript open in the editor with the Assistant chat panel
