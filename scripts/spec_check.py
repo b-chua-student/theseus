@@ -14,7 +14,7 @@ SPEC_FILES = {
     "tasks.md": ("Tasks", "T"),
 }
 SPEC_PATH = re.compile(r"specs/(?!templates/)[^/]+/[^/]+/(?:requirements|design|tasks)\.md")
-HEADING = re.compile(r"(#{1,6}) +(.+)")
+HEADING = re.compile(r"(#{1,6}) +([^ \n].*| )")
 TABLE_SEPARATOR = re.compile(r":?-{3,}:?")
 NODE = re.compile(r'(?P<alias>[A-Za-z_][\w-]*)(?:\["(?P<label>T-[0-9]{3})(?:\s[^"]*)?"\])?')
 FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
@@ -321,7 +321,10 @@ def main():
         "head", nargs="?", type=revision_argument, help="head Git revision (defaults to the working tree)"
     )
     args = parser.parse_args()
-    revision = f"{args.base}...{args.head}" if args.head else args.base
+    revision = resolve_revision(parser, "base", args.base)
+    if args.head:
+        head = resolve_revision(parser, "head", args.head)
+        revision = f"{revision}...{head}"
     diff = subprocess.run(
         ["git", "diff", "--name-only", "-z", "--no-renames", "--diff-filter=AM", revision, "--"],
         check=False, stdout=subprocess.PIPE,
