@@ -1,66 +1,48 @@
 # Feature intake — Compare a manuscript with selected library sources
 
-Issue [#120][ticket] · assistant-combined-context · Original Markdown body, lines numbered including blanks, verified 24 Nov 2026. `from ticket` marks an explicit outcome or constraint. `assumed` marks a detail supplied outside the issue body. For an adopted clarification, the citation identifies the lead’s decision or the author’s recorded interpretation. Unconfirmed suggestions are listed under Open Questions.
+Issue #120 · assistant-combined-context
 
 ## Goal
 
-`from ticket` A writer can check a manuscript claim or quoted passage against selected library sources in one Assistant answer. [Intent L5; Expected Outcomes L18–19][ticket]
+A writer can ask which selected sources support a claim in the current draft, or quote a particular passage and ask how the evidence compares. The Assistant uses the draft and evidence from the selected sources in one answer.
 
 ## In Scope
 
-- `from ticket` Compare the current manuscript, including unsaved edits, with selected sources. Support questions about a specific quoted passage. [Scope L13–14][ticket]
-- `assumed` Keep the bulk-selection option in the Context dropdown as **All indexed sources** and use **Web** as the general-chat label. The ticket asked about bulk selection and described the prior context modes. [Context L9; Open Questions L35][ticket] · [Lead’s selection and naming decision][review] · [Author’s dropdown clarification][filter]
-- `assumed` Explain evidence gaps for each selected source. [Open Questions L36][ticket] · [Lead’s answer][review]
+- Provide one Context dropdown with Web, Manuscript and individual indexed project sources. Retain the existing “All library sources” option in this release as a single checkbox labelled **All indexed sources** inside the dropdown. Web is general chat using model knowledge. It provides no live browsing. New chats start on Web.
+- Writers can turn Web off to ground an answer in selected project material alone. Checking or unchecking Manuscript or a source preserves Web’s current setting as long as at least one context remains selected. If the writer unchecks the last active context or chooses Clear selection, only Web is selected.
+- Keep one conversation across changes. Web alone maps to the existing API scope `none`, including when displaying a saved record with that scope. A combined selection must convey all active choices.
+- For a combined question, use the current manuscript text at send time, including unsaved edits. When the writer quotes a passage, carry the exact quote as a separate item from the question text, so the answer addresses that passage. When Manuscript is unchecked, quoting shares only that exact passage from the draft, not the rest of the manuscript, and leaves every context selection unchanged.
+- Limit library evidence to the selected sources. Identify the source behind each finding so the writer can tell which sources support, qualify or contradict the claim.
 
 ## Non-Goals
 
-`from ticket` The issue lists no explicit exclusions. [Out of Scope L29–31][ticket]
-
-`assumed` Web denotes the existing general-chat mode. Live browsing is outside this change. [Context L9][ticket] · [Lead’s naming decision][web] · [Author’s API clarification][fallback]
+Live web browsing and searching sources outside the active project are outside scope.
 
 ## Constraints
 
-`from ticket` Use only library evidence from the sources the writer selected, even when an unselected source has a closer match. [Rules / Constraints L23][ticket]
+Source identity follows the library entry ID. The checked sources at send time determine which sources may supply evidence for that exchange. Unselected sources stay excluded even when they contain a closer match.
+
+Checking or unchecking an item takes effect immediately, with no Apply step. Arrow keys move focus between items, Space toggles the focused item, and Escape closes the dropdown and returns focus to the Context button.
+
+Definitions used below:
+- Unavailable: a selected source that cannot be searched at send time.
+- Searched without a match: a selected source that was searched and has no relevant passage.
+- Matched but omitted for capacity: the search found relevant evidence in the source, but none of its relevant passages fit in the available evidence budget.
+- Qualifies: a passage agrees with the claim only under narrower conditions. Contradicts: a passage states a conflicting fact.
 
 ## Success Criteria
 
-1. `from ticket` Use the writer’s chosen sources and manuscript together. [Scope L13; Expected Outcomes L18][ticket] **Review clarifications** (`assumed`): clearing the selection or its last item returns to Web. Reopening restores Web, Manuscript and sources from the last successful exchange. Name an unavailable saved source and retain the remaining choices. [Context L9; Scope L13][ticket] · [Author’s fallback rule][fallback] · [Lead’s restore decision][restore] · [Author’s restoration detail][restore-detail]
-2. `from ticket` Use the current draft, including unsaved edits, and identify which selected sources support the claim. A comparison can show agreement, a narrower finding, or conflicting evidence. [Scope L13; Expected Outcomes L18–19][ticket]
-3. `from ticket` Address the selected manuscript passage in the answer and compare that passage with evidence from the chosen sources. [Scope L14; Expected Outcomes L19][ticket]
-4. `from ticket` Only selected sources may contribute library evidence. [Rules / Constraints L23][ticket] `assumed` Preserve the standalone contexts and the current project boundary. Web-only chat supplies no project material and uses the existing API scope `none`. [Context L9][ticket] · [Author’s compatibility clarification][fallback] · [Existing project-scoped retrieval][retrieval]
-5. `assumed` Name each unavailable source or completed search without a relevant passage. Continue with usable selected evidence. If none is usable, say the claim could not be verified from the selection. General knowledge and missing evidence cannot establish what a selected source supports. [Expected Outcomes L18; Rules L23; Open Questions L36][ticket] · [Lead’s evidence-gap decision][review]
-6. `assumed` With a title filter active, **All indexed sources** includes sources hidden by the filter. Other large-library UI details are proposals under Q2. [Open Questions L35][ticket] · [Author’s filter clarification][filter]
-7. `assumed` Offer **All indexed sources** in this release. Source count does not limit selection. Attempt to search the selected set and fit evidence within the model’s context window. Name a matching source whose evidence could not fit. [Rules L23; Open Questions L35–36][ticket] · [Lead’s bulk-selection decision][bulk] · [Lead retained the existing option][retain] · [Lead’s capacity decision][capacity] · [Author’s capacity clarification][capacity-detail]
+1. A writer can select Manuscript with one or more individual sources in the same dropdown, include or exclude Web, revise the selection, or clear it to return to Web. Selecting Manuscript or a source keeps Web as it was. The next exchange uses the resulting selection and stays in the same conversation.
+2. A combined answer uses the latest draft and evidence from the selected sources together. It identifies which selected sources support or qualify the claim and accurately describes conflicting evidence when present.
+3. When a writer quotes a passage, the answer compares that specific passage with evidence from the selected sources, even when the manuscript contains other similar claims. With Manuscript unchecked, only the quoted passage reaches the Assistant and the selection does not change.
+4. Library evidence comes only from selected sources in the current project. A source from another project is never used. Manuscript-only, source-only and Web-only selections continue to work.
+5. Identify each selected source that could not be checked or yielded no relevant passage. Continue with usable selected evidence. If none is usable, say the claim could not be verified from the selection. Missing evidence alone cannot establish a contradiction. With Web enabled, distinguish general knowledge from findings attributed to selected sources.
+6. Keep Web, Manuscript and the Clear selection action visible while the source list scrolls. Filter sources by title without clearing checked items. Summarize the selection on the closed button, for example **Manuscript + 2 sources**.
+
+7. All indexed sources checks every indexed source currently in the project, including entries hidden by a title filter. It preserves Web and Manuscript. Unchecking one source retains the others and clears the all-selected indicator. Checking every source restores the indicator. Disable this option when no sources are indexed. When the context window cannot fit evidence from every matching source, name each source whose evidence was omitted for capacity. Only cite library evidence that was supplied to the model.
 
 ## Decisions
 
-- `assumed` For criterion 5, rank passages by cosine similarity between the query and passage embeddings. Only passages meeting the configured cutoff are eligible. A completed search below cutoff has no match. A failed search is unavailable. Calibrate the cutoff during implementation using examples that include contradictory passages. [Rules L23; Open Questions L36][ticket] · [Lead’s scoring guidance][cosine] · [Lead’s threshold review][threshold] · [Author’s calibration plan][calibrate]
-- `assumed` For criterion 7, passage capacity depends on space left after instructions, conversation history, the question, any included quote or manuscript, and room for the response. The 1,001-source scenario exercises the existing API boundary. [Open Questions L35][ticket] · [Lead’s capacity decision][capacity] · [Author’s explanation of evidence budgeting][capacity-detail]
-
-## Open Questions
-
-The following proposals appeared in the working drafts. Record a ticket or review decision before treating them as release criteria. The feature file retains their original scenario IDs as candidate examples.
-
-- `assumed` **Q1 — Context controls.** Should Web start checked, toggle independently in either direction, and allow an answer grounded only in selected project material? Should source/context changes apply immediately and always retain the same thread? [Context L9; Scope L13][ticket] · [Lead suggested combining contexts][review]
-- `assumed` **Q2 — Library navigation.** Should the menu support arrow keys, Space and Escape, pinned controls, a scrollable title search with persistent individual selections, and a count in the collapsed label? [Scope L13; Open Questions L35][ticket] · [Filter behavior already recorded for bulk selection][filter]
-- `assumed` **Q3 — Quotes.** Should the exchange carry an exact quote separately from the question? With Manuscript unchecked, should quoting share only that passage and preserve all selections? [Scope L14; Expected Outcomes L19][ticket]
-- `assumed` **Q4 — Bulk selection details.** Should the all-selected indicator track individual toggles, be disabled for an empty library, and snapshot the indexed set so later additions require explicit selection? [Rules L23; Open Questions L35][ticket] · [Lead retained the bulk option][bulk]
-- `assumed` **Q5 — Retrieval and reporting.** Should competing sources have a guaranteed chance to contribute passages within budget, and should per-source statuses be passed to the model or rendered by the application? Should chat display a match percentage? The lead requested investigation and the author recommended keeping scores internal. [Expected Outcomes L18; Open Questions L36][ticket] · [Lead’s scoring guidance][cosine] · [Percentage investigation][percent] · [Author’s recommendation][internal]
-
-[ticket]: https://github.com/b-chua-student/theseus/issues/120
-[review]: https://github.com/b-chua-student/theseus/pull/141#issuecomment-7097490735
-[bulk]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664301954
-[retain]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664378327
-[web]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664342292
-[fallback]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4674711875
-[restore]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664376280
-[restore-detail]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4674869655
-[filter]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4675025374
-[capacity]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664394567
-[capacity-detail]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4675277948
-[cosine]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664375104
-[threshold]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664421731
-[calibrate]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4674819214
-[percent]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4664446484
-[internal]: https://github.com/b-chua-student/theseus/pull/141#discussion_r4675560888
-[retrieval]: ../../../backend/domain/assistant/services/chat.py
+- **Relevance and source coverage.** Attempt to search every selected source. Rank its passages by cosine similarity between the query embedding and each passage embedding. Only passages scoring at or above the configured relevance threshold are eligible for inclusion. Each source gets a chance to contribute, with no fixed passage quota. If a search completes and no passage meets the threshold, mark that source “searched without a match.” If the search fails, mark it unavailable. During implementation, calibrate the cutoff using representative queries and passages labelled as supporting, qualifying, contradicting or unrelated to the claim. Set the passage budget during design and testing.
+- **Saved conversations.** Reopening a chat restores the Web and Manuscript settings and the source selection from its last successful exchange. If a saved source has become unavailable, identify it by name and preserve the remaining choices. New chats start on Web.
+- **Large selections.** All indexed sources selects the entire indexed library in the active project at the time of selection, including titles hidden by a filter. Use that set for the exchange, subject to the writer’s later changes. Newly indexed sources are included only if the writer selects them. Attempt to search every selected source, including selections larger than the current 1,000-ID request limit. For each answer, fit retrieved evidence into the model’s available context window after accounting for instructions, conversation history, the question, any quote or selected manuscript text, and room for the response. If a source could not be searched, identify it as unavailable. Batching and request representation are design decisions.
