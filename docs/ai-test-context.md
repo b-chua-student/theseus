@@ -5,7 +5,7 @@ Use this context when asked to create tests for Theseus. Read the requested beha
 ## Feature specs
 
 - For spec-driven work, use the approved scenarios in the feature's `gherkin.feature` and the verification tasks in `tasks.md`. Match each `S-###` in the task table to the corresponding `@S-###` tag.
-- Follow the task's requirement and design references when you need acceptance criteria or component context. Write step definitions before application code and verify that all feature scenarios pass, as specified in [AGENTS.md](../AGENTS.md).
+- For spec-driven work, use the approved Gherkin outcomes as the source for test assertions. Create and run the scenario tests before changing application code, then verify that every scenario is covered by passing tests after implementation. Use the task's references for component context, as described in [AGENTS.md](../AGENTS.md).
 
 ## Scope
 
