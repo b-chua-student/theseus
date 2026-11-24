@@ -14,9 +14,10 @@ SPEC_FILES = {
     "tasks.md": ("Tasks", "T"),
 }
 SPEC_PATH = re.compile(r"specs/(?!templates/)[^/]+/[^/]+/(?:requirements|design|tasks)\.md")
-HEADING = re.compile(r"(#{1,6}) +(.+?) *#* *$")
+HEADING = re.compile(r"(#{1,6}) +(.+)")
 TABLE_SEPARATOR = re.compile(r":?-{3,}:?")
-NODE = re.compile(r'(?P<alias>[A-Za-z_][\w-]*)(?:\["(?P<label>T-[0-9]{3})(?:\s+[^"]*)?"\])?')
+NODE = re.compile(r'(?P<alias>[A-Za-z_][\w-]*)(?:\["(?P<label>T-[0-9]{3})(?:\s[^"]*)?"\])?')
+FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
 
 
 def markdown_parts(text):
@@ -28,24 +29,27 @@ def markdown_parts(text):
     fence = None
     graph = None
     for line in text.splitlines():
-        marker = re.fullmatch(r" {0,3}(`{3,}|~{3,})(.*)", line)
+        marker = FENCE.match(line)
         if fence:
             if (marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence)
-                    and not marker[2].strip()):
+                    and not line[marker.end():].strip()):
                 fence = graph = None
             elif graph is not None:
                 graph.append(line)
             continue
         if marker:
             fence = marker[1]
-            if marker[2].strip() == "mermaid":
+            if line[marker.end():].strip() == "mermaid":
                 graph = []
                 graphs.setdefault(section, []).append(graph)
             continue
         heading = HEADING.fullmatch(line)
         if heading:
-            headings.add(heading.groups())
-            section = heading[2] if heading[1] == "##" else ""
+            level, title = heading.groups()
+            # Trim optional closing hashes and spaces while keeping a nonempty title.
+            title = title.rstrip(" ").rstrip("#").rstrip(" ") or title[0]
+            headings.add((level, title))
+            section = title if level == "##" else ""
         sections.setdefault(section, []).append(line)
     return headings, sections, graphs
 
