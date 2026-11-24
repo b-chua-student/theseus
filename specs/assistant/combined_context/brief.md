@@ -8,7 +8,7 @@ A writer can ask which selected sources support a claim in the current draft, or
 
 ## In Scope
 
-- Provide one Context dropdown with Web, Manuscript, individual indexed project sources and All indexed sources. Web is general chat using model knowledge. It provides no live browsing. New chats start on Web.
+- Provide one Context dropdown with Web, Manuscript and individual indexed project sources. Retain the existing “All library sources” option in this release as a single checkbox labelled **All indexed sources** inside the dropdown. Web is general chat using model knowledge. It provides no live browsing. New chats start on Web.
 - Select Web, Manuscript and sources independently. Checking or unchecking Manuscript or a source never changes Web's current setting. Writers can turn Web off to ground an answer in the selected project material alone. Clear selection, or removing the last selected item, returns to Web.
 - Keep one conversation across changes. Web alone maps to the existing API scope `none`, including when displaying a saved record with that scope. A combined selection must convey all active choices.
 - For a combined question, use the current manuscript text at send time, including unsaved edits. When the writer quotes a passage, carry the exact quote as a separate item from the question text, so the answer addresses that passage. When Manuscript is unchecked, quoting shares only that exact passage from the draft, not the rest of the manuscript, and leaves every context selection unchanged.

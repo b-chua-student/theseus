@@ -169,8 +169,9 @@ Feature: Compare manuscript claims with selected library sources
   Scenario: Select all indexed sources while filtering by title
     Given "Web" and "Manuscript" are checked
     And only "Methods" matches my title filter
-    When I choose "All indexed sources"
-    Then "Methods", "Replication" and "Pilot" are selected
+    When I check "All indexed sources" in the Context dropdown
+    Then "All indexed sources" is the only checkbox for selecting sources in bulk
+    And "Methods", "Replication" and "Pilot" are selected
     And "Web" and "Manuscript" remain checked
 
   @S-082 @criterion-7 @component
