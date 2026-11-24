@@ -67,8 +67,8 @@ Production provider selection, additional account linking and unlinking, domain 
 
 | Scenario IDs | Review status | Repository implication |
 |---|---|---|
-| S-001–002 | Revised | Use configured provider fixtures. The current auth blueprint needs authorization and callback routes. |
-| S-003–007 | Revised | The User aggregate requires a password hash, PostgreSQL requires a non-null hash, and MongoDB reads and writes a hash. Support an absent credential in the model and adapters while preserving password registration. The active LoginUser path must reject an absent credential with its normal invalid-credentials response. Exercise provisioning and collision checks after reload. |
+| S-001–002 | Revised (assumed) | The login page offers each enabled provider. Selecting one redirects the user to that provider with the authorization parameters and scopes in FR-2 and FR-3. |
+| S-003–007 | Revised (assumed) | A new identity with a new verified email signs in to a linked account created without a password credential, with the display name specified in FR-6. A returning linked identity signs in to the same account. After reload, password login for the OAuth-only account returns the ordinary invalid-credentials response and leaves the user signed out. An unlinked identity matching a reloaded account’s email case-insensitively also stays signed out, is directed to the existing sign-in method, and leaves the account and credentials unchanged, without creating a link or duplicate. |
 | S-008–011 | Valid | Reuse the Flask user ID session. Local return-path validation and lookup by issuer and subject are implementation work. |
 | S-012–015 | Valid | These outcomes require the new callback flow to reject unsuccessful attempts before issuing a session. |
 | S-016–017 | Revised | A token-exchange timeout can produce an app error. An interrupted browser redirect is observable when the user returns. |
