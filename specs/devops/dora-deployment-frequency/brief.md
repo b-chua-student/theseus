@@ -44,6 +44,7 @@ Report production deployment counts so Theseus maintainers can see how often cha
 
 1. The report identifies the reporting period and counts each deployment that reached production during that period once.
 2. Staging deployments and deployment attempts that never reach production contribute zero to the reported count.
+3. When one manually triggered deployment reaches production and another manually triggered attempt in the same reporting period never reaches production, the two runs contribute one deployment to the count.
 
 ## Reference Links
 

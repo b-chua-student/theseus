@@ -17,3 +17,12 @@ Feature: Track DORA deployment frequency
     When a maintainer reviews the deployment frequency report for that period
     Then the report identifies that period
     And the report shows zero production deployments
+
+  @S-021 @criterion-3
+  Scenario: Count manually triggered deployments that reach production
+    Given a manually triggered deployment reached production during the reporting period
+    And another manually triggered deployment attempt during that period never reached production
+    And no other deployments reached production during that period
+    When a maintainer reviews the deployment frequency report for that period
+    Then the report identifies that period
+    And the report shows one production deployment
