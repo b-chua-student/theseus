@@ -249,7 +249,7 @@ def test_weekly_job_defaults_to_withheld() -> None:
     )
     assert workflow["on"] == {
         "workflow_dispatch": "",
-        "schedule": [{"cron": "23 9 * * 1"}],
+        "schedule": [{"cron": "0 16 * * 6"}],
     }
     assert workflow["jobs"]["report"]["if"] == (
         "github.event_name == 'workflow_dispatch' || vars.DORA_WEEKLY_ENABLED == 'true'"
