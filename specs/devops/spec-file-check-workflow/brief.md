@@ -17,6 +17,7 @@ Catch structural and traceability errors in spec files during pull request revie
 
 - Check new or changed `requirements.md`, `design.md`, and `tasks.md` in feature directories.
 - Validate references among each affected feature's spec files, source ticket, and Gherkin scenarios.
+- Validate the revision inputs used to select changes.
 
 ## Non-Goals
 
@@ -51,6 +52,8 @@ Catch structural and traceability errors in spec files during pull request revie
 7. Unrelated legacy specs do not cause a pull request to fail the spec check.
 8. A pull request that changes only a template, ticket, or Gherkin file does not trigger the spec check.
 9. The existing intake and Gherkin checks remain available during pull request review.
+10. The spec check rejects an option-like value in either revision argument and identifies the invalid input.
+11. Valid revision inputs select changes for the spec check, with or without a head revision.
 
 ## Reference Links
 

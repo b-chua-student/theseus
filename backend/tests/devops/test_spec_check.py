@@ -1,4 +1,4 @@
-"""Pull request scenarios S-012 through S-018."""
+"""Pull request and revision argument scenarios S-012 through S-020."""
 
 import shutil
 import subprocess
@@ -26,7 +26,7 @@ def repo(tmp_path: Path) -> Path:
     shutil.copytree(ROOT / FEATURE, tmp_path / FEATURE)
     shutil.copytree(ROOT / "specs/templates", tmp_path / "specs/templates")
     (tmp_path / TICKET.parent).mkdir()
-    (tmp_path / TICKET).write_text("Ticket\n\n" + "Source text\n" * 40)
+    shutil.copyfile(ROOT / TICKET, tmp_path / TICKET)
     git(tmp_path, "init", "-q")
     commit(tmp_path, "Base")
     return tmp_path
@@ -52,6 +52,30 @@ def check(repo: Path, *revisions: str) -> subprocess.CompletedProcess[str]:
 def assert_passes(result: subprocess.CompletedProcess[str]) -> None:
     assert result.returncode == 0, result.stderr
     assert "Checked 1 feature directory" in result.stdout
+
+
+@pytest.mark.parametrize("include_head", [False, True], ids=["base", "base-and-head"])
+def test_s019_valid_revisions_select_changes(repo: Path, *, include_head: bool) -> None:
+    replace(repo / FEATURE / "design.md", "Spec check workflow", "PR spec workflow")
+    if include_head:
+        commit(repo, "Pull request")
+        result = check(repo, "HEAD^", "HEAD")
+    else:
+        result = check(repo, "HEAD")
+    assert_passes(result)
+
+
+@pytest.mark.parametrize(
+    "argument,revisions",
+    [("base", ("-invalid-revision", "HEAD")), ("head", ("HEAD", "-invalid-revision"))],
+    ids=["base", "head"],
+)
+def test_s020_option_like_revision_is_rejected(
+    repo: Path, argument: str, revisions: tuple[str, ...]
+) -> None:
+    result = check(repo, "--", *revisions)
+    assert result.returncode == 2, result.stderr
+    assert f"argument {argument}: revision must not start with '-'" in result.stderr
 
 
 def assert_invalid(repo: Path, path: Path, old: str, new: str, rule: str) -> None:

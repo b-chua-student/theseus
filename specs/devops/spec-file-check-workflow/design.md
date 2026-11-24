@@ -10,6 +10,7 @@
 | D-004 | Resolve design and task references against the feature's parsed IDs and check coverage from requirements to design decisions, from design decisions to tasks, and from scenarios to verification tasks. | Traceability validator, requirements table, design table, task table, Gherkin scenario tags | R-005 |
 | D-005 | Compare the Mermaid node and edge sets with the task table, including standalone nodes and prerequisite-to-dependent edge direction. Check for cycles before computing expected waves from prerequisites. | Dependency validator, task table, Mermaid dependency graph | R-006 |
 | D-006 | Report each validation failure with the affected repository-relative path and failed rule. Return a failing check status if any validation rule fails. | Spec validator, workflow diagnostics, pull request check status | R-003, R-007 |
+| D-007 | Reject leading hyphens in each supplied revision before constructing the Git command. Report the invalid argument through the CLI parser and retain the existing single-revision and three-dot comparisons. | Spec check CLI, Git diff | R-009, R-010 |
 
 ## Components and Flow
 

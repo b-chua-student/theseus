@@ -87,3 +87,25 @@ Feature: Check spec files during pull request review
       | task dependencies contain a cycle                      |
       | an independent task is outside wave 1                  |
       | a dependent task is outside the wave after its latest prerequisite |
+
+  @S-019 @criterion-11
+  Scenario Outline: Valid revision inputs select changes
+    Given conforming spec files changed in the comparison selected by <revision inputs>
+    When the spec check runs with those revision inputs
+    Then the spec check passes and reports the affected feature
+
+    Examples:
+      | revision inputs               |
+      | a valid base revision only    |
+      | valid base and head revisions |
+
+  @S-020 @criterion-10 @edge
+  Scenario Outline: Option-like revision inputs are rejected
+    Given an option-like value is supplied as the <revision> revision
+    When the spec check runs with those revision inputs
+    Then the spec check fails and identifies the invalid revision input
+
+    Examples:
+      | revision |
+      | base     |
+      | head     |

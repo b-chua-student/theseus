@@ -304,10 +304,18 @@ def graph_sets(lines):
     return set(resolved.values()), {(resolved[start], resolved[end]) for start, end in edges}
 
 
+def revision_argument(value):
+    if value.startswith("-"):
+        raise argparse.ArgumentTypeError("revision must not start with '-'")
+    return value
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("base", help="base Git revision")
-    parser.add_argument("head", nargs="?", help="head Git revision (defaults to the working tree)")
+    parser.add_argument("base", type=revision_argument, help="base Git revision")
+    parser.add_argument(
+        "head", nargs="?", type=revision_argument, help="head Git revision (defaults to the working tree)"
+    )
     args = parser.parse_args()
     revision = f"{args.base}...{args.head}" if args.head else args.base
     diff = subprocess.run(

@@ -14,6 +14,8 @@
 | R-006 | Fail when the task graph disagrees with the table, task dependencies contain a cycle, an independent task is outside wave 1, or a dependent task's wave is not one after its latest prerequisite. | from ticket | 22, 27 | S-018 |
 | R-007 | Identify the affected file and failed rule for each failure. | from ticket | 23 | S-015, S-016, S-017, S-018 |
 | R-008 | Keep the existing intake and Gherkin checks available during pull request review. | from ticket | 28 | S-012 |
+| R-009 | Reject option-like values in either revision argument and identify the invalid input. | from ticket | 44 | S-020 |
+| R-010 | Use valid revision inputs to select changes with or without a head revision. | from ticket | 45 | S-019 |
 
 ## Open Questions
 
