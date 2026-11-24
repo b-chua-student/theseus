@@ -1,0 +1,32 @@
+name: Feature PR merge-to-production lead time
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 16 * * 6' # Sunday at 00:00 Manila time
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  report:
+    if: github.event_name == 'workflow_dispatch' || vars.DORA_WEEKLY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Publish report to the run summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DORA_RENDER_SERVICE_ID: ${{ vars.DORA_RENDER_SERVICE_ID }}
+          DORA_RENDER_FIRST_DEPLOY_ID: ${{ vars.DORA_RENDER_FIRST_DEPLOY_ID }}
+          DORA_FEATURE_LABEL: ${{ vars.DORA_FEATURE_LABEL }}
+        run: python scripts/dora_lead_time.py
