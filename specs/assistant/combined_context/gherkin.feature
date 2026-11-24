@@ -305,3 +305,17 @@ Feature: Compare manuscript claims with selected library sources
     Then both sources are searched
     And the model request stays within budget and includes only the passage from "Methods" as library evidence
     And the answer names "Replication" as a match whose evidence could not fit
+
+  @S-097 @criterion-5 @criterion-7 @service
+  Scenario Outline: Preserve source names when the full gap report exceeds the model window
+    Given three selected sources have matching passages that cannot fit alongside a fourth source's admitted passage
+    And the remaining input budget fits <records> of their three named outcome records
+    When I ask which selected sources support my claim
+    Then the model request including the reserved response stays within the context window
+    And the model receives <records> complete outcome records and the admitted passage
+    And the answer names all three omitted sources with the capacity reason and cites none of them
+
+    Examples:
+      | records |
+      | 0       |
+      | 1       |
