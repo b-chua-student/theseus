@@ -2,7 +2,7 @@
 
 ## Goal
 
-Allow a user to sign in to the application using the email identity held by a third-party OAuth 2.0 / OpenID Connect provider (e.g., Google, Microsoft), instead of creating and managing a separate password.
+Allow a user to sign in to the application using the email identity held by a third-party OAuth 2.0 / OpenID Connect provider, instead of creating and managing a separate password.
 
 - Reduce sign-up and sign-in friction.
 - Reduce password-reset support tickets.
@@ -18,7 +18,7 @@ Allow a user to sign in to the application using the email identity held by a th
 ## In Scope
 
 1. "Login through email via OAuth" means the user authenticates with an OAuth/OIDC provider and the app requires a verified provider email and recognizes linked identities by validated issuer and subject.
-2. “OpenAuth” is the ticket name for this proposed OIDC sign-in flow. Enabled providers must supply the claims required by FR-4 and FR-5. Google and Microsoft are configured test fixtures in the Gherkin. Production provider selection and registration are deferred to deployment.
+2. “OpenAuth” is the ticket name for this proposed OIDC sign-in flow. Enabled providers must supply the claims required by FR-4 and FR-5. The Gherkin uses Google and Microsoft as synthetic test fixtures only.
 3. Authorization Code flow with **PKCE** is used; no implicit flow.
 4. Sign-in with an unlinked identity and an unknown verified email creates a new account (just-in-time provisioning).
 5. Defer linking additional identities to existing accounts. A verified email collision directs the user to their existing sign-in method.
@@ -31,7 +31,7 @@ Allow a user to sign in to the application using the email identity held by a th
 | FR-2 | Selecting a provider shall redirect the user to the provider's authorization endpoint using Authorization Code + PKCE, with `state` and `nonce`. |
 | FR-3 | The app shall request only the `openid`, `email`, and `profile` scopes. |
 | FR-4 | On callback, the app shall validate `state`, exchange the code for tokens, and validate the ID token (signature, issuer, audience, expiry, nonce). |
-| FR-5 | The app shall only accept the email if `email_verified` is true. |
+| FR-5 | After FR-4 validation, accept the email only if the ID token contains `email_verified` with the boolean value `true`. An `email` claim alone is insufficient. (assumed) |
 | FR-6 | After token and email validation, resolve the (issuer, subject) link first. An existing link selects its original account even if the email changed. Preserve stored emails and links. Create an account only if both the identity and case-insensitive email lookups find no match. Save the account and identity link atomically, with no password credential. Use the trimmed provider name when it contains 1–50 characters, otherwise use “Theseus user”. |
 | FR-7 | When an unlinked identity matches any existing account email case-insensitively, leave the user signed out and direct them to their existing sign-in method. Preserve accounts and credentials. This applies regardless of stored verification history. |
 | FR-8 | If the user denies consent or the provider returns an error, the app shall return the user to the login page with a clear message. |
@@ -58,6 +58,10 @@ Each scenario in `gherkin.feature` has a stable ID and a criterion tag.
 | @criterion-1 | Theseus offers configured providers and conducts the authorization flow without exposing provider tokens. |
 | @criterion-2 | A validated, eligible identity establishes the intended Theseus session. Account selection, provisioning, redirect, auditing and logout follow FR-6 and FR-9 through FR-12. |
 | @criterion-3 | Rejected, interrupted or incomplete authentication leaves the user signed out and preserves existing credentials. |
+
+## Open Questions
+
+- Which providers should OpenAuth support in production? If Microsoft is selected, which Microsoft configuration supplies the verification claim required by FR-5? [Issue #116](https://github.com/b-chua-student/theseus/issues/116) leaves provider selection open.
 
 ## Deferred decisions
 
