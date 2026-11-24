@@ -1,153 +1,66 @@
-# Implementation tasks — Compare a manuscript with selected library sources
+# Implementation tasks - Compare a manuscript with selected library sources
 
 ## Dependency graph
 
+Each arrow points from a prerequisite to the task that depends on it. Keep the nodes and edges in sync with the task table, including tasks with no dependencies.
+
 ```mermaid
 flowchart TD
-    T001["T-001"]
-    T002["T-002"]
-    T003["T-003"]
-    T004["T-004"]
-    T005["T-005"]
-    T006["T-006"]
-    T007["T-007"]
-    T008["T-008"]
-    T009["T-009"]
-    T010["T-010"]
-    T011["T-011"]
-    T012["T-012"]
-    T013["T-013"]
-    T014["T-014"]
-    T015["T-015"]
-    T016["T-016"]
-    T017["T-017"]
-    T018["T-018"]
-    T019["T-019"]
-    T020["T-020"]
-    T021["T-021"]
-    T022["T-022"]
-    T023["T-023"]
-    T024["T-024"]
-    T025["T-025"]
-    T026["T-026"]
-    T027["T-027"]
-    T028["T-028"]
-    T029["T-029"]
-    T030["T-030"]
-    T031["T-031"]
-    T032["T-032"]
-    T033["T-033"]
-    T034["T-034"]
-    T035["T-035"]
-    T036["T-036"]
-    T037["T-037"]
-    T038["T-038"]
-    T039["T-039"]
-    T040["T-040"]
-    T041["T-041"]
+    T001["T-001 Bind Gherkin steps"]
+    T002["T-002 Confirm legacy scope mapping"]
+    T003["T-003 Request, quote and legacy scope"]
+    T004["T-004 Semantic embedding adapter"]
+    T005["T-005 Per-source retrieval"]
+    T006["T-006 ChatModel port and citations"]
+    T007["T-007 Context dropdown"]
+    T008["T-008 Selection encoding and persistence"]
+    T009["T-009 Outcomes, threshold, budget"]
+    T010["T-010 Model outcomes and Web rules"]
+    T011["T-011 Verify component scenarios"]
+    T012["T-012 Verify service scenarios"]
+    T013["T-013 Verify acceptance scenarios"]
     T001 --> T003
     T001 --> T004
-    T003 --> T005
+    T001 --> T005
     T004 --> T005
-    T002 --> T006
     T003 --> T006
-    T002 --> T007
-    T005 --> T007
-    T006 --> T008
+    T005 --> T006
+    T003 --> T007
+    T002 --> T008
+    T003 --> T008
+    T004 --> T009
     T006 --> T009
     T006 --> T010
-    T006 --> T011
+    T003 --> T011
+    T007 --> T011
+    T008 --> T011
     T006 --> T012
-    T006 --> T013
+    T007 --> T012
+    T008 --> T012
+    T009 --> T012
+    T010 --> T012
     T007 --> T013
-    T006 --> T014
-    T007 --> T014
-    T006 --> T015
-    T007 --> T015
-    T006 --> T016
-    T006 --> T017
-    T007 --> T017
-    T006 --> T018
-    T007 --> T018
-    T006 --> T019
-    T006 --> T020
-    T006 --> T021
-    T006 --> T022
-    T007 --> T022
-    T006 --> T023
-    T007 --> T023
-    T006 --> T024
-    T007 --> T024
-    T006 --> T025
-    T006 --> T026
-    T006 --> T027
-    T006 --> T028
-    T006 --> T029
-    T007 --> T029
-    T006 --> T030
-    T007 --> T030
-    T006 --> T031
-    T006 --> T032
-    T006 --> T033
-    T006 --> T034
-    T006 --> T035
-    T006 --> T036
-    T006 --> T037
-    T007 --> T037
-    T006 --> T038
-    T007 --> T038
-    T006 --> T039
-    T007 --> T039
-    T006 --> T040
-    T007 --> T040
-    T006 --> T041
-    T007 --> T041
+    T008 --> T013
+    T009 --> T013
+    T010 --> T013
 ```
 
 ## Tasks
 
-T-002 gates work derived from the brief beyond the current ticket. Verification rows use the existing scenario IDs. Execute every Examples row for each outline.
+Use IDs from [requirements.md](requirements.md) and [design.md](design.md) in References. T-011, T-012 and T-013 verify the scenarios tagged `@component`, `@service` and `@acceptance`. Each runs every scenario and every Examples row in its group. T-002 gates only the legacy-scope mapping in T-008.
 
 | ID | Work item | References | Depends on | Verification | Scenarios | Wave |
 | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Bind the existing Gherkin steps before application changes. Use a Gherkin parser with tagged Vitest component and pytest service adapters. Expand outline examples and include Background. | D-001, D-002, D-003, D-004 | - | Dry-run all 34 scenarios and every example. Fail on missing or ambiguous steps. | - | 1 |
-| T-002 | Reconcile the brief-only behaviors in Open Questions with the ticket owner, then align intake and Gherkin before conditional work. | R-001, R-002, R-003, R-004 | - | Record decisions and review scenario assertions against the updated ticket. | - | 1 |
-| T-003 | Implement send-time draft, selected IDs and separate quote, with backward-compatible exchange validation. | D-001, D-002 | T-001 | Inspect a combined request after an unsaved edit and verify legacy requests still decode. | - | 2 |
-| T-004 | Implement project-scoped semantic retrieval and source attribution, including compatible indexing and reindexing. | D-002, D-003 | T-001 | Inspect fake vector queries and verify every returned passage belongs to an allowed source. | - | 2 |
-| T-005 | Compose the combined prompt and resolve answer citations against supplied evidence. | D-004 | T-003, T-004 | Inspect the fake model call and citation map for a quoted claim with a competing manuscript claim. | - | 3 |
-| T-006 | After ticket reconciliation, implement approved picker, Web, conversation and persistence behavior. | D-001, D-002 | T-002, T-003 | Exercise keyboard toggles, failed sends, legacy records and removed-source titles in both repositories. | - | 3 |
-| T-007 | After ticket reconciliation, implement approved source accounting, threshold, budget and Web attribution rules. | D-003, D-004 | T-002, T-005 | Calibrate on labelled support, qualification, contradiction and unrelated passages. Check budget limits and isolated failures. | - | 4 |
-| T-008 | Verify — Add a second source without losing the first source or the manuscript | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-063 | 4 |
-| T-009 | Verify — Removing one source narrows the next exchange | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-064 | 4 |
-| T-010 | Verify — Clear a combined selection to return to Web | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-065 | 4 |
-| T-011 | Verify — Clearing the last item returns to Web | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-066 | 4 |
-| T-012 | Verify — A combined send uses the draft as it reads when the writer asks | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-067 | 4 |
-| T-013 | Verify — Tell the writer which selected study supports the manuscript claim | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-068 | 5 |
-| T-014 | Verify — Address the quoted passage when the draft contains two related claims | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-069 | 5 |
-| T-015 | Verify — Standalone selections retain their reference boundaries | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. | S-070 | 5 |
-| T-016 | Verify — Add a source to a combined selection with the keyboard | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-071 | 4 |
-| T-017 | Verify — Explain a gap in one selected source while using the other | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-072 | 5 |
-| T-018 | Verify — None of the selected sources supplies usable evidence | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-073 | 5 |
-| T-019 | Verify — Select sources across searches in a long library | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-074 | 4 |
-| T-020 | Verify — The quoted passage travels as its own item | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-075 | 4 |
-| T-021 | Verify — Changing the context keeps the same conversation | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-076 | 4 |
-| T-022 | Verify — A source from another project is never used | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. | S-077 | 5 |
-| T-023 | Verify — Tell the writer when a selected study qualifies the claim | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-078 | 5 |
-| T-024 | Verify — Source check results are passed to the model | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. | S-079 | 5 |
-| T-025 | Verify — Start in general chat using the existing API scope | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-080 | 4 |
-| T-026 | Verify — Select all indexed sources while filtering by title | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-081 | 4 |
-| T-027 | Verify — Keep the all-selected indicator in sync with individual selections | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-082 | 4 |
-| T-028 | Verify — No indexed sources are available | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-083 | 4 |
-| T-029 | Verify — Turn off Web while keeping the manuscript and source selected | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-084 | 5 |
-| T-030 | Verify — General knowledge cannot stand in for missing source evidence | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-085 | 5 |
-| T-031 | Verify — Selecting Manuscript or a source keeps Web as it was | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-086 | 4 |
-| T-032 | Verify — Clearing the last selected item leaves Web checked | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-087 | 4 |
-| T-033 | Verify — Quoting without Manuscript shares only the quoted passage | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-088 | 4 |
-| T-034 | Verify — Quoting leaves the context selection unchanged | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-089 | 4 |
-| T-035 | Verify — Reopening a chat restores the selection from its last successful exchange | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-090 | 4 |
-| T-036 | Verify — Reopening a chat names a source that is no longer available | D-001, D-002 | T-006 | Run the tagged component scenario using accessible controls and captured exchanges. | S-091 | 4 |
-| T-037 | Verify — Choosing all indexed sources checks every source in a large library | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. | S-092 | 5 |
-| T-038 | Verify — A source indexed after selecting all sources stays excluded until chosen | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. | S-093 | 5 |
-| T-039 | Verify — A source with many matches does not crowd out another selected source | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. | S-094 | 5 |
-| T-040 | Verify — A completed search with only below-threshold passages yields no match | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. | S-095 | 5 |
-| T-041 | Verify — Report a matching source whose evidence exceeds the available context window | D-002, D-003, D-004 | T-006, T-007 | Run all tagged examples with fake retrieval and model calls. Inspect allowed inputs and source outcomes. Evaluate the generated answer against the scenario figures, source names and attribution. | S-096 | 5 |
+| T-001 | Bind the Gherkin steps before application changes. For the backend, add pytest-bdd, pinned in `backend/requirements-dev.txt`. For the frontend, choose a Vitest-compatible Gherkin binder, pin it in `frontend/package.json` and record the choice in the pull request, or write one small shared parser instead. Expand outline examples and include Background. Route `@component` scenarios to Vitest and `@service` and `@acceptance` scenarios to pytest. | D-001, D-002, D-003, D-004, D-005, D-006, D-007, D-008 | - | Dry-run all 34 scenarios and every example with the new runners. Fail on missing or ambiguous steps. `ruff check backend/` and `mypy backend/` pass. | - | 1 |
+| T-002 | Confirm with the owner how a legacy saved record with scope `manuscript` or `source_library` appears when reopened (D-006 proposes Manuscript alone or the saved sources, each with Web off). Record the decision in `design.md` and, if it changes, align the intake and Gherkin. | R-012 | - | Record the decision. Review S-090 and S-091 against it. | - | 1 |
+| T-003 | Implement the request changes: exact quote as its own field, draft text sent only when Manuscript is checked (a quote alone carries no other draft text), selected IDs and legacy `context_scope` decoding. | D-001, D-002 | T-001 | Extend `backend/tests/domain/assistant/api/test_ask_request.py` for combined, quote-only and legacy requests. `pytest backend/tests/domain/assistant`, `ruff check backend/` and `mypy backend/` pass. | - | 2 |
+| T-004 | Add the semantic Gemini `EmbeddingGenerator` adapter and wire it in `container.py`. Add a reindex trigger that marks existing indexed documents stale (`IndexedDocument.mark_stale`) and re-queues them through `IndexJobQueue`, so the `IngestionWorker` replaces old vectors. | D-003 | T-001 | Test the adapter with a faked client, with no live key. Test that the trigger re-queues indexed documents and that reindexing replaces old vectors. `pytest backend/tests/domain/assistant`, `ruff check backend/` and `mypy backend/` pass. | - | 2 |
+| T-005 | Implement per-source semantic retrieval with the library entry ID and title on each passage, keeping the project-scoped intersection. | D-002, D-003 | T-001, T-004 | Using `InMemoryVectorStore` and fake embeddings, assert every returned passage belongs to an allowed source of the project. Assert one source with many matches does not use up the others' share. `pytest backend/tests/domain/assistant`, `ruff check backend/` and `mypy backend/` pass. | - | 3 |
+| T-006 | Extend the `ChatModel` port and `GeminiChatModel` to take the draft, quote, question and labelled excerpts. Return citations resolved against the supplied excerpts and discard citations that match none. Pass the quote even when Manuscript is unchecked. Update the exchange route response and the test `FakeChatModel`. | D-004 | T-003, T-005 | Assert the fake model receives the quote as the comparison target and the citation map for a quoted claim with a competing manuscript claim. `pytest backend/tests/domain/assistant`, `ruff check backend/` and `mypy backend/` pass. | - | 4 |
+| T-007 | Build the Context dropdown (Web, Manuscript, sources, Clear selection, title filter, All indexed sources) with immediate effect, keyboard support (arrow keys, Space, Escape returning focus to the Context button), Web as the default for new chats, the selection summary on the closed button, the Web fallback rules, and All indexed sources as the only bulk checkbox (snapshot at selection, disabled when no source is indexed). Remove the per-selection conversations. Add the assistant read endpoint for searchable library source IDs, excluding manuscript documents. | D-005 | T-003 | `npm --prefix frontend run test:components` and `npm run lint:frontend` pass. Exercise keyboard toggles, the filter, bulk selection and the no-indexed-sources state with accessible roles. `pytest backend/tests/domain/assistant` covers the new endpoint and checks that manuscript documents are excluded. | - | 3 |
+| T-008 | After T-002, encode Web and Manuscript independently of the source UUIDs in `AskRequest` (Web alone keeps scope `none` with empty manuscript text and null source IDs) and accept more than 1,000 source IDs. Add the Web and Manuscript flags and selected ID and title pairs to `Conversation`. Save them only on success. Add defaults for old records, return them from `_conversation_json` and restore them in the UI, showing scope `none` as Web alone and naming a removed source while keeping the other choices. | D-006 | T-002, T-003 | Extend `test_ask_request.py` for scope `none`, independent flags and 1,001 IDs. Test both conversation repositories. Test the Mongo repository with a mocked collection, as in `test_mongodb_source_repository.py`. Cover failed sends, legacy records and removed-source titles. `pytest backend/`, `ruff check backend/` and `mypy backend/` pass. | - | 3 |
+| T-009 | Implement per-source outcomes, the calibrated relevance threshold (inclusive), the configurable passage budget, fair passage allocation, the evidence budget with its token counter port and Gemini-backed adapter, and batching for selections above 1,000. | D-007 | T-004, T-006 | Calibrate the threshold on labelled support, qualification, contradiction and unrelated passages with the semantic embedder. Test budget limits with a fake token counter and isolated per-source failures with fakes. `pytest backend/tests/domain/assistant`, `ruff check backend/` and `mypy backend/` pass. | - | 5 |
+| T-010 | Pass named source outcomes to the model, add the Web and no-Web instructions, mark unverifiable claims, and make the answer say the claim could not be verified when no selected source is usable. | D-008 | T-006 | Assert the fake model receives each outcome and Web flag. Assert missing evidence is never labelled contradiction. `pytest backend/tests/domain/assistant`, `ruff check backend/` and `mypy backend/` pass. | - | 5 |
+| T-011 | Verify the picker, exchange payloads and conversation restoration. | D-001, D-005, D-006 | T-003, T-007, T-008 | Run the component bindings with `npm --prefix frontend run test:components`, using keyboard input, captured requests and saved conversation fixtures. | S-063, S-064, S-065, S-066, S-067, S-071, S-074, S-076, S-080, S-081, S-082, S-083, S-086, S-087, S-089, S-090, S-091 | 4 |
+| T-012 | Verify quote boundaries, source isolation, snapshot selection and retrieval budgets. | D-002, D-003, D-004, D-006, D-007 | T-006, T-007, T-008, T-009, T-010 | Run the service bindings with `pytest backend/`. Inspect source IDs queried, per-source outcomes, exact draft and quote inputs, and the final model request size. | S-070, S-075, S-077, S-079, S-088, S-092, S-093, S-094, S-095, S-096 | 6 |
+| T-013 | Verify combined answers, attribution and handling of evidence gaps. | D-004, D-007, D-008 | T-007, T-008, T-009, T-010 | Automated: run the acceptance bindings with `pytest backend/` and assert the inputs the recording model receives (draft, quote, selected IDs, per-source outcomes, admitted passages). Manual or eval, outside CI and needing a Gemini key: review a real answer against the named sources, figures and evidence gaps in each example. | S-068, S-069, S-072, S-073, S-078, S-084, S-085 | 6 |
