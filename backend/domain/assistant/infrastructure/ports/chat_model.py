@@ -1,7 +1,13 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
 from domain.assistant.models.entities import Exchange
-from domain.assistant.models.value_objects import Answer, Query, RetrievedChunk
+from domain.assistant.models.value_objects import (
+    Answer,
+    Query,
+    RetrievedChunk,
+    SourceOutcome,
+)
 
 
 class ChatModel(ABC):
@@ -15,6 +21,7 @@ class ChatModel(ABC):
         context: list[RetrievedChunk] | None = None,
         manuscript_text: str | None = None,
         quote: str | None = None,
+        outcomes: Sequence[SourceOutcome] = (),
     ) -> Answer:
         """Answer ``query`` from the history and the inputs given.
 
@@ -22,4 +29,5 @@ class ChatModel(ABC):
         1-based position in that list. ``manuscript_text`` is the current draft, or None when
         Manuscript is not selected. ``quote`` is the exact passage the writer quoted, or None;
         the answer addresses it, and it is kept apart from the question in ``query``.
+        ``outcomes`` name each selected source that supplied no excerpt, with the reason.
         """

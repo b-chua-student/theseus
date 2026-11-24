@@ -1,7 +1,13 @@
 """Tests for the prompt the Gemini chat adapter builds (no live key needed)."""
 
 from domain.assistant.infrastructure.adapters.gemini_chat_model import build_prompt
-from domain.assistant.models.value_objects import ChunkId, DocumentRefId, RetrievedChunk
+from domain.assistant.models.value_objects import (
+    ChunkId,
+    DocumentRefId,
+    RetrievedChunk,
+    SourceOutcome,
+    SourceStatus,
+)
 
 
 def _excerpt(title: str, text: str, location: str = "p1") -> RetrievedChunk:
@@ -63,3 +69,18 @@ def test_excerpts_are_numbered_and_named_by_their_source() -> None:
     assert "[1] Methods (p3): 18 participants." in prompt
     assert "[2] Replication (p1): 24 participants." in prompt
     assert "cite the excerpt you rely on by its number" in prompt
+
+
+def test_each_source_that_supplied_no_excerpt_is_listed_with_its_reason() -> None:
+    outcomes = [
+        SourceOutcome(DocumentRefId.new(), "Methods", SourceStatus.UNAVAILABLE),
+        SourceOutcome(DocumentRefId.new(), "Replication", SourceStatus.SEARCHED_WITHOUT_MATCH),
+        SourceOutcome(DocumentRefId.new(), "Pilot", SourceStatus.OMITTED_FOR_CAPACITY),
+    ]
+
+    prompt = build_prompt("Which studies support it?", outcomes=outcomes)
+
+    assert "- Methods: could not be checked." in prompt
+    assert "- Replication: was searched and no relevant passage was found." in prompt
+    assert "- Pilot: matched, but its evidence exceeded the available space" in prompt
+    assert prompt.endswith("Question: Which studies support it?")

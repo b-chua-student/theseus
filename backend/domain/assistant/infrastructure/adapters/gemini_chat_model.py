@@ -1,4 +1,5 @@
 import os
+from collections.abc import Sequence
 
 from dotenv import load_dotenv
 from google import genai
@@ -8,7 +9,12 @@ from google.genai import types
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.models.entities import Exchange
 from domain.assistant.models.errors import ChatModelError, ChatModelRateLimitedError
-from domain.assistant.models.value_objects import Answer, Query, RetrievedChunk
+from domain.assistant.models.value_objects import (
+    Answer,
+    Query,
+    RetrievedChunk,
+    SourceOutcome,
+)
 
 DEFAULT_MODEL = "gemini-3-flash-preview"
 DEFAULT_TIMEOUT_MS = 30_000
@@ -19,12 +25,14 @@ def build_prompt(
     excerpts: list[RetrievedChunk] | None = None,
     manuscript_text: str | None = None,
     quote: str | None = None,
+    outcomes: Sequence[SourceOutcome] = (),
 ) -> str:
     """Label the draft, the quote and the source excerpts ahead of the question.
 
     The draft and the quote stay apart from the question. The quote is the comparison target:
     the answer addresses it even when the draft holds similar wording. Each excerpt is numbered
-    and named by its source, and the model cites it by that number in square brackets.
+    and named by its source, and the model cites it by that number in square brackets. Each
+    selected source that supplied no excerpt is listed with its reason.
     """
     sections = []
     if manuscript_text is not None:
@@ -50,6 +58,9 @@ def build_prompt(
             "by its number in square brackets, such as [1]. Cite only these numbers.\n\n"
             f"Source excerpts:\n{listed}"
         )
+    if outcomes:
+        records = "\n".join(f"- {outcome.record()}" for outcome in outcomes)
+        sections.append(f"Selected sources that supplied no excerpt:\n{records}")
     return "\n\n".join([*sections, f"Question: {question}"]) if sections else question
 
 
@@ -80,6 +91,7 @@ class GeminiChatModel(ChatModel):
         context: list[RetrievedChunk] | None = None,
         manuscript_text: str | None = None,
         quote: str | None = None,
+        outcomes: Sequence[SourceOutcome] = (),
     ) -> Answer:
         """Generate a Gemini answer from the history, the draft, the quote and the excerpts."""
         contents: list[types.Content] = []
@@ -90,7 +102,7 @@ class GeminiChatModel(ChatModel):
                 contents.append(self._turn("model", exchange.answer.text))
 
         contents.append(
-            self._turn("user", build_prompt(query.text, context, manuscript_text, quote))
+            self._turn("user", build_prompt(query.text, context, manuscript_text, quote, outcomes))
         )
 
         try:

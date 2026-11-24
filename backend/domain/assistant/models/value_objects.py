@@ -231,6 +231,42 @@ class Citation:
     location: str
 
 
+class SourceStatus(Enum):
+    """Why a selected source supplied no evidence to an exchange."""
+
+    UNAVAILABLE = "unavailable"
+    SEARCHED_WITHOUT_MATCH = "searched_without_match"
+    OMITTED_FOR_CAPACITY = "omitted_for_capacity"
+
+
+_STATUS_REASONS = {
+    SourceStatus.UNAVAILABLE: "could not be checked.",
+    SourceStatus.SEARCHED_WITHOUT_MATCH: "was searched and no relevant passage was found.",
+    SourceStatus.OMITTED_FOR_CAPACITY: (
+        "matched, but its evidence exceeded the available space and was not supplied."
+    ),
+}
+
+
+@dataclass(frozen=True)
+class SourceOutcome:
+    """What happened to one selected source that supplied no evidence.
+
+    A source that supplied at least one passage has no outcome. ``unavailable`` means it could
+    not be searched at send time. ``searched_without_match`` means the search completed and no
+    passage met the relevance threshold. ``omitted_for_capacity`` means relevant passages were
+    found but none fit in the evidence budget.
+    """
+
+    doc_ref_id: DocumentRefId
+    title: str
+    status: SourceStatus
+
+    def record(self) -> str:
+        """Return the one-line, named record of this outcome that the model receives."""
+        return f"{self.title}: {_STATUS_REASONS[self.status]}"
+
+
 @dataclass(frozen=True)
 class SelectedSource:
     """A library source the writer had checked, kept with its title as it was then."""

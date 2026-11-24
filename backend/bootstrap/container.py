@@ -35,6 +35,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
 )
 from domain.assistant.infrastructure.ports.source_content_provider import SourceContentProvider
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.value_objects import DocumentRefId
 from domain.identity.infrastructure.adapters.argon_password_hasher import ArgonPasswordHasher
@@ -103,8 +104,16 @@ def build_container(
     conversation_repo: ConversationRepository | None = None,
     chat_model: ChatModel | None = None,
     revision_history_repo: RevisionHistoryRepository | None = None,
+    relevance_threshold: float | None = None,
+    token_counter: TokenCounter | None = None,
+    context_window: int | None = None,
+    response_reserve: int = 0,
 ) -> Container:
-    """Build a Container, defaulting any unspecified dependency to an in-memory implementation."""
+    """Build a Container, defaulting any unspecified dependency to an in-memory implementation.
+
+    ``relevance_threshold``, ``token_counter``, ``context_window`` and ``response_reserve``
+    configure how the assistant picks library evidence; see ``build_assistant_module``.
+    """
     identity_repo = identity_repo or InMemoryIdentityRepository()
     hasher = hasher or ArgonPasswordHasher()
     project_repo = project_repo or InMemoryProjectRepository()
@@ -142,6 +151,10 @@ def build_container(
         vector_store=vector_store,
         conversation_repo=conversation_repo,
         chat_model=chat_model,
+        relevance_threshold=relevance_threshold,
+        token_counter=token_counter,
+        context_window=context_window,
+        response_reserve=response_reserve,
         source_ids=lambda project_id: [
             DocumentRefId(source.id.value)
             for source in source_repo.list_active()

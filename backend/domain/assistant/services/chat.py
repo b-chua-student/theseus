@@ -11,16 +11,16 @@ from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingG
 from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
 )
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.aggregates import Conversation
+from domain.assistant.models.entities import Exchange
 from domain.assistant.models.errors import (
     ChatModelError,
     ConversationNotFoundError,
 )
 from domain.assistant.models.value_objects import (
     Answer,
-    Chunk,
-    ChunkId,
     Citation,
     ConversationId,
     DocumentRefId,
@@ -30,6 +30,7 @@ from domain.assistant.models.value_objects import (
     RetrievedChunk,
     SelectedSource,
 )
+from domain.assistant.services.evidence_retrieval import Evidence, EvidenceRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -53,15 +54,31 @@ class ChatService:
         document_repository: IndexedDocumentRepository | None = None,
         top_k: int = 5,
         source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
+        relevance_threshold: float | None = None,
+        token_counter: TokenCounter | None = None,
+        context_window: int | None = None,
+        response_reserve: int = 0,
     ) -> None:
-        """Configure conversation storage, the chat model, and optional retrieval."""
+        """Configure conversation storage, the chat model, and optional retrieval.
+
+        ``top_k`` is the most passages taken from any one source. ``relevance_threshold`` is the
+        lowest cosine score a passage may have. With a ``token_counter`` and a ``context_window``,
+        evidence is fitted into the window, less ``response_reserve`` tokens kept for the answer.
+        """
         self._repository = repository
         self._model = model
-        self._embedding_generator = embedding_generator
-        self._vector_store = vector_store
         self._document_repository = document_repository
-        self._top_k = top_k
-        self._source_ids = source_ids
+        self._retriever = EvidenceRetriever(
+            embedding_generator,
+            vector_store,
+            document_repository,
+            source_ids,
+            passages_per_source=top_k,
+            relevance_threshold=relevance_threshold,
+            token_counter=token_counter,
+            context_window=context_window,
+            response_reserve=response_reserve,
+        )
 
     def start(self, project_id: str) -> ConversationId:
         """Start a conversation in the given project and return its id."""
@@ -115,18 +132,24 @@ class ChatService:
         exchange = conversation.ask(query)
 
         try:
-            selected = list(context.source_ids) if context.source_ids is not None else None
-            retrieved = (
-                self._retrieve(conversation.project_id, query, selected, context.quote)
+            evidence = (
+                self._retriever.retrieve(
+                    conversation.project_id,
+                    query.text,
+                    context.source_ids,
+                    quote=context.quote,
+                    fixed_texts=self._fixed_texts(history, query, context),
+                )
                 if context.search_library
-                else []
+                else Evidence.empty()
             )
             answer = self._model.reply(
                 history,
                 query,
-                retrieved,
+                evidence.excerpts,
                 manuscript_text=context.manuscript_text,
                 quote=context.quote,
+                outcomes=evidence.reported,
             )
         except ChatModelError:
             # Don't leave the exchange pending, or every later question would be rejected.
@@ -137,7 +160,7 @@ class ChatService:
             logger.exception("ChatService: model failed unexpectedly")
             raise ChatModelError("The assistant failed to answer.") from exc
 
-        answer = replace(answer, citations=self._citations(answer, retrieved))
+        answer = replace(answer, citations=self._citations(answer, evidence.excerpts))
         conversation.context_scope = context.scope
         conversation.web = context.web
         conversation.manuscript = context.manuscript
@@ -149,6 +172,19 @@ class ChatService:
 
         self._repository.save(conversation)
         return answer
+
+    @staticmethod
+    def _fixed_texts(
+        history: builtins.list[Exchange], query: Query, context: ExchangeContext
+    ) -> builtins.list[str]:
+        """Return the text sent to the model whatever evidence is found, for the budget."""
+        texts = [query.text]
+        for exchange in history:
+            texts.append(exchange.query.text)
+            if exchange.answer is not None:
+                texts.append(exchange.answer.text)
+        texts.extend(t for t in (context.manuscript_text, context.quote) if t)
+        return texts
 
     @staticmethod
     def _citations(answer: Answer, excerpts: builtins.list[RetrievedChunk]) -> tuple[Citation, ...]:
@@ -188,72 +224,3 @@ class ChatService:
             SelectedSource(id=value, title=current.get(value, earlier.get(value, "")))
             for value in source_ids
         ]
-
-    def _retrieve(
-        self,
-        project_id: ProjectId,
-        query: Query,
-        source_ids: builtins.list[str] | None = None,
-        quote: str | None = None,
-    ) -> builtins.list[RetrievedChunk]:
-        """Passages from the selected, searchable sources of the project; [] if unavailable.
-
-        Each source is searched on its own, so a source with many matches cannot use up the
-        share of another. Every passage carries its source ID and title. Passages are returned
-        in rounds, best passage of each source first, and the total is capped at ``top_k``.
-        """
-        if (
-            self._embedding_generator is None
-            or self._vector_store is None
-            or self._document_repository is None
-            or self._source_ids is None
-        ):
-            return []
-        try:
-            allowed = set(self._source_ids(project_id))
-            if source_ids is not None:
-                selected = set(source_ids)
-                allowed = {ref for ref in allowed if str(ref.value) in selected}
-            titles = {
-                d.doc_ref_id: d.title.value
-                for d in self._document_repository.list_by_project(project_id)
-                if d.is_searchable and d.doc_ref_id in allowed
-            }
-            if not titles:
-                return []
-            # The generator embeds chunks, so wrap the question (with the quoted claim, when
-            # there is one) as a throwaway chunk.
-            text = f"{quote}\n{query.text}" if quote else query.text
-            probe = Chunk(id=ChunkId.new(), text=text, position="", location="", content_hash="")
-            [embedding] = self._embedding_generator.generate([probe])
-            vector = embedding.vector
-            store = self._vector_store
-        except Exception:
-            # Retrieval is best-effort: an outage shouldn't block chat.
-            logger.exception("ChatService: retrieval failed; answering without context")
-            return []
-
-        per_source: builtins.list[builtins.list[RetrievedChunk]] = []
-        for doc_ref_id, title in titles.items():
-            try:
-                found = store.query(vector, k=self._top_k, doc_ref_ids=[doc_ref_id])
-            except Exception:
-                logger.exception("ChatService: searching source %s failed", doc_ref_id.value)
-                continue
-            passages = [
-                replace(chunk, doc_ref_id=doc_ref_id, title=title)
-                for chunk in found
-                if chunk.doc_ref_id == doc_ref_id
-            ]
-            if passages:
-                per_source.append(sorted(passages, key=lambda chunk: chunk.score, reverse=True))
-        per_source.sort(key=lambda passages: passages[0].score, reverse=True)
-
-        admitted: builtins.list[RetrievedChunk] = []
-        rank = 0
-        while len(admitted) < self._top_k and any(len(p) > rank for p in per_source):
-            for passages in per_source:
-                if len(passages) > rank and len(admitted) < self._top_k:
-                    admitted.append(passages[rank])
-            rank += 1
-        return admitted

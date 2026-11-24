@@ -1,5 +1,6 @@
 """Unit tests for the assistant ChatService."""
 
+from collections.abc import Sequence
 from uuid import uuid4
 
 import pytest
@@ -36,6 +37,7 @@ from domain.assistant.models.value_objects import (
     ProjectId,
     Query,
     RetrievedChunk,
+    SourceOutcome,
 )
 from domain.assistant.services.chat import ChatService
 
@@ -49,6 +51,7 @@ class FakeChatModel(ChatModel):
         self.calls: list[tuple[list[Exchange], Query, list[RetrievedChunk] | None]] = []
         self.drafts: list[str | None] = []
         self.quotes: list[str | None] = []
+        self.outcomes: list[list[SourceOutcome]] = []
 
     def reply(
         self,
@@ -57,10 +60,12 @@ class FakeChatModel(ChatModel):
         context: list[RetrievedChunk] | None = None,
         manuscript_text: str | None = None,
         quote: str | None = None,
+        outcomes: Sequence[SourceOutcome] = (),
     ) -> Answer:
         self.calls.append((history, query, context))
         self.drafts.append(manuscript_text)
         self.quotes.append(quote)
+        self.outcomes.append(list(outcomes))
         if self.error is not None:
             raise self.error
         return Answer(self.answer)
@@ -371,14 +376,13 @@ def test_ask_retrieval_skips_sources_that_are_not_active_or_not_indexed(
     assert model.calls[0][2] == []
 
 
-def test_ask_retrieval_respects_top_k(
+def test_ask_retrieval_takes_at_most_top_k_passages_from_one_source(
     repository: InMemoryConversationRepository,
     model: FakeChatModel,
     library: Library,
     project_id: str,
 ) -> None:
-    for index in range(4):
-        library.add_source(f"Passage {index}")
+    library.add_source("Passage", more_passages=3)
     service = ChatService(
         repository,
         model,
