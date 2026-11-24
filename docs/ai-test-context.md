@@ -2,6 +2,11 @@
 
 Use this context when asked to create tests for Theseus. Read the requested behavior, the implementation, and nearby tests before editing. Check the working tree and preserve existing changes.
 
+## Feature specs
+
+- For spec-driven work, use the approved scenarios in the feature's `gherkin.feature` and the verification tasks in `tasks.md`. Match each `S-###` in the task table to the corresponding `@S-###` tag.
+- Follow the task's requirement and design references when you need acceptance criteria or component context. Write step definitions before application code and verify that all feature scenarios pass, as specified in [AGENTS.md](../AGENTS.md).
+
 ## Scope
 
 - Change only test files and test support needed by those tests, such as fixtures, test data, or test-runner configuration.
