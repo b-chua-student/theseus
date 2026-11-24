@@ -1,4 +1,4 @@
-# Requirements - Compare a manuscript with selected library sources
+# Requirements — Compare a manuscript with selected library sources
 
 - Ticket: `tickets/120.md`
 

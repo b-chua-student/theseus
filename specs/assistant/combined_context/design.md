@@ -1,4 +1,4 @@
-# Design - Compare a manuscript with selected library sources
+# Design — Compare a manuscript with selected library sources
 
 Use one row per design decision. Each row names the affected components and the requirements from [requirements.md](requirements.md) that it supports.
 
@@ -15,3 +15,45 @@ Use one row per design decision. Each row names the affected components and the 
 | D-007 | Attempt to search every selected source and isolate a failed search to its source. Apply the calibrated cosine threshold inclusively (at or above) to `RetrievedChunk.score`. Calibrate the cutoff with the semantic embedding model used for indexing: label supporting, qualifying, conflicting and unrelated passage pairs, choose the cutoff, and check it on held-out pairs. Treat conflicting passages as relevant. Keep the threshold and the passage budget in configuration. Allocate eligible passages in rounds across sources, trying smaller fitting passages before marking a source omitted for capacity. Compute the evidence budget from the configured model window minus tokens for instructions, history, question, selected draft, quote, formatting and reserved response. Count the assembled request through a new token counter port before dispatch. Replace the blanket `except Exception` in `_retrieve` with per-source outcomes (unavailable, searched without a match, omitted for capacity) and pass them to D-008. | `ChatService` and `_retrieve`, `VectorStore` adapters, a new token counter port with a Gemini-backed adapter, `container.py` | R-003, R-005, R-007, R-008 |
 | D-008 | Keep the full gap list keyed by selected source ID in ChatService. After allocating excerpts, count each serialized outcome (including its title and formatting) against the remaining input tokens, preserving the response reserve. Include only whole outcome records that fit and check the fully assembled request before dispatch. When the list overflows, ChatService appends a complete gap report from its stored records to the generated findings, including each affected title and reason even if zero records fit. Attribute findings only to admitted excerpts. Distinguish support, qualification and conflicting facts. For example, if the draft reports 18 participants, a study reporting 18 supports it, a study reporting 24 for the same trial conflicts, and a study reporting 18 adults qualifies a claim about the whole cohort. Report each gap: name an unavailable source and say it could not be checked; name a source searched without a match and say no relevant passage was found; name a source omitted for capacity and say its evidence exceeded the available space, without citing its passages. Continue with the usable evidence. If none is usable, say the claim could not be verified from the selection. A contradiction requires a conflicting passage. Web enables model knowledge and adds no browsing, and the answer labels that knowledge separately from findings attributed to selected sources. With Web off, instruct the model to base factual findings only on the manuscript and the selected sources. | `ChatModel` port, `GeminiChatModel` system instruction and prompt builder, `ChatService` | R-001, R-003, R-007 |
 | D-009 | "All indexed sources" is the only bulk-selection checkbox in the dropdown. Checking it copies the project's indexed library source IDs once, including entries hidden by the title filter, and preserves Web and Manuscript. Unchecking one source clears its indicator and checking every source restores it, derived from the indexed IDs of the whole project list. It is disabled when no sources are indexed. Sources indexed afterward stay unchecked until the writer checks them. The assistant context exposes a read endpoint that returns the project's searchable library source IDs from `IndexedDocumentRepository`. It excludes manuscript documents, which `OnManuscriptSaved` also indexes in the same repository, by intersecting with the project's active source IDs (the `source_ids` callable in `container.py`). The frontend joins those IDs with the titles from `listSources`, so `assistant` and `src_lib` never import each other's services. | `ChatPanel.svelte` or the Context dropdown component, `sources.js`, assistant `routes.py`, `IndexedDocumentRepository` | R-001, R-006 |
+
+## Components and Flow
+
+1. At Send, `ChatPanel.svelte` captures the question, the exact editor quote, the Web and Manuscript settings and the checked library entry IDs. It reads the live editor text, including unsaved edits, only when Manuscript is checked (D-001).
+2. The exchange route keeps the existing authentication and project-membership checks, verifies that the conversation belongs to the project, validates the request and decodes legacy scopes (D-002, D-006).
+3. `ChatService` intersects the selected IDs with the project's active library sources, embeds the question and quote, and searches each selected source. It admits passages at or above the relevance cutoff in rounds across sources until the evidence budget is spent, and records an outcome for every selected source (D-003, D-007).
+4. The model adapter receives the history, labelled draft and quote, question, admitted excerpts and the outcome records that fit. `ChatService` resolves the cited keys against the admitted excerpts and appends the full gap report when the outcome list overflowed (D-004, D-008).
+5. On success, `ChatService` saves the exchange and the selection on the `Conversation`, and the chat panel renders the sanitized answer with the resolved source titles (D-004, D-006).
+
+Alternate flows:
+
+- **Web alone:** the request uses scope `none` with empty manuscript text and null source IDs, and library retrieval is skipped.
+- **Manuscript alone:** the draft is sent and library retrieval is skipped.
+- **Quote with Manuscript unchecked:** only the quote is sent from the draft, and the checked items do not change.
+- **Failed send:** the pending exchange is discarded and the previously saved selection stays in place.
+- **Reopened chat:** the saved selection is restored, legacy scopes are decoded, and a removed source is named by its saved title (D-006).
+- **All indexed sources:** the dropdown copies the indexed library IDs from the assistant read endpoint once, and later-indexed sources stay unchecked (D-009).
+
+## Data and Interfaces
+
+| Boundary | Inputs and outputs | Compatibility |
+| --- | --- | --- |
+| Chat panel to exchange route | `query`, `quote`, `manuscript_text` (only when Manuscript is checked), independent Web and Manuscript flags, and explicit library entry UUIDs in `source_ids`. | Web alone still sends scope `none`. Legacy `context_scope` values still decode. Selections above 1,000 IDs are accepted. |
+| Exchange route to chat panel | The existing `answer` field plus resolved citations, each with source ID, title and location. | Clients that read only `answer` keep working. |
+| `ChatService` to `ChatModel` port | History, draft, quote marked as the comparison target, question, admitted excerpts (exchange-local key, library entry ID, title, location, text) and the outcome records that fit. | `FakeChatModel` and `GeminiChatModel` change together with the port. |
+| `ChatService` to retrieval and token counter | Query embedding, selected source IDs per batch and the cutoff. Results carry `RetrievedChunk.score` and the source. The token counter measures the assembled request. | `InMemoryVectorStore` and `ChromaVectorStore` keep the `VectorStore` port. The embedding model matches the one used for indexing. |
+| `Conversation` persistence | Web and Manuscript flags and selected ID and title pairs, saved only after a successful exchange. | Old Mongo documents get defaults. Legacy `none`, `manuscript` and `source_library` records, including a null all-library list, are decoded at read time. |
+| Assistant read endpoint to chat panel | The project's searchable library source IDs, excluding manuscript documents. | The panel joins them with titles from `listSources`, so `assistant` and `src_lib` never import each other's services. |
+
+## Evidence Outcomes
+
+| Case | Observable outcome |
+| --- | --- |
+| Supporting and conflicting sources | The answer names the supporting source and states the conflicting figure with its source, as in S-068. |
+| Qualifying source | The answer says the source supports the claim only under its narrower condition and does not call it a contradiction (S-078). |
+| Quoted passage | The answer compares the quoted figure, not a similar claim elsewhere in the draft (S-069). The request carries the quote as its own field (S-075, S-088). |
+| Unavailable source | The answer names the source and says it could not be checked, and continues with usable evidence (S-072). |
+| Searched without a match | No passage met the cutoff. The answer names the source and says no relevant passage was found (S-072, S-095). |
+| Omitted for capacity | The answer names the source with the capacity reason and cites none of its passages (S-096). If the outcome records overflow, the appended gap report still names every affected source (S-097). |
+| No usable evidence | The answer says the claim could not be verified from the selection and never calls it contradicted (S-073, S-085). |
+| Web enabled | General knowledge is labelled separately from findings attributed to selected sources (S-085). |
+| Project boundary | Unselected sources and sources from another project are never searched or cited (S-068, S-077). |
