@@ -314,6 +314,18 @@ def revision_argument(value):
     return value
 
 
+def resolve_revision(parser, argument, value):
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "--end-of-options", f"{value}^{{object}}"],
+        check=False, stdout=subprocess.PIPE,
+    )
+    # Only full Git object IDs can reach the diff command.
+    object_id = re.fullmatch(rb"([0-9a-f]{40}|[0-9a-f]{64})\n", result.stdout)
+    if result.returncode or object_id is None:
+        parser.error(f"argument {argument}: expected a Git revision that resolves to one object")
+    return object_id[1].decode("ascii")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("base", type=revision_argument, help="base Git revision")
