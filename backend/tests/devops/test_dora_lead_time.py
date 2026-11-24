@@ -4,6 +4,7 @@ from typing import Any, Never
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from scripts import dora_evidence
 from scripts import dora_lead_time as dora
 
 END = datetime(2026, 11, 24, tzinfo=UTC)
@@ -43,7 +44,7 @@ def graph(monkeypatch) -> None:
 
     def ancestors(revision) -> set[str]:
         if revision not in parents:
-            raise dora.EvidenceError("Required Git revision history is unavailable.")
+            raise dora_evidence.EvidenceError("Required Git revision history is unavailable.")
         return {revision}.union(*(ancestors(parent) for parent in parents[revision]))
 
     def git(*args: str) -> list[str]:
@@ -77,9 +78,9 @@ def test_multi_pr_promotion_preserves_original_merges(graph) -> None:
 def test_squash_promotion_uses_reviewed_evidence(graph) -> None:
     feature, promotion = pull(3, 8), pull(6, 2, base="main", promotion=True)
     assert report([feature, promotion], [deploy(1, sha(6))], {sha(6): [3]})[2] == 8
-    with pytest.raises(dora.EvidenceError, match="requires reviewed provenance"):
+    with pytest.raises(dora_evidence.EvidenceError, match="requires reviewed provenance"):
         report([feature, promotion], [deploy(1, sha(6))])
-    with pytest.raises(dora.EvidenceError, match="references an invalid PR"):
+    with pytest.raises(dora_evidence.EvidenceError, match="references an invalid PR"):
         report([feature, promotion], [deploy(1, sha(6))], {sha(6): [123]})
 
 
@@ -137,12 +138,12 @@ def test_render_paginates_production_and_excludes_unsuccessful_deploys(monkeypat
         }
         return pages[cursor], ""
 
-    monkeypatch.setattr(dora, "request", request)
+    monkeypatch.setattr(dora_evidence, "request", request)
     deployments = dora.fetch_deploys("srv-production", "fixture-render-token", "dep-1")
     feature = pull(4, 6, base="main")
     assert report([feature, pull(3, 6)], deployments) == (START, [(feature, deploy(1, sha(4)))], 6)
     assert calls == [None, "cursor-2", "cursor-1"]
-    with pytest.raises(dora.EvidenceError, match="verified first deployment"):
+    with pytest.raises(dora_evidence.EvidenceError, match="verified first deployment"):
         dora.fetch_deploys("srv-production", "fixture-render-token", "dep-9")
 
 
@@ -164,7 +165,7 @@ def test_github_pagination_and_feature_classification(monkeypatch) -> None:
         }
         return [row], '<https://api.github.com/next>; rel="next"' if number == 1 else ""
 
-    monkeypatch.setattr(dora, "request", request)
+    monkeypatch.setattr(dora_evidence, "request", request)
     assert dora.fetch_pulls("owner/repo", "fixture-github-token", "feature", END) == [
         pull(1, 6, base="main"),
         pull(2, 6, base="main", promotion=True),
@@ -192,7 +193,7 @@ def test_credential_bearing_error_publishes_no_metrics(monkeypatch, capsys, work
         def open(self, request, timeout) -> Never:
             raise OSError(f"private response mentioning {request.headers['Authorization']}")
 
-    monkeypatch.setattr(dora, "build_opener", lambda *_: BrokenOpener())
+    monkeypatch.setattr(dora_evidence, "build_opener", lambda *_: BrokenOpener())
     assert dora.main() == 1
     assert capsys.readouterr() == ("", "Render evidence request failed.\n")
     assert not workflow_env.exists()
@@ -233,11 +234,11 @@ def test_manual_entrypoint_writes_verified_fixture_summary(
 
 @pytest.mark.parametrize(("first_id", "valid"), [("empty", True), ("dep-1", False)])
 def test_empty_render_history_requires_verified_empty_anchor(monkeypatch, first_id, valid) -> None:
-    monkeypatch.setattr(dora, "request", lambda *args: ([], ""))
+    monkeypatch.setattr(dora_evidence, "request", lambda *args: ([], ""))
     if valid:
         assert dora.fetch_deploys("srv-production", "fixture-render-token", first_id) == []
     else:
-        with pytest.raises(dora.EvidenceError, match="verified first deployment"):
+        with pytest.raises(dora_evidence.EvidenceError, match="verified first deployment"):
             dora.fetch_deploys("srv-production", "fixture-render-token", first_id)
 
 
