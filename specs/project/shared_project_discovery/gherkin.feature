@@ -51,15 +51,21 @@ Feature: Shared Project Discovery
     And the response body does not contain "Theseus" or "Alice"
 
   @S-007 @criterion-3
-  Scenario: Removed member no longer sees project in list or details
+  Scenario: Removed member no longer sees project in project list
     Given "Alice" has removed "Bob" from project "Theseus"
     And "Bob" is signed in
     When "Bob" requests their project list
-    Then the project list does not include "Theseus"
+    Then the response status is 200
+    And the project list does not include "Theseus"
+
+  @S-008 @criterion-3
+  Scenario: Removed member is denied access to project details
+    Given "Alice" has removed "Bob" from project "Theseus"
+    And "Bob" is signed in
     When "Bob" attempts to request details for project "Theseus"
     Then the response status is 403
 
-  @S-008 @criterion-1
+  @S-009 @criterion-1
   Scenario: Pending invitations do not appear in shared project list
     Given "Alice" has sent a pending invitation to "carol@example.com" for "Theseus"
     And "Carol" is signed in
