@@ -11,10 +11,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from statistics import median
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
-if __package__:
+if TYPE_CHECKING or __package__:
     from . import dora_evidence
 else:
     import dora_evidence
