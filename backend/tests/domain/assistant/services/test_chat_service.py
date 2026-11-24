@@ -16,6 +16,7 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
 )
 from domain.assistant.infrastructure.adapters.in_memory_vector_store import InMemoryVectorStore
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.models.aggregates import IndexedDocument
 from domain.assistant.models.entities import Exchange
 from domain.assistant.models.errors import (
@@ -52,6 +53,7 @@ class FakeChatModel(ChatModel):
         self.drafts: list[str | None] = []
         self.quotes: list[str | None] = []
         self.outcomes: list[list[SourceOutcome]] = []
+        self.webs: list[bool] = []
 
     def reply(
         self,
@@ -61,11 +63,14 @@ class FakeChatModel(ChatModel):
         manuscript_text: str | None = None,
         quote: str | None = None,
         outcomes: Sequence[SourceOutcome] = (),
+        *,
+        web: bool = True,
     ) -> Answer:
         self.calls.append((history, query, context))
         self.drafts.append(manuscript_text)
         self.quotes.append(quote)
         self.outcomes.append(list(outcomes))
+        self.webs.append(web)
         if self.error is not None:
             raise self.error
         return Answer(self.answer)
@@ -729,3 +734,106 @@ def test_ask_never_stores_the_title_of_a_source_from_another_project(
 
     saved = retrieving_service.get(project_id, conversation_id)
     assert [s.title for s in saved.sources] == [""]
+
+
+def test_ask_tells_the_model_whether_web_is_selected(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(conversation_id, "One?", context=ExchangeContext.decode("none"))
+    service.ask(
+        conversation_id,
+        "Two?",
+        context=ExchangeContext.decode(
+            "manuscript", manuscript_text="Draft", web=False, manuscript=True
+        ),
+    )
+
+    assert model.webs == [True, False]
+
+
+def _overflowing_service(
+    repository: InMemoryConversationRepository, model: FakeChatModel, library: Library
+) -> ChatService:
+    """Build a service whose window fits one passage and none of the three outcome records."""
+
+    class Counter(TokenCounter):
+        def count(self, text: str) -> int:
+            return (
+                50
+                if "Delta passage" in text
+                else 200
+                if "passage" in text
+                else 10 * ("matched, but" in text)
+            )
+
+    return ChatService(
+        repository,
+        model,
+        embedding_generator=library.embedder,
+        vector_store=library.vectors,
+        document_repository=library.documents,
+        source_ids=lambda _project: list(library.active),
+        token_counter=Counter(),
+        context_window=55,
+        response_reserve=5,
+    )
+
+
+def test_ask_appends_a_gap_report_naming_every_source_when_records_overflow(
+    repository: InMemoryConversationRepository,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    library.add_source("Delta passage", title="Delta")
+    for title in ("Alpha", "Beta", "Gamma"):
+        library.add_source(f"{title} passage", title=title)
+    model.answer = "Delta supports it [1]."
+    service = _overflowing_service(repository, model, library)
+    conversation_id = str(service.start(project_id).value)
+
+    answer = service.ask(conversation_id, "Passage?")
+
+    lines = answer.text.splitlines()
+    assert lines[0] == "Delta supports it [1]."
+    for title in ("Alpha", "Beta", "Gamma"):
+        assert any(title in line and "available space" in line for line in lines)
+    assert "Delta:" not in answer.text
+    assert [c.title for c in answer.citations] == ["Delta"]
+    assert model.outcomes[0] == []
+
+
+def test_ask_adds_no_gap_report_when_every_record_reached_the_model(
+    retrieving_service: ChatService,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    library.add_source("Unindexed", indexed=False, title="Methods")
+    model.answer = "Methods could not be checked."
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    answer = retrieving_service.ask(conversation_id, "Question?")
+
+    assert answer.text == "Methods could not be checked."
+    assert [o.title for o in model.outcomes[0]] == ["Methods"]
+
+
+def test_ask_does_not_read_citations_from_the_appended_gap_report(
+    repository: InMemoryConversationRepository,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    library.add_source("Delta passage", title="Delta")
+    library.add_source("Alpha passage", title="Study [1]")
+    model.answer = "No citations here."
+    service = _overflowing_service(repository, model, library)
+    conversation_id = str(service.start(project_id).value)
+
+    answer = service.ask(conversation_id, "Passage?")
+
+    assert "Study [1]" in answer.text
+    assert answer.citations == ()

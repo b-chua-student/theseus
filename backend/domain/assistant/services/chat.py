@@ -150,6 +150,7 @@ class ChatService:
                 manuscript_text=context.manuscript_text,
                 quote=context.quote,
                 outcomes=evidence.reported,
+                web=context.web,
             )
         except ChatModelError:
             # Don't leave the exchange pending, or every later question would be rejected.
@@ -160,7 +161,10 @@ class ChatService:
             logger.exception("ChatService: model failed unexpectedly")
             raise ChatModelError("The assistant failed to answer.") from exc
 
-        answer = replace(answer, citations=self._citations(answer, evidence.excerpts))
+        citations = self._citations(answer, evidence.excerpts)
+        report = evidence.gap_report()
+        text = f"{answer.text}\n\n{report}" if report else answer.text
+        answer = replace(answer, text=text, citations=citations)
         conversation.context_scope = context.scope
         conversation.web = context.web
         conversation.manuscript = context.manuscript

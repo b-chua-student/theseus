@@ -19,6 +19,25 @@ from domain.assistant.models.value_objects import (
 DEFAULT_MODEL = "gemini-3-flash-preview"
 DEFAULT_TIMEOUT_MS = 30_000
 
+WEB_ON_RULE = (
+    "You may add general knowledge, but label it clearly as general knowledge and keep it apart "
+    "from findings attributed to the selected sources. You cannot browse the web."
+)
+WEB_OFF_RULE = (
+    "Base every factual finding only on the current manuscript and the selected sources. Do not "
+    "add facts from general knowledge."
+)
+EVIDENCE_RULES = (
+    "Attribute each finding to its source by title. Say which sources support the claim, which "
+    "qualify it (they agree only under narrower conditions) and which contradict it (they state "
+    "a conflicting fact). Missing evidence is never a contradiction. Name each selected source "
+    "that supplied no excerpt and say why."
+)
+UNVERIFIED_RULE = (
+    "No selected source supplied usable evidence. Say the claim could not be verified from the "
+    "selection, and do not call it contradicted."
+)
+
 
 def build_prompt(
     question: str,
@@ -26,13 +45,17 @@ def build_prompt(
     manuscript_text: str | None = None,
     quote: str | None = None,
     outcomes: Sequence[SourceOutcome] = (),
+    *,
+    web: bool = True,
 ) -> str:
     """Label the draft, the quote and the source excerpts ahead of the question.
 
     The draft and the quote stay apart from the question. The quote is the comparison target:
     the answer addresses it even when the draft holds similar wording. Each excerpt is numbered
     and named by its source, and the model cites it by that number in square brackets. Each
-    selected source that supplied no excerpt is listed with its reason.
+    selected source that supplied no excerpt is listed with its reason. Rules lead the prompt:
+    whether general knowledge is allowed (``web``), how to attribute and classify findings, and
+    what to say when no selected source supplied usable evidence.
     """
     sections = []
     if manuscript_text is not None:
@@ -61,6 +84,17 @@ def build_prompt(
     if outcomes:
         records = "\n".join(f"- {outcome.record()}" for outcome in outcomes)
         sections.append(f"Selected sources that supplied no excerpt:\n{records}")
+    rules = []
+    if not web:
+        rules.append(WEB_OFF_RULE)
+    elif sections:
+        rules.append(WEB_ON_RULE)
+    if excerpts or outcomes:
+        rules.append(EVIDENCE_RULES)
+    if outcomes and not excerpts:
+        rules.append(UNVERIFIED_RULE)
+    if rules:
+        sections.insert(0, "Instructions:\n" + "\n".join(f"- {rule}" for rule in rules))
     return "\n\n".join([*sections, f"Question: {question}"]) if sections else question
 
 
@@ -92,6 +126,8 @@ class GeminiChatModel(ChatModel):
         manuscript_text: str | None = None,
         quote: str | None = None,
         outcomes: Sequence[SourceOutcome] = (),
+        *,
+        web: bool = True,
     ) -> Answer:
         """Generate a Gemini answer from the history, the draft, the quote and the excerpts."""
         contents: list[types.Content] = []
@@ -102,7 +138,9 @@ class GeminiChatModel(ChatModel):
                 contents.append(self._turn("model", exchange.answer.text))
 
         contents.append(
-            self._turn("user", build_prompt(query.text, context, manuscript_text, quote, outcomes))
+            self._turn(
+                "user", build_prompt(query.text, context, manuscript_text, quote, outcomes, web=web)
+            )
         )
 
         try:

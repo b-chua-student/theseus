@@ -22,6 +22,8 @@ class ChatModel(ABC):
         manuscript_text: str | None = None,
         quote: str | None = None,
         outcomes: Sequence[SourceOutcome] = (),
+        *,
+        web: bool = True,
     ) -> Answer:
         """Answer ``query`` from the history and the inputs given.
 
@@ -30,4 +32,7 @@ class ChatModel(ABC):
         Manuscript is not selected. ``quote`` is the exact passage the writer quoted, or None;
         the answer addresses it, and it is kept apart from the question in ``query``.
         ``outcomes`` name each selected source that supplied no excerpt, with the reason.
+        ``web`` says whether Web is selected: the model may then add general knowledge, labelled
+        apart from findings attributed to the selected sources. Otherwise factual findings rest
+        on the manuscript and the selected sources alone. The model never browses.
         """

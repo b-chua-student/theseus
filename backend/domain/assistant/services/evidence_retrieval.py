@@ -42,6 +42,17 @@ class Evidence:
     outcomes: list[SourceOutcome]
     reported: list[SourceOutcome]
 
+    def gap_report(self) -> str:
+        """Return a named line for every source that supplied no evidence, if any is unreported.
+
+        The model is told only the records that fit in its window. When some did not, this report
+        names every source and the reason, so none is lost from the answer.
+        """
+        if len(self.reported) >= len(self.outcomes):
+            return ""
+        records = "\n".join(f"- {outcome.record()}" for outcome in self.outcomes)
+        return f"**Selected sources not used as evidence**\n{records}"
+
     @classmethod
     def empty(cls) -> Evidence:
         """Return evidence with no passages and no outcomes."""
