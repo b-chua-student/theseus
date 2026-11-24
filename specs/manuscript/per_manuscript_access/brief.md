@@ -1,36 +1,28 @@
-# Intake Brief: Per-Manuscript Access Roles
+# Intake Brief: Per-Manuscript Access (#118)
 
-- **Issue:** #118 ([projects-manuscript-access])
-- **Bounded Context:** manuscript (integrating with project)
-- **User Story:** As a Theseus user, I can have different access roles for different manuscripts.
+## Goal
+Allow project owners to assign per-manuscript access roles (`editor` or `viewer`) to project members so a collaborator can hold different permissions on different manuscripts within the same project.
 
-## Intent
-Let a user edit one manuscript and have view-only (or no) access to another manuscript within Projects by applying access roles separately per manuscript.
+## In Scope
+- `ManuscriptRoleAssignment` / per-manuscript role rules in `backend/domain/manuscript/` supporting manuscript-level `editor` and `viewer` overrides alongside project-level `owner`, `editor`, and `viewer` roles (#135).
+- Precedence rules: project `owner` always retains full edit/manage access across all manuscripts and cannot be demoted; project members with a manuscript override use their manuscript role (`editor` or `viewer`), while roleless members fall back to their baseline project role (`editor` or `viewer`).
+- Owner-only endpoints to assign, update, or revoke a project member's role on a specific manuscript (`PUT`/`DELETE /api/projects/<project_id>/manuscripts/<manuscript_id>/roles/<member_id>`).
+- Enforce per-manuscript write checks on manuscript edit endpoints (`403` for `viewer` or non-member, leaving manuscript content unchanged) and revoke manuscript overrides if a member is removed from the project.
 
-## Context & Existing Domain State
-- ackend/domain/project/models/aggregates.py stores project-level membership (Project.members with Role.VIEWER or Role.EDITOR), while ackend/domain/manuscript/ manages manuscript entities linked to a project (project_id).
-- Currently, manuscript read/write endpoints only verify project-level ownership or membership rather than manuscript-specific role assignments.
-- We need a per-manuscript access mapping (ManuscriptAccess / manuscript_roles keyed by (manuscript_id, user_id) with Role.VIEWER or Role.EDITOR) and authorization checks on manuscript read and edit operations.
+## Non-Goals
+- Project-level invitations (#134), project-level member management (#135), or shared project discovery (#137).
+- Public link sharing outside project membership (deferred).
 
-## Scope
-- Store and evaluate access roles (iewer, editor) separately per manuscript for project collaborators.
-- Allow a user with editor access on Manuscript A to view and edit Manuscript A, while restricting the same user with iewer access on Manuscript B to read-only access (rejecting edits with 403).
-- Allow the project owner to assign or update per-manuscript roles (iewer, editor, or 
-one) for project members.
-- Project owners retain full editor access across all manuscripts in their project.
+## Constraints
+- Follow DDD/Clean Architecture layers (`models/`, `services/`, `infrastructure/`, `api/`) with zero framework imports inside `domain/manuscript/models/`.
+- Require authentication (`@login_required` -> `401` if unauthenticated) on all endpoints.
+- Access on one manuscript must never leak to another manuscript in the same or another project.
 
-## Out of Scope
-- Inviting new collaborators to a project (covered under Issue #134 [project-invitations]).
-- Project-wide member removal or project-level role updates (covered under Issue #135 [project-member-management]).
-- Listing shared projects across a workspace (covered under Issue #137 [shared-project-discovery]).
-
-## Expected Outcomes
-- Given User 1 has edit access to Manuscript 1 and view-only access to Manuscript 2, they can edit Manuscript 1 and view Manuscript 2; an attempt to edit Manuscript 2 fails (403) and leaves Manuscript 2 unchanged.
-- A user's role on a manuscript determines whether they can edit that manuscript.
+## Success Criteria
+- A project member with `editor` on Manuscript 1 and `viewer` on Manuscript 2 can edit Manuscript 1 (`200`) and view Manuscript 2 (`200`), while attempting to edit Manuscript 2 returns `403` and leaves content unchanged.
+- Project `owner` can assign or change per-manuscript `editor`/`viewer` roles (`200`/`204`), whereas non-owners (including manuscript `editor`s) receive `403`.
+- Members without a manuscript-specific override inherit their baseline project role (`editor` or `viewer`), and non-members receive `403`.
 
 ## Open Questions & Proposed Resolutions
-1. **Who assigns and changes manuscript roles?**
-   - **Proposed Resolution:** Only the project owner can assign, update, or revoke per-manuscript roles (PUT /api/projects/<project_id>/manuscripts/<manuscript_id>/access/<user_id>) for existing project members.
-2. **What access should a user have when no role is assigned for a manuscript?**
-   - **Proposed Resolution:** Fall back to the user's project-level membership role (Project.members: editor can edit, iewer can view); if the user is not a project member (or is explicitly restricted to 
-one), deny access (403).
+1. **Who assigns and changes manuscript roles:** Only the project `owner` (#135) can assign, update, or revoke per-manuscript roles; project `owner` access cannot be restricted or demoted.
+2. **Reconciliation with project roles (#135) & default fallback:** Project roles (`owner`, `editor`, `viewer`) provide the baseline; per-manuscript assignments (`editor`, `viewer`) override the baseline for that specific manuscript, and roleless members fall back to their project role.
