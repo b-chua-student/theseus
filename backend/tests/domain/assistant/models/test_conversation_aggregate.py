@@ -18,12 +18,14 @@ def conversation() -> Conversation:
     return Conversation.start(ProjectId.new())
 
 
-def test_new_conversation_is_empty_with_source_library_scope(conversation: Conversation) -> None:
+def test_new_conversation_is_empty_and_starts_on_web_alone(conversation: Conversation) -> None:
     assert conversation.exchanges == []
     assert conversation.pending is None
     assert conversation.history == []
-    assert conversation.context_scope == "source_library"
+    assert conversation.context_scope == "none"
+    assert (conversation.web, conversation.manuscript) == (True, False)
     assert conversation.source_ids is None
+    assert conversation.sources == []
 
 
 def test_ask_opens_a_pending_exchange(conversation: Conversation) -> None:

@@ -234,16 +234,18 @@ class ModelCall:
 
 
 class RecordingChatModel(ChatModel):
-    """Chat model that records every input and returns a fixed answer."""
+    """Chat model that records every input and cites each excerpt it was given."""
 
     def __init__(self) -> None:
         """Start with no recorded calls."""
         self.calls: list[ModelCall] = []
 
     def reply(self, *args: object, **kwargs: object) -> Answer:
-        """Record the call and return a fixed answer."""
-        self.calls.append(ModelCall(args, kwargs))
-        return Answer("Recorded answer.")
+        """Record the call and answer, citing every supplied excerpt by its number."""
+        call = ModelCall(args, kwargs)
+        self.calls.append(call)
+        cited = " ".join(f"[{number}]" for number, _ in enumerate(call.excerpts, 1))
+        return Answer(f"Recorded answer. {cited}")
 
     @property
     def last(self) -> ModelCall:

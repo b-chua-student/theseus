@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from domain.assistant.api.requests import AskRequest
+from domain.assistant.api.requests import MAX_SOURCE_IDS, AskRequest
 
 
 def test_defaults_to_source_library_scope() -> None:
@@ -66,9 +66,81 @@ def test_parses_source_ids_as_uuids() -> None:
     assert request.source_ids == [source_id]
 
 
-def test_rejects_more_than_1000_source_ids() -> None:
+def test_accepts_more_than_1000_source_ids_without_truncating() -> None:
+    ids = [str(uuid4()) for _ in range(1001)]
+
+    request = AskRequest.model_validate({"query": "Hi", "source_ids": ids})
+
+    assert request.source_ids is not None
+    assert len(request.source_ids) == 1001
+    assert request.context().source_ids == tuple(ids)
+
+
+def test_rejects_a_selection_beyond_the_safety_limit() -> None:
+    ids = [str(uuid4())] * (MAX_SOURCE_IDS + 1)
+
     with pytest.raises(ValidationError):
-        AskRequest.model_validate({"query": "Hi", "source_ids": [str(uuid4())] * 1001})
+        AskRequest.model_validate({"query": "Hi", "source_ids": ids})
+
+
+def test_web_alone_keeps_scope_none_with_empty_draft_and_no_source_ids() -> None:
+    request = AskRequest.model_validate(
+        {"query": "Hi", "context_scope": "none", "web": True, "manuscript": False}
+    )
+
+    context = request.context()
+
+    assert (context.scope, context.web, context.manuscript) == ("none", True, False)
+    assert context.manuscript_text is None
+    assert context.search_library is False
+
+
+def test_web_and_manuscript_flags_are_independent_of_the_source_ids() -> None:
+    source_id = str(uuid4())
+    request = AskRequest.model_validate(
+        {
+            "query": "Hi",
+            "context_scope": "source_library",
+            "web": False,
+            "manuscript": True,
+            "manuscript_text": "Draft",
+            "source_ids": [source_id],
+        }
+    )
+
+    context = request.context()
+
+    assert (context.web, context.manuscript, context.manuscript_text) == (False, True, "Draft")
+    assert context.source_ids == (source_id,)
+    assert context.search_library is True
+
+
+def test_manuscript_flag_off_sends_no_draft_text() -> None:
+    request = AskRequest.model_validate(
+        {
+            "query": "Hi",
+            "context_scope": "source_library",
+            "manuscript": False,
+            "manuscript_text": "Draft",
+            "source_ids": [str(uuid4())],
+        }
+    )
+
+    assert request.context().manuscript_text is None
+
+
+@pytest.mark.parametrize(
+    ("scope", "web", "manuscript"),
+    [("none", True, False), ("manuscript", False, True), ("source_library", False, False)],
+)
+def test_legacy_requests_without_flags_decode_from_their_scope(
+    scope: str, *, web: bool, manuscript: bool
+) -> None:
+    context = AskRequest.model_validate(
+        {"query": "Hi", "context_scope": scope, "manuscript_text": ""}
+    ).context()
+
+    assert (context.web, context.manuscript) == (web, manuscript)
 
 
 def test_combined_request_uses_the_draft_and_the_selected_sources() -> None:

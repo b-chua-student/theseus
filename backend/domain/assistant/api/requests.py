@@ -5,14 +5,19 @@ from pydantic import BaseModel, Field, field_validator
 
 from domain.assistant.models.value_objects import ExchangeContext
 
+# A safety limit on the request, far above any library; selections are never truncated below it.
+MAX_SOURCE_IDS = 50_000
+
 
 class AskRequest(BaseModel):
     """Request body for asking the assistant a question."""
 
     context_scope: Literal["none", "manuscript", "source_library"] = "source_library"
-    source_ids: list[UUID] | None = Field(default=None, max_length=1000)
+    source_ids: list[UUID] | None = Field(default=None, max_length=MAX_SOURCE_IDS)
     manuscript_text: str = Field(default="", max_length=500_000)
     quote: str | None = Field(default=None, max_length=20_000)
+    web: bool | None = None
+    manuscript: bool | None = None
     query: str = Field(min_length=1, max_length=4000)
 
     @field_validator("query")
@@ -32,4 +37,6 @@ class AskRequest(BaseModel):
             if self.source_ids is not None
             else None,
             quote=self.quote,
+            web=self.web,
+            manuscript=self.manuscript,
         )

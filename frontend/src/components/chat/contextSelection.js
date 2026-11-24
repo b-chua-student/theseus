@@ -68,15 +68,16 @@ export function summarize(selection) {
  * checked.
  * @param {ContextSelection} selection
  * @param {string} draftText  The editor text at send time.
- * @returns {{ contextScope: 'none' | 'manuscript' | 'source_library', sourceIds: string[] | null, manuscriptText: string }}
+ * @returns {{ contextScope: 'none' | 'manuscript' | 'source_library', sourceIds: string[] | null, manuscriptText: string, web: boolean, manuscript: boolean }}
  */
 export function encodeSelection(selection, draftText) {
-  const manuscriptText = selection.manuscript ? draftText : '';
+  const { web, manuscript } = selection;
+  const manuscriptText = manuscript ? draftText : '';
   if (selection.sourceIds.length > 0) {
-    return { contextScope: 'source_library', sourceIds: [...selection.sourceIds], manuscriptText };
+    return { contextScope: 'source_library', sourceIds: [...selection.sourceIds], manuscriptText, web, manuscript };
   }
-  if (selection.manuscript) return { contextScope: 'manuscript', sourceIds: null, manuscriptText };
-  return { contextScope: 'none', sourceIds: null, manuscriptText: '' };
+  if (manuscript) return { contextScope: 'manuscript', sourceIds: null, manuscriptText, web, manuscript };
+  return { contextScope: 'none', sourceIds: null, manuscriptText: '', web, manuscript };
 }
 
 /**
@@ -90,7 +91,8 @@ export function encodeSelection(selection, draftText) {
  */
 export function selectionFromConversation(conversation, indexedIds = []) {
   if (typeof conversation.web === 'boolean' && typeof conversation.manuscript === 'boolean') {
-    return settle({ web: conversation.web, manuscript: conversation.manuscript, sourceIds: [...(conversation.source_ids ?? [])] });
+    const everySource = conversation.context_scope === 'source_library' ? indexedIds : [];
+    return settle({ web: conversation.web, manuscript: conversation.manuscript, sourceIds: [...(conversation.source_ids ?? everySource)] });
   }
   if (conversation.context_scope === 'manuscript') return { web: false, manuscript: true, sourceIds: [] };
   if (conversation.context_scope === 'source_library') {
@@ -98,3 +100,23 @@ export function selectionFromConversation(conversation, indexedIds = []) {
   }
   return initialSelection();
 }
+
+/**
+ * Restore a saved conversation's selection and name the saved sources that can no longer be
+ * searched. Those are left out of the selection; every other choice is kept. Without
+ * `indexedIds`, nothing is judged unavailable.
+ * @param {Parameters<typeof selectionFromConversation>[0] & { sources?: { id: string, title: string }[] }} conversation
+ * @param {string[] | null} indexedIds  The project's indexed source IDs now, or null if unknown.
+ * @returns {{ selection: ContextSelection, unavailable: { id: string, title: string }[] }}
+ */
+export function restoreSelection(conversation, indexedIds = null) {
+  const restored = selectionFromConversation(conversation, indexedIds ?? []);
+  if (indexedIds === null) return { selection: restored, unavailable: [] };
+  const titles = new Map((conversation.sources ?? []).map((source) => [source.id, source.title]));
+  const missing = restored.sourceIds.filter((id) => !indexedIds.includes(id));
+  return {
+    selection: settle({ ...restored, sourceIds: restored.sourceIds.filter((id) => indexedIds.includes(id)) }),
+    unavailable: missing.map((id) => ({ id, title: titles.get(id) || 'A saved source' })),
+  };
+}
+

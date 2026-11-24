@@ -1,7 +1,7 @@
 <script>
   import { startConversation, askConversation, listConversations, getConversation, listIndexedSourceIds } from "../../lib/api/chat.js";
   import ContextDropdown from "./ContextDropdown.svelte";
-  import { encodeSelection, initialSelection, selectionFromConversation } from "./contextSelection.js";
+  import { encodeSelection, initialSelection, restoreSelection } from "./contextSelection.js";
   import { tick as flushUI } from "svelte";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
@@ -12,6 +12,8 @@
   // Keep this component mounted while closed to retain the session conversation.
   // One conversation continues across context changes; the selection is read at send time.
   let selection = $state(initialSelection());
+  // Saved sources that can no longer be searched, named when a chat is reopened.
+  let unavailableSources = $state([]);
   let conversationId = $state(null);
   let messages = $state([]);
   let savedConversations = $state([]);
@@ -28,6 +30,7 @@
       messages = [];
       savedConversations = [];
       selection = initialSelection();
+      unavailableSources = [];
       refreshHistory(id);
     }
   });
@@ -54,11 +57,13 @@
     try {
       const conversation = await getConversation(project, id);
       if (project !== projectId) return;
-      // A saved all-library record has no source list, so it needs the current indexed sources.
-      const needsIndexed = conversation.context_scope === 'source_library' && !conversation.source_ids;
-      const indexedIds = needsIndexed ? await listIndexedSourceIds(project) : [];
+      // The indexed sources show which saved sources are gone, and fill in an old all-library
+      // record that has no source list. If they can't be loaded, the saved choices are kept.
+      const indexedIds = await listIndexedSourceIds(project).catch(() => null);
       if (project !== projectId) return;
-      selection = selectionFromConversation(conversation, indexedIds);
+      const restored = restoreSelection(conversation, indexedIds);
+      selection = restored.selection;
+      unavailableSources = restored.unavailable;
       conversationId = id;
       messages = conversation.exchanges.flatMap(e => [
         { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
@@ -75,6 +80,7 @@
     conversationId = null;
     messages = [];
     selection = initialSelection();
+    unavailableSources = [];
     input = '';
     selectionQuote = '';
   }
@@ -152,17 +158,18 @@
 
   async function ask(text, quote) {
     // Read the selection and the draft now, as they are when the writer asks.
-    const { contextScope, sourceIds, manuscriptText } = encodeSelection(selection, editor?.getText() ?? "");
+    const { contextScope, sourceIds, manuscriptText, web, manuscript } = encodeSelection(selection, editor?.getText() ?? "");
+    const checked = { web, manuscript };
     if (!conversationId) {
       conversationId = await startConversation(projectId);
     }
     try {
-      return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote);
+      return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
         conversationId = await startConversation(projectId);
-        return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote);
+        return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked);
       }
       throw e;
     }
@@ -184,8 +191,8 @@
     loading = true;
     scrollDown();
     try {
-      const answer = await ask(text, quote);
-      messages.push({ id: nextMessageId++, role: "assistant", text: answer, timestamp: Date.now() });
+      const { answer, citations } = await ask(text, quote);
+      messages.push({ id: nextMessageId++, role: "assistant", text: answer, citations, timestamp: Date.now() });
       refreshHistory();
     } catch (e) {
       messages.push({
@@ -244,6 +251,9 @@
           {:else if !historyLoading && savedConversations.length === 0}<p>No saved conversations yet.</p>{/if}
         </div>
         <ContextDropdown {projectId} bind:selection manuscriptAvailable={!!editor} />
+        {#each unavailableSources as source (source.id)}
+          <p class="scholar-unavailable" role="status">{source.title} is unavailable and was left out of the selection.</p>
+        {/each}
         {#if messages.length === 0}
         <!-- LOCAL ONLY: quick prompts fill the composer. They do not send requests. -->
         <div class="scholar-prompts" aria-label="Suggested prompts">{#each prompts as prompt (prompt.label)}<button type="button" onclick={() => fillPrompt(prompt.text)}><span aria-hidden="true">✧</span>{prompt.label}</button>{/each}</div>
@@ -259,6 +269,11 @@
                 <!-- renderMarkdown() sanitizes the HTML with DOMPurify before it is rendered. -->
                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                 <div class="scholar-bubble markdown-body">{@html renderMarkdown(m.text)}</div>
+                {#if m.citations?.length}
+                  <ul class="scholar-citations" aria-label="Sources cited">
+                    {#each m.citations as citation (citation.key)}<li>[{citation.key}] {citation.title || "Untitled source"}{citation.location ? ` (${citation.location})` : ""}</li>{/each}
+                  </ul>
+                {/if}
               {:else}
                 <div class="scholar-bubble">{#if m.quote}<blockquote class="scholar-quote">{m.quote}</blockquote>{/if}{m.text}</div>
               {/if}
@@ -323,6 +338,8 @@
   .scholar-composer-tools { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }.scholar-composer-tools button { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font: 8px var(--mono); padding: 4px 5px; }.scholar-composer-tools button:disabled { color: #8b968f; }
   .scholar-input { position: relative; border: 1px solid #bdccbf; border-radius: 15px; background: var(--paper); padding: 10px; display: flex; align-items: flex-end; gap: 7px; }.scholar-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px #3b5b4f12; }.scholar-input textarea { width: 100%; min-width: 0; flex: 1; resize: vertical; max-height: 180px; min-height: 56px; border: 0; background: transparent; font: 11px/1.6 var(--sans); color: var(--text); outline: none; }.scholar-input textarea::placeholder { color: #87948a; }.scholar-send { display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; flex-shrink: 0; padding: 0; background: var(--accent); color: white; border: 0; border-radius: 10px; }.scholar-send:not(:disabled):hover { background: var(--accent-hover); }.scholar-send:disabled { opacity: .45; cursor: default; }.scholar-input-hint { display: flex; justify-content: space-between; gap: 5px; color: var(--text-muted); font-size: 7px; margin: 6px 3px 0; }
   @media (max-width: 1023px) { .chat.scholar-chat { width: 100%; height: 600px; border-left: 0; border-top: 1px solid var(--border); } }
+  .scholar-unavailable { margin: 6px 14px 0; font-size: 10px; color: var(--text-muted); overflow-wrap: anywhere; }
+  .scholar-citations { list-style: none; margin: 6px 2px 0; padding: 0; font: 9px var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
   .scholar-quote { margin: 0 0 6px; padding: 2px 0 2px 8px; border-left: 2px solid currentColor; opacity: .8; white-space: pre-wrap; }
   @media (prefers-reduced-motion: reduce) { .thinking-dots { animation: none; } }
 </style>

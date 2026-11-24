@@ -7,7 +7,7 @@
  *
  * Two-step flow:
  *   1. startConversation(projectId)            -> conversation id
- *   2. askConversation(projectId, id, query)    -> answer text
+ *   2. askConversation(projectId, id, query)    -> answer text and its citations
  */
 
 import { apiFetch } from './http.js';
@@ -36,19 +36,21 @@ export async function startConversation(projectId) {
  * @param {string[] | null} sourceIds
  * @param {string} manuscriptText  Sent only when the manuscript is part of the context.
  * @param {string | null} quote  The exact quoted passage, kept apart from the question.
- * @returns {Promise<string>} answer text
+ * @param {{ web?: boolean, manuscript?: boolean }} checked  The checked Web and Manuscript items.
+ * @returns {Promise<{ answer: string, citations: { key: string, source_id: string, title: string, location: string }[] }>}
  */
-export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null, manuscriptText = "", quote = null) {
+export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null, manuscriptText = "", quote = null, checked = {}) {
   const res = await apiFetch(
     `/api/projects/${projectId}/conversations/${conversationId}/exchanges`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, context_scope: contextScope, source_ids: sourceIds, manuscript_text: manuscriptText, quote }),
+      body: JSON.stringify({ query, context_scope: contextScope, source_ids: sourceIds, manuscript_text: manuscriptText, quote, ...checked }),
     },
     'The assistant did not reply. Please try again.',
   );
-  return (await res.json()).answer;
+  const { answer, citations = [] } = await res.json();
+  return { answer, citations };
 }
 
 /**

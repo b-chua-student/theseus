@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from .errors import (
@@ -219,10 +219,36 @@ class Query:
 
 
 @dataclass(frozen=True)
+class Citation:
+    """A source passage an answer relies on, resolved from the excerpts the model was given.
+
+    ``key`` is the exchange-local number the model cites in square brackets, such as ``[1]``.
+    """
+
+    key: str
+    doc_ref_id: DocumentRefId
+    title: str
+    location: str
+
+
+@dataclass(frozen=True)
+class SelectedSource:
+    """A library source the writer had checked, kept with its title as it was then."""
+
+    id: str
+    title: str
+
+
+@dataclass(frozen=True)
 class Answer:
-    """The assistant's reply; text is stripped and must not be blank."""
+    """The assistant's reply; text is stripped and must not be blank.
+
+    ``citations`` are the supplied excerpts the text cites. The chat model leaves them empty;
+    the chat service resolves them.
+    """
 
     text: str
+    citations: tuple[Citation, ...] = ()
 
     def __post_init__(self) -> None:
         """Strip whitespace and reject empty text."""
@@ -244,7 +270,7 @@ class ExchangeContext:
     library sources are searched. ``source_ids`` are the requested sources, kept as sent so the
     conversation can remember them; None while searching means every active project source (the
     legacy "all library sources" selection). ``quote`` is the exact passage the writer quoted, or
-    None. ``scope`` is the legacy scope the inputs map to.
+    None. ``scope`` is the legacy scope the inputs map to. ``web`` says whether Web is checked.
     """
 
     scope: ContextScope
@@ -252,6 +278,12 @@ class ExchangeContext:
     search_library: bool = False
     source_ids: tuple[str, ...] | None = None
     quote: str | None = None
+    web: bool = False
+
+    @property
+    def manuscript(self) -> bool:
+        """Return whether Manuscript is checked, that is, whether the draft is used."""
+        return self.manuscript_text is not None
 
     @classmethod
     def decode(
@@ -260,6 +292,9 @@ class ExchangeContext:
         manuscript_text: str = "",
         source_ids: list[str] | None = None,
         quote: str | None = None,
+        *,
+        web: bool | None = None,
+        manuscript: bool | None = None,
     ) -> ExchangeContext:
         """Decode a request's legacy scope and fields into independent inputs.
 
@@ -268,26 +303,30 @@ class ExchangeContext:
         is how a combined request is expressed. A blank quote counts as no quote; any other
         quote is kept exactly as written.
 
+        ``web`` and ``manuscript`` are the writer's checked items. When ``manuscript`` is given,
+        the draft is used exactly when it is true. When ``web`` is missing, only legacy ``none``
+        meant Web.
+
         Raises:
             ValueError: If ``context_scope`` is not a supported scope.
         """
         exact_quote = quote if quote is not None and quote.strip() else None
         requested = tuple(source_ids) if source_ids is not None else None
-        if context_scope == "none":
-            return cls(scope="none", source_ids=requested, quote=exact_quote)
-        if context_scope == "manuscript":
-            return cls(
-                scope="manuscript",
-                manuscript_text=manuscript_text,
-                source_ids=requested,
-                quote=exact_quote,
-            )
-        if context_scope == "source_library":
-            return cls(
-                scope="source_library",
-                manuscript_text=manuscript_text if manuscript_text.strip() else None,
-                search_library=True,
-                source_ids=requested,
-                quote=exact_quote,
-            )
-        raise ValueError("Unsupported assistant context scope")
+        if context_scope not in CONTEXT_SCOPES:
+            raise ValueError("Unsupported assistant context scope")
+        if manuscript is not None:
+            draft = manuscript_text if manuscript else None
+        elif context_scope == "manuscript" or (
+            context_scope == "source_library" and manuscript_text.strip()
+        ):
+            draft = manuscript_text
+        else:
+            draft = None
+        return cls(
+            scope=cast("ContextScope", context_scope),
+            manuscript_text=draft,
+            search_library=context_scope == "source_library",
+            source_ids=requested,
+            quote=exact_quote,
+            web=web if web is not None else context_scope == "none",
+        )

@@ -51,7 +51,10 @@ def _conversation_json(
         else "New conversation",
         started_at=conversation.started_at.replace(tzinfo=UTC).isoformat(),
         context_scope=conversation.context_scope,
+        web=conversation.web,
+        manuscript=conversation.manuscript,
         source_ids=conversation.source_ids,
+        sources=[dict(id=source.id, title=source.title) for source in conversation.sources],
     )
     if include_exchanges:
         result["exchanges"] = [
@@ -109,7 +112,16 @@ def ask(project_id: str, conversation_id: str) -> ResponseReturnValue:
         context=body.context(),
     )
 
-    return jsonify(answer=answer.text), 201
+    citations = [
+        dict(
+            key=citation.key,
+            source_id=str(citation.doc_ref_id.value),
+            title=citation.title,
+            location=citation.location,
+        )
+        for citation in answer.citations
+    ]
+    return jsonify(answer=answer.text, citations=citations), 201
 
 
 @indexing_bp.get("/<manuscript_id>/indexing-status")

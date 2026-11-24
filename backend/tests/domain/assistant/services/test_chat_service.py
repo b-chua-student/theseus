@@ -47,14 +47,20 @@ class FakeChatModel(ChatModel):
         self.answer = answer
         self.error = error
         self.calls: list[tuple[list[Exchange], Query, list[RetrievedChunk] | None]] = []
+        self.drafts: list[str | None] = []
+        self.quotes: list[str | None] = []
 
     def reply(
         self,
         history: list[Exchange],
         query: Query,
         context: list[RetrievedChunk] | None = None,
+        manuscript_text: str | None = None,
+        quote: str | None = None,
     ) -> Answer:
         self.calls.append((history, query, context))
+        self.drafts.append(manuscript_text)
+        self.quotes.append(quote)
         if self.error is not None:
             raise self.error
         return Answer(self.answer)
@@ -270,7 +276,7 @@ def test_ask_records_scope_and_selected_sources_on_the_conversation(
     assert conversation.source_ids == [source_id]
 
 
-def test_ask_with_manuscript_scope_wraps_the_manuscript_in_the_model_query(
+def test_ask_with_manuscript_scope_passes_the_manuscript_apart_from_the_question(
     service: ChatService, model: FakeChatModel, project_id: str
 ) -> None:
     conversation_id = str(service.start(project_id).value)
@@ -283,20 +289,19 @@ def test_ask_with_manuscript_scope_wraps_the_manuscript_in_the_model_query(
     )
 
     [(_, query, context)] = model.calls
-    assert "Current manuscript:\nChapter one text." in query.text
-    assert query.text.endswith("Question: Summarise it")
-    assert "not instructions" in query.text
+    assert query == Query("Summarise it")
+    assert model.drafts == ["  Chapter one text.  "]
     assert context == []
 
 
-def test_ask_with_empty_manuscript_marks_it_as_empty(
+def test_ask_with_an_empty_manuscript_still_passes_the_empty_draft(
     service: ChatService, model: FakeChatModel, project_id: str
 ) -> None:
     conversation_id = str(service.start(project_id).value)
 
     service.ask(conversation_id, "Summarise it", context_scope="manuscript")
 
-    assert "(empty manuscript)" in model.calls[0][1].text
+    assert model.drafts == [""]
 
 
 def test_ask_with_none_scope_sends_the_plain_question_and_no_context(
@@ -501,13 +506,13 @@ def test_ask_with_a_combined_context_sends_the_draft_and_retrieved_passages(
     )
 
     [(_, query, context)] = model.calls
-    assert "Current manuscript:\nThe trial enrolled 18 participants." in query.text
-    assert query.text.endswith("Question: Which studies support my figure?")
+    assert query == Query("Which studies support my figure?")
+    assert model.drafts == ["The trial enrolled 18 participants."]
     assert context is not None
     assert [c.text for c in context] == ["Methods reports 18 participants."]
 
 
-def test_ask_labels_the_quote_apart_from_the_question(
+def test_ask_passes_the_quote_apart_from_the_question_and_without_the_draft(
     service: ChatService, model: FakeChatModel, project_id: str
 ) -> None:
     conversation_id = str(service.start(project_id).value)
@@ -520,9 +525,9 @@ def test_ask_labels_the_quote_apart_from_the_question(
     )
 
     [(_, query, _)] = model.calls
-    assert "Quoted passage:\nChildren recovered in 5 days" in query.text
-    assert "Current manuscript:" not in query.text
-    assert query.text.endswith("Question: How does this compare?")
+    assert query == Query("How does this compare?")
+    assert model.quotes == ["Children recovered in 5 days"]
+    assert model.drafts == [None]
 
 
 def test_ask_accepts_a_decoded_context(
@@ -536,8 +541,7 @@ def test_ask_accepts_a_decoded_context(
         context=ExchangeContext.decode("manuscript", manuscript_text="Chapter one."),
     )
 
-    [(_, query, _)] = model.calls
-    assert "Current manuscript:\nChapter one." in query.text
+    assert model.drafts == ["Chapter one."]
     assert service.get(project_id, conversation_id).context_scope == "manuscript"
 
 
@@ -623,3 +627,101 @@ def test_ask_retrieval_uses_the_quote_with_the_question_to_find_passages(
     )
 
     assert embedded == ["Children recovered in 5 days\nHow does this compare?"]
+
+
+def test_ask_resolves_cited_keys_against_the_supplied_excerpts(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    model.answer = "Methods supports it [1]. Nothing backs [7] or [1] again."
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    answer = retrieving_service.ask(conversation_id, "Question?")
+
+    assert [(c.key, c.doc_ref_id, c.title) for c in answer.citations] == [("1", methods, "Methods")]
+
+
+def test_ask_cites_nothing_when_no_excerpt_was_supplied(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    model.answer = "General knowledge [1]."
+    conversation_id = str(service.start(project_id).value)
+
+    answer = service.ask(conversation_id, "Question?", context_scope="none")
+
+    assert answer.citations == ()
+
+
+def test_ask_saves_the_selection_after_a_successful_exchange(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Question?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="Draft",
+            source_ids=[str(methods.value)],
+            web=False,
+            manuscript=True,
+        ),
+    )
+
+    saved = retrieving_service.get(project_id, conversation_id)
+    assert (saved.web, saved.manuscript) == (False, True)
+    assert saved.source_ids == [str(methods.value)]
+    assert [(s.id, s.title) for s in saved.sources] == [(str(methods.value), "Methods")]
+
+
+def test_ask_keeps_the_previous_selection_when_the_exchange_fails(
+    repository: InMemoryConversationRepository,
+    library: Library,
+    project_id: str,
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    model = FakeChatModel()
+    service = ChatService(
+        repository,
+        model,
+        embedding_generator=library.embedder,
+        vector_store=library.vectors,
+        document_repository=library.documents,
+        source_ids=lambda _project: list(library.active),
+    )
+    conversation_id = str(service.start(project_id).value)
+    service.ask(
+        conversation_id,
+        "First?",
+        context=ExchangeContext.decode("source_library", source_ids=[str(methods.value)], web=True),
+    )
+    model.error = ChatModelError("down")
+
+    with pytest.raises(ChatModelError):
+        service.ask(conversation_id, "Second?", context=ExchangeContext.decode("none"))
+
+    saved = service.get(project_id, conversation_id)
+    assert saved.web is True
+    assert saved.source_ids == [str(methods.value)]
+    assert [s.title for s in saved.sources] == ["Methods"]
+
+
+def test_ask_never_stores_the_title_of_a_source_from_another_project(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    foreign = DocumentRefId.new()
+    library.documents.add(
+        IndexedDocument.create(IndexedDocumentTitle("Secret title"), foreign, ProjectId.new())
+    )
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Question?",
+        context=ExchangeContext.decode("source_library", source_ids=[str(foreign.value)]),
+    )
+
+    saved = retrieving_service.get(project_id, conversation_id)
+    assert [s.title for s in saved.sources] == [""]
