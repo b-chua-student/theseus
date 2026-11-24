@@ -16,6 +16,9 @@ The Theseus DevOps requirements call for this metric. [DORA metric definitions](
 ## Rules / Constraints
 - Exclude staging and deployment attempts that never reach production.
 - Apply the same measurement rules to manually triggered deployments.
+- Run the report on each merge into main.
+- Use the complete production deployment history available at report time, with no time cutoff.
+- Count every successful production deployment, including successful rollbacks and redeployments. Exclude unsuccessful rollbacks and redeployments.
 
 ## Non-Functional Requirements
 No additional non-functional requirements specified.
@@ -24,7 +27,7 @@ No additional non-functional requirements specified.
 - Changes to deployment operations and reporting for other metrics.
 
 ## Open Questions
-- What reporting cadence and deployment history window should we use? Which rollbacks and redeployments should qualify as production deployments for this metric?
+- None.
 
 ## Output Paths
 This feature lives in `specs/devops/dora-deployment-frequency/`.
@@ -36,6 +39,6 @@ This feature lives in `specs/devops/dora-deployment-frequency/`.
 ## Definition of Done
 - [ ] Intake generated and approved
 - [ ] Gherkin generated and approved
-- [ ] Open questions resolved
+- [x] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged

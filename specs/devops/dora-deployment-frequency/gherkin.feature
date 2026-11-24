@@ -32,3 +32,26 @@ Feature: Track DORA deployment frequency
       | deployments |
       | 0           |
       | 1           |
+
+  @S-025 @criterion-5
+  Scenario: Run the report when a change merges into main
+    Given a change is ready to merge into main
+    When the change is merged into main
+    Then a deployment frequency report run starts for that merge
+
+  @S-026 @criterion-6
+  Scenario: Include intervals across the complete production deployment history
+    Given the first successful production deployment occurred on 2023-01-01 at 09:00 UTC
+    And the next two successful production deployments occurred on 2026-01-01 at 09:00 and 12:00 UTC
+    And there have been no other successful production deployments
+    When a maintainer reviews the deployment frequency report
+    Then the report shows two intervals, one of 1096 days and one of 3 hours
+
+  @S-027 @criterion-7
+  Scenario: Include successful rollbacks and redeployments
+    Given a production deployment succeeded at 09:00 UTC
+    And a rollback to a previously deployed revision succeeded at 10:00 UTC
+    And a redeployment of that revision succeeded at 13:00 UTC
+    And the only other attempts were a failed production rollback and a failed production redeployment
+    When a maintainer reviews the deployment frequency report
+    Then the report shows intervals of 1 hour and 3 hours
