@@ -29,6 +29,7 @@ from domain.assistant.services.handlers.on_source_added import OnSourceAdded
 from domain.assistant.services.handlers.on_source_removed import OnSourceRemoved
 from domain.assistant.services.handlers.on_source_updated import OnSourceUpdated
 from domain.assistant.services.ingestion_worker import IngestionWorker
+from domain.assistant.services.reindex_documents import ReindexDocumentsService
 from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
 from domain.src_lib.models.events import SourceAdded, SourceRemoved, SourceUpdated
@@ -49,6 +50,7 @@ class AssistantModule:
     vector_store: VectorStore | None = None
     chat: ChatService | None = None
     indexing_status: GetIndexingStatusService | None = None
+    reindex: ReindexDocumentsService | None = None
 
 
 def build_assistant_module(
@@ -139,4 +141,5 @@ def build_assistant_module(
         vector_store=vector_store,
         chat=chat,
         indexing_status=GetIndexingStatusService(repository=indexed_document_repo),
+        reindex=ReindexDocumentsService(repository=indexed_document_repo, queue=index_job_queue),
     )

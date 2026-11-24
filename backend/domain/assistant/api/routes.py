@@ -104,11 +104,7 @@ def ask(project_id: str, conversation_id: str) -> ResponseReturnValue:
         project_id=project_id,
         conversation_id=conversation_id,
         text=body.query,
-        context_scope=body.context_scope,
-        manuscript_text=body.manuscript_text,
-        source_ids=(
-            [str(value) for value in body.source_ids] if body.source_ids is not None else None
-        ),
+        context=body.context(),
     )
 
     return jsonify(answer=answer.text), 201

@@ -31,6 +31,7 @@ from domain.assistant.models.value_objects import (
     ChunkId,
     ConversationId,
     DocumentRefId,
+    ExchangeContext,
     IndexedDocumentTitle,
     ProjectId,
     Query,
@@ -465,3 +466,61 @@ def test_ask_rejects_a_question_while_a_previous_one_is_pending(
 
     with pytest.raises(PendingExchangeError):
         service.ask(str(conversation_id.value), "Next?", context_scope="none")
+
+
+def test_ask_with_a_combined_context_sends_the_draft_and_retrieved_passages(
+    retrieving_service: ChatService,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    selected = library.add_source("Methods reports 18 participants.")
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Which studies support my figure?",
+        context_scope="source_library",
+        source_ids=[str(selected.value)],
+        manuscript_text="The trial enrolled 18 participants.",
+    )
+
+    [(_, query, context)] = model.calls
+    assert "Current manuscript:\nThe trial enrolled 18 participants." in query.text
+    assert query.text.endswith("Question: Which studies support my figure?")
+    assert context is not None
+    assert [c.text for c in context] == ["Methods reports 18 participants."]
+
+
+def test_ask_labels_the_quote_apart_from_the_question(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(
+        conversation_id,
+        "How does this compare?",
+        context_scope="none",
+        quote="Children recovered in 5 days",
+    )
+
+    [(_, query, _)] = model.calls
+    assert "Quoted passage:\nChildren recovered in 5 days" in query.text
+    assert "Current manuscript:" not in query.text
+    assert query.text.endswith("Question: How does this compare?")
+
+
+def test_ask_accepts_a_decoded_context(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(
+        conversation_id,
+        "Summarise it",
+        context=ExchangeContext.decode("manuscript", manuscript_text="Chapter one."),
+    )
+
+    [(_, query, _)] = model.calls
+    assert "Current manuscript:\nChapter one." in query.text
+    assert service.get(project_id, conversation_id).context_scope == "manuscript"

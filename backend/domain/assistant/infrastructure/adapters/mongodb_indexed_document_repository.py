@@ -91,3 +91,7 @@ class MongoIndexedDocumentRepository(IndexedDocumentRepository):
         """Load indexed documents for the given project."""
         docs = self._documents.find({"project_id": str(project_id.value)})
         return [self._to_document(d) for d in docs]
+
+    def list_all(self) -> list[IndexedDocument]:
+        """Load every indexed document."""
+        return [self._to_document(d) for d in self._documents.find({})]

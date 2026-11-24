@@ -22,3 +22,7 @@ class IndexedDocumentRepository(ABC):
     @abstractmethod
     def list_by_project(self, project_id: ProjectId) -> list[IndexedDocument]:
         """Return all documents belonging to the given project."""
+
+    @abstractmethod
+    def list_all(self) -> list[IndexedDocument]:
+        """Return every document in every project."""

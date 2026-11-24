@@ -117,3 +117,9 @@ class ChatUnavailableError(AssistantError):
     """No chat provider is configured, so the assistant cannot answer."""
 
     code = "assistant.unavailable"
+
+
+class EmbeddingGenerationError(AssistantError):
+    """The embedding provider failed or returned the wrong number of vectors."""
+
+    code = "assistant.embedding_error"

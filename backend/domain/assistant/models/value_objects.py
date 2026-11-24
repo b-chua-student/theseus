@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal
 from uuid import UUID, uuid4
 
 from .errors import (
@@ -224,3 +225,64 @@ class Answer:
         if not stripped:
             raise EmptyAnswerError("Answer must not be blank.")
         object.__setattr__(self, "text", stripped)
+
+
+ContextScope = Literal["none", "manuscript", "source_library"]
+CONTEXT_SCOPES: tuple[ContextScope, ...] = ("none", "manuscript", "source_library")
+
+
+@dataclass(frozen=True)
+class ExchangeContext:
+    """Independent manuscript, library and quote inputs for one exchange.
+
+    ``manuscript_text`` is None when Manuscript is not selected. ``search_library`` says whether
+    library sources are searched. ``source_ids`` are the requested sources, kept as sent so the
+    conversation can remember them; None while searching means every active project source (the
+    legacy "all library sources" selection). ``quote`` is the exact passage the writer quoted, or
+    None. ``scope`` is the legacy scope the inputs map to.
+    """
+
+    scope: ContextScope
+    manuscript_text: str | None = None
+    search_library: bool = False
+    source_ids: tuple[str, ...] | None = None
+    quote: str | None = None
+
+    @classmethod
+    def decode(
+        cls,
+        context_scope: str,
+        manuscript_text: str = "",
+        source_ids: list[str] | None = None,
+        quote: str | None = None,
+    ) -> ExchangeContext:
+        """Decode a request's legacy scope and fields into independent inputs.
+
+        ``none`` uses neither the draft nor the library. ``manuscript`` uses the draft alone.
+        ``source_library`` searches the library and also uses the draft when one is sent, which
+        is how a combined request is expressed. A blank quote counts as no quote; any other
+        quote is kept exactly as written.
+
+        Raises:
+            ValueError: If ``context_scope`` is not a supported scope.
+        """
+        exact_quote = quote if quote is not None and quote.strip() else None
+        requested = tuple(source_ids) if source_ids is not None else None
+        if context_scope == "none":
+            return cls(scope="none", source_ids=requested, quote=exact_quote)
+        if context_scope == "manuscript":
+            return cls(
+                scope="manuscript",
+                manuscript_text=manuscript_text,
+                source_ids=requested,
+                quote=exact_quote,
+            )
+        if context_scope == "source_library":
+            return cls(
+                scope="source_library",
+                manuscript_text=manuscript_text if manuscript_text.strip() else None,
+                search_library=True,
+                source_ids=requested,
+                quote=exact_quote,
+            )
+        raise ValueError("Unsupported assistant context scope")

@@ -4,11 +4,13 @@ import os
 from collections.abc import Mapping
 from secrets import token_hex
 
+import click
 from dotenv import load_dotenv
 from flask import Flask, Response, abort, send_from_directory
 
 from domain.assistant.api.routes import conversation_bp, indexing_bp
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
+from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
 from domain.identity.api.auth.routes import auth_bp
 from domain.manuscript.api.routes import manuscript_bp
 from domain.project.api.routes import project_bp
@@ -27,6 +29,18 @@ def _build_chat_model() -> ChatModel | None:
     from domain.assistant.infrastructure.adapters.gemini_chat_model import GeminiChatModel
 
     return GeminiChatModel()
+
+
+def _build_embedding_generator() -> EmbeddingGenerator | None:
+    """Use semantic Gemini embeddings when a key is set; otherwise keep the in-memory default."""
+    if not os.getenv("GEMINI_API_KEY"):
+        return None
+
+    from domain.assistant.infrastructure.adapters.gemini_embedding_generator import (
+        GeminiEmbeddingGenerator,
+    )
+
+    return GeminiEmbeddingGenerator()
 
 
 def create_app(
@@ -50,14 +64,20 @@ def create_app(
 
     if container is None:
         chat_model = None if app.testing else _build_chat_model()
+        embedding_generator = None if app.testing else _build_embedding_generator()
         if not app.testing and (uri := app.config["MONGODB_URI"]):
             if not app.secret_key:
                 raise RuntimeError("Set SECRET_KEY when running with MongoDB.")
             container = build_mongo_container(
-                uri=uri, db_name=app.config["MONGODB_DB"], chat_model=chat_model
+                uri=uri,
+                db_name=app.config["MONGODB_DB"],
+                chat_model=chat_model,
+                embedding_generator=embedding_generator,
             )
         else:
-            container = build_container(chat_model=chat_model)
+            container = build_container(
+                chat_model=chat_model, embedding_generator=embedding_generator
+            )
 
     if not app.secret_key:
         app.secret_key = token_hex(32)
@@ -76,6 +96,14 @@ def create_app(
     app.register_blueprint(conversation_bp, url_prefix="/api/projects/<project_id>/conversations")
 
     limiter.exempt(app.send_static_file)
+
+    @app.cli.command("reindex-documents")
+    def reindex_documents() -> None:
+        """Re-embed every indexed document, for example after changing the embedding model."""
+        reindex = app.extensions["container"].assistant.reindex
+        if reindex is None:
+            raise click.ClickException("Document indexing is not configured.")
+        click.echo(f"Re-queued {reindex.execute()} documents for indexing.")
 
     @app.get("/")
     @limiter.exempt

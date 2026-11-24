@@ -33,15 +33,18 @@ export async function startConversation(projectId) {
  * @param {string} conversationId
  * @param {string} query
  * @param {"none" | "manuscript" | "source_library"} contextScope
+ * @param {string[] | null} sourceIds
+ * @param {string} manuscriptText  Sent only when the manuscript is part of the context.
+ * @param {string | null} quote  The exact quoted passage, kept apart from the question.
  * @returns {Promise<string>} answer text
  */
-export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null, manuscriptText = "") {
+export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null, manuscriptText = "", quote = null) {
   const res = await apiFetch(
     `/api/projects/${projectId}/conversations/${conversationId}/exchanges`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, context_scope: contextScope, source_ids: sourceIds, manuscript_text: manuscriptText }),
+      body: JSON.stringify({ query, context_scope: contextScope, source_ids: sourceIds, manuscript_text: manuscriptText, quote }),
     },
     'The assistant did not reply. Please try again.',
   );

@@ -150,10 +150,7 @@
     const { from, to } = editor.state.selection;
     selectionQuote = editor.state.doc.textBetween(from, to, '\n').trim();
     if (!selectionQuote) notice = 'Select a passage in the manuscript, then choose Quote selection.';
-  }
-  function useQuote() {
-    input = [input.trim(), 'Selected passage:\n' + selectionQuote].filter(Boolean).join('\n\n');
-    selectionQuote = ''; composer?.focus();
+    else composer?.focus();
   }
   async function copyReply(text) {
     try { await navigator.clipboard.writeText(text); notice = 'Reply copied.'; }
@@ -179,39 +176,43 @@
   // succeed on retry, so they are not retryable.
   const isRetryable = (e) => !e.status || e.status === 429 || e.status >= 500;
 
-  async function ask(text) {
+  async function ask(text, quote) {
     const session = sessions[sessionKey];
     const manuscriptText = contextScope === "manuscript" ? editor?.getText() ?? "" : "";
+    const sourceIds = contextScope === "source_library" ? selectedSourceIds : null;
     if (!session.conversationId) {
       session.conversationId = await startConversation(projectId);
     }
     try {
-      return await askConversation(projectId, session.conversationId, text, contextScope, contextScope === "source_library" ? selectedSourceIds : null, manuscriptText);
+      return await askConversation(projectId, session.conversationId, text, contextScope, sourceIds, manuscriptText, quote);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
         session.conversationId = await startConversation(projectId);
-        return await askConversation(projectId, session.conversationId, text, contextScope, contextScope === "source_library" ? selectedSourceIds : null, manuscriptText);
+        return await askConversation(projectId, session.conversationId, text, contextScope, sourceIds, manuscriptText, quote);
       }
       throw e;
     }
   }
 
-  async function send(retryText) {
+  async function send(retryText, retryQuote = null) {
     // `retryText` is only a string when called from the Retry button; the click
     // handler otherwise passes an event.
     const retry = typeof retryText === "string";
     const text = retry ? retryText : input.trim();
     if (!text || loading) return;
+    // The quote travels as its own field, exactly as selected, never inside the question.
+    const quote = retry ? retryQuote : selectionQuote || null;
     sessions[sessionKey] ??= { messages: [], conversationId: null };
     if (!retry) {
-      messages.push({ id: nextMessageId++, role: "user", text, timestamp: Date.now() });
+      messages.push({ id: nextMessageId++, role: "user", text, quote, timestamp: Date.now() });
       input = "";
+      selectionQuote = "";
     }
     loading = true;
     scrollDown();
     try {
-      const answer = await ask(text);
+      const answer = await ask(text, quote);
       messages.push({ id: nextMessageId++, role: "assistant", text: answer, timestamp: Date.now() });
       refreshHistory();
     } catch (e) {
@@ -222,6 +223,7 @@
         timestamp: Date.now(),
         isError: true,
         retryText: isRetryable(e) ? text : null,
+        retryQuote: quote,
       });
     }
     loading = false;
@@ -232,7 +234,7 @@
   function retryMessage(m) {
     const index = messages.indexOf(m);
     if (index !== -1) messages.splice(index, 1);
-    send(m.retryText);
+    send(m.retryText, m.retryQuote);
   }
 
   function onkey(e) {
@@ -309,7 +311,7 @@
                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                 <div class="scholar-bubble markdown-body">{@html renderMarkdown(m.text)}</div>
               {:else}
-                <div class="scholar-bubble">{m.text}</div>
+                <div class="scholar-bubble">{#if m.quote}<blockquote class="scholar-quote">{m.quote}</blockquote>{/if}{m.text}</div>
               {/if}
               {#if m.isError && m.retryText}<div class="scholar-reply-actions"><button type="button" onclick={() => retryMessage(m)} disabled={loading}>Try again</button></div>{/if}
               {#if m.role === 'assistant' && !m.isError}<div class="scholar-reply-actions"><button type="button" onclick={() => copyReply(m.text)}>Copy</button><button type="button" onclick={() => insertReply(m.text)} disabled={!editor}>Use in manuscript</button></div>{/if}
@@ -318,7 +320,7 @@
           {#if loading}<div class="scholar-thinking" role="status"><span class="tiny-avatar" aria-hidden="true">t</span>Theseus is thinking<span class="thinking-dots" aria-hidden="true">…</span></div>{/if}
         </div>
         <div class="scholar-composer-area">
-          {#if selectionQuote}<div class="scholar-selection"><span class="selection-tag">SELECTION</span><span class="selection-excerpt" title={selectionQuote}>{selectionQuote}</span><button type="button" onclick={useQuote}>Quote</button><button type="button" onclick={() => selectionQuote = ''} aria-label="Dismiss selected passage">×</button></div>{/if}
+          {#if selectionQuote}<div class="scholar-selection"><span class="selection-tag">QUOTED</span><span class="selection-excerpt" title={selectionQuote}>{selectionQuote}</span><button type="button" onclick={() => selectionQuote = ''} aria-label="Dismiss selected passage">×</button></div>{/if}
           <div class="scholar-composer-tools"><select aria-label="Writing tools" onchange={writingTool}><option value="">Writing tools</option><option value="Rewrite the current manuscript passage in a formal academic tone.">Academic tone</option><option value="Explain the current manuscript in clear, concise language.">Clear and concise</option><option value="Review the current manuscript for structure, clarity, and unsupported claims.">Review writing</option></select>
             {#if hasSelection && !selectionQuote}<button type="button" onclick={quoteSelection}>Quote selection</button>{/if}
             <!-- TODO(API): Source picker, citation lookup, and source verification need
@@ -382,5 +384,6 @@
   .scholar-composer-tools { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }.scholar-composer-tools button { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font: 8px var(--mono); padding: 4px 5px; }.scholar-composer-tools button:disabled { color: #8b968f; }
   .scholar-input { position: relative; border: 1px solid #bdccbf; border-radius: 15px; background: var(--paper); padding: 10px; display: flex; align-items: flex-end; gap: 7px; }.scholar-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px #3b5b4f12; }.scholar-input textarea { width: 100%; min-width: 0; flex: 1; resize: vertical; max-height: 180px; min-height: 56px; border: 0; background: transparent; font: 11px/1.6 var(--sans); color: var(--text); outline: none; }.scholar-input textarea::placeholder { color: #87948a; }.scholar-send { display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; flex-shrink: 0; padding: 0; background: var(--accent); color: white; border: 0; border-radius: 10px; }.scholar-send:not(:disabled):hover { background: var(--accent-hover); }.scholar-send:disabled { opacity: .45; cursor: default; }.scholar-input-hint { display: flex; justify-content: space-between; gap: 5px; color: var(--text-muted); font-size: 7px; margin: 6px 3px 0; }
   @media (max-width: 1023px) { .chat.scholar-chat { width: 100%; height: 600px; border-left: 0; border-top: 1px solid var(--border); } }
+  .scholar-quote { margin: 0 0 6px; padding: 2px 0 2px 8px; border-left: 2px solid currentColor; opacity: .8; white-space: pre-wrap; }
   @media (prefers-reduced-motion: reduce) { .thinking-dots { animation: none; } }
 </style>
