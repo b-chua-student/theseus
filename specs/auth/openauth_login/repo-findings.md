@@ -1,8 +1,27 @@
 # Repository findings for OpenAuth login
 
-Theseus can reuse its Flask session and logout flow for provider sign-in. The main gap is account persistence. The identity model expects every user to have a password hash, and the repository can look up an account by ID or email but has no lookup by provider issuer and subject.
+Theseus can reuse the Flask user session, current-user endpoint and server logout endpoint. Two integration gaps affect the whole flow. The browser currently decides whether to show the signed-in UI from session storage, and the identity repository assumes that every account has a password. A successful provider callback must be visible to the browser after a full redirect, and a newly provisioned account must still be usable after a database reload.
 
 This source review maps the working tree to the [feature brief](brief.md) and [Gherkin scenarios](gherkin.feature) for issue #116. Google and Microsoft are scenario fixtures. Production provider selection remains open.
+
+## Scope and open questions
+
+The [source ticket](../../../tickets/openauth-login.md) specifies two observable outcomes. Successful OpenAuth authentication signs the user in to Theseus, and a failed attempt leaves the user signed out. Changes to other sign-in methods are out of scope. The ticket leaves provider selection and existing-account handling open. The detailed behaviors below come from the draft brief and scenarios. Resolve these questions in the ticket before deriving formal requirements.
+
+- Which production providers can supply the claims the draft expects, including a verified email? Which deployment owns each provider registration and its allowed callback URI?
+- Should an existing issuer-and-subject link always select its original account, while an unlinked identity with an existing email is directed to the existing sign-in method? The answer determines what must be persisted and what happens on a collision.
+- Which local page should demonstrate return navigation? S-008 names `/settings/profile`, but the current app renders projects, dashboard and editor views through component state. Creating a settings page would expand the feature.
+- Which draft constraints should become acceptance criteria? The ticket specifies no non-functional requirements. The brief proposes accessibility, privacy, outage isolation and a callback p95 below 1.5 seconds excluding provider latency. The suspension scenario also needs a source of account status and a rule for existing accounts.
+
+## Runtime wiring and browser navigation
+
+| Integration point | Implementation consequence |
+|---|---|
+| Backend services | The [identity module](../../../backend/bootstrap/contexts/identity/module.py) wires password login and registration. The [container](../../../backend/bootstrap/container.py) supplies the repository and password hasher. Provider configuration and the identity-provider client need a wiring point here so callback tests can inject a controlled provider. The [dependency list](../../../backend/requirements.txt) includes OAuth libraries. The identity module currently wires no OIDC client. |
+| Provider round trip | The [app factory](../../../backend/bootstrap/app.py) mounts the auth blueprint at `/api/auth`. For the draft flow, the design needs to specify how a pending request binds the initiating browser, provider, state, nonce, PKCE verifier and local return destination, when it expires, and how it is consumed. Keep token exchange and validation on the server. The draft requests exactly `openid email profile` and requires signature, issuer, audience, expiry and nonce validation before account lookup. |
+| Signed-in UI | [App.svelte](../../../frontend/src/App.svelte) initializes its user from `getSession()`. The [auth client](../../../frontend/src/lib/api/auth.js) reads `theseus.session` from session storage, which password sign-in populates after a JSON response. A provider callback bypasses that JavaScript. On return, the UI can load the current user from `GET /api/auth/me` using the Flask cookie and handle a 401 as signed out. This avoids passing provider tokens or user details in the redirect URL. |
+| Local destinations | Flask serves the SPA entry point for non-API frontend paths. App.svelte does not map those paths to views. Verify both the final URL and the rendered page for S-008. S-009 needs a home fallback for external destinations, including scheme-relative URLs. |
+| Signing out | The browser's `signOut()` only removes the session-storage entry. The header handler then clears the Svelte user state. The existing backend `POST /api/auth/logout` clears the Flask session. S-022 needs the browser action to end the server session as well. A subsequent request to `/api/auth/me` can distinguish successful logout from a UI-only change. |
 
 ## Sign-in and callback
 
@@ -22,9 +41,24 @@ This source review maps the working tree to the [feature brief](brief.md) and [G
 
 ## Session, audit and verification
 
+The default container uses the [in-memory identity adapter](../../../backend/domain/identity/infrastructure/adapters/in_memory_identity_repository.py). Outside tests, the app factory selects MongoDB when configured with `MONGODB_URI`. PostgreSQL has a separate adapter and is absent from that factory selection. In-memory results alone cannot establish compatibility with saved MongoDB documents or PostgreSQL rows.
+
+For the draft provisioning policy, use the same case-insensitive email comparison during lookup and uniqueness enforcement. Inspect existing data for addresses that differ only by case before introducing a unique comparison key. Existing password accounts must keep their IDs, stored addresses and working hashes. The PostgreSQL adapter uses autocommit and initializes with `CREATE TABLE IF NOT EXISTS`. Editing that declaration alone cannot update an existing table. The MongoDB adapter builds a unique index on the stored email and expects a password hash on every read.
+
+Account creation and identity linking need one atomic repository operation under the draft policy. Two callbacks for the same new issuer and subject can both pass a preliminary lookup. Verify that they converge on one account and link. Two different subjects competing for one new email must preserve the winning account and send the other identity through the collision flow. An interrupted write must leave no orphan account or link.
+
 | Scenarios | Current behavior and implications |
 |---|---|
 | S-020–021 | The auth blueprint clears the session and stores the application user ID on successful password login. The [app factory](../../../backend/bootstrap/app.py) sets SameSite to Lax and enables Secure when `SESSION_COOKIE_SECURE=1`. Checking the callback's actual HTTPS response and inspecting browser-visible data and captured logs for provider tokens remain runtime verification work. |
 | S-022–023 | Logout already clears the Flask session and returns HTTP 204. The existing login route has no explicit audit write. S-023 covers a successful provider login. The brief also calls for audit records for failed attempts observed by Theseus. |
 
 The [identity service tests](../../../backend/tests/domain/identity/services/test_auth_integration.py) and [Playwright identity test](../../../e2e/identity.spec.js) are existing verification entry points. The browser test exercises password registration, sign-out, sign-in and session persistence after a page reload. That page reload does not exercise database serialization of an absent password hash. S-005 and S-007 specifically depend on reading a saved account back through a repository.
+
+| Verification layer | Evidence to collect from the approved scenarios |
+|---|---|
+| Flask callback | Use a controlled provider for success, denial, timeout and the individual invalid-callback examples in S-019. On rejection, check the user-facing outcome, signed-out response from `/me`, and absence of unintended account or link writes. For S-017, reopen the app without delivering any callback. |
+| Identity storage | Round-trip a legacy password account and an OAuth-only account through each persistent adapter in scope. Exercise email collisions, changed provider emails, name fallback, password rejection, concurrent provisioning and interrupted writes. Keep the existing password sign-in test as a regression check. |
+| Browser and session | Start with empty session storage, finish a provider redirect, reload the destination, then sign out and request a protected resource. Inspect the actual HTTPS session cookie for HttpOnly, Secure and SameSite=Lax. Check browser storage, redirect URLs and captured logs for provider token exposure. |
+| Audit | S-019 explicitly expects an audit entry for each rejected security example. S-023 expects a successful `login_success` event with provider and email and no tokens. The brief also proposes recording all application-observed failures. The audit destination and failure-event fields still need a design decision. |
+
+This review records static source evidence. After intake and Gherkin approval, the repository workflow calls for traceable requirements, design and tasks, followed by executable scenario tests run before application changes.
