@@ -8,9 +8,12 @@ The Theseus DevOps requirements call for this metric. [DORA metric definitions](
 
 ## Scope
 - Report the percentage of production deployments that require immediate intervention, such as a rollback or hotfix.
+- Let maintainers run the report on demand and run it automatically after each merge into main.
 
 ## Expected Outcomes
 - [ ] The report shows the number of production deployments requiring intervention, the total number of production deployments, and the resulting percentage when the total is greater than zero.
+- [ ] A maintainer can start a report on demand.
+- [ ] Each merge into main starts a report automatically.
 
 ## Rules / Constraints
 - Count each qualifying deployment once, even if it requires several interventions.
