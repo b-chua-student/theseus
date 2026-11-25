@@ -247,8 +247,8 @@ Feature: User can log in through email via OAuth
   Scenario: User explicitly links a matching provider after signing in
     Given I was directed to my existing sign-in method because my unlinked Google identity matched my Theseus email
     And I signed in to that account using my existing method
-    When I explicitly link that Google identity and sign out
-    And I sign in again with the same Google identity
+    And I explicitly linked that Google identity and signed out
+    When I sign in again with the same Google identity
     Then I should be logged in to my existing Theseus account
 
   @S-025 @criterion-2
@@ -266,9 +266,9 @@ Feature: User can log in through email via OAuth
 
   @S-027 @criterion-2
   Scenario: Only the provider data needed by Theseus is retained
-    Given my provider supplies a stable identity identifier, email, email verification status, display name, and additional profile fields
+    Given my provider supplies the account fields and additional profile data
     When I complete sign-in with that provider
-    Then the retained provider data should contain only the stable identity identifier, email, email verification status, and display name
+    Then Theseus should keep only the stable provider ID, email, email verification status, and display name
     And Theseus should retain neither the raw provider profile nor any provider tokens
 
   @S-028 @criterion-3
