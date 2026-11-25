@@ -10,7 +10,7 @@ This ticket covers the sign-in experience for Theseus users.
 
 ## Scope
 
-- Sign in to Theseus with OpenAuth.
+- Sign in to Theseus with OpenAuth through Google or Microsoft.
 
 ## Expected Outcomes
 
@@ -19,7 +19,7 @@ This ticket covers the sign-in experience for Theseus users.
 
 ## Rules / Constraints
 
-- Theseus requires successful OpenAuth authentication to complete OpenAuth sign-in.
+- Theseus requires successful OpenAuth authentication. Users can sign in even if their provider has not verified their email address.
 
 ## Non-Functional Requirements
 
@@ -31,7 +31,6 @@ None specified.
 
 ## Open Questions
 
-- Which sign-in options should OpenAuth offer?
 - How should OpenAuth sign-in handle users with existing Theseus accounts?
 
 ## Output Paths

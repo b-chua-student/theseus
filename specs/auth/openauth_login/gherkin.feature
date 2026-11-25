@@ -119,14 +119,16 @@ Feature: User can log in through email via OAuth
     And the identity links for both accounts should be unchanged
 
   @security
-  @S-012 @criterion-3
-  Scenario: Login is rejected when the provider email is not verified
-    Given Google will authenticate me as "unverified@example.com" with an unverified email
-    When I click "Continue with Google"
-    Then I should not be logged in
-    And I should be returned to the login page
-    And I should see the message "Your email address must be verified with the provider to sign in."
-    And no account should be created for "unverified@example.com"
+  @S-012 @criterion-2
+  Scenario Outline: User signs in with an unverified provider email
+    Given no account exists for "unverified@example.com"
+    When I successfully authenticate with <provider> using the unverified email "unverified@example.com"
+    Then I should be logged in to Theseus
+
+    Examples:
+      | provider  |
+      | Google    |
+      | Microsoft |
 
   @S-013 @criterion-3
   Scenario: Login is rejected when the provider returns no email
