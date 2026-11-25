@@ -18,6 +18,10 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 - Sign in to Theseus through Google or Microsoft. (from ticket, line 13)
 - Automatically create a passwordless account when a new identity signs in and its email matches no existing account. Start with the provider's display name and let the user edit it later. (from ticket, lines 40, 41)
 
+- After sign-in, return users to the Theseus page they requested. Send them home if they started directly from sign-in or the requested page is unavailable. (from ticket, line 49)
+- After an error, keep users signed out and show the sign-in page with a clear message, a “Try again” action, and guidance when their existing sign-in method is needed. (from ticket, line 50)
+- When users return after an interruption, show “Sign-in wasn’t completed” and offer both a restart and another sign-in method. (from ticket, line 51)
+
 ## Non-Goals
 
 - Changes to sign-in methods other than OpenAuth. (from ticket, line 30)
@@ -41,7 +45,6 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 ## Open Questions
 
 - What initial display name should Theseus use if the provider supplies no usable name? “Theseus user” is a proposed fallback. (from ticket, line 45)
-- Where should users land after sign-in, and what should they see after an error or interruption? Deferred: ticket lines 17 and 18 specify sign-in status only.
 - Should this feature include logout, audit events, or limits on stored profile data? Deferred: the ticket does not specify these behaviors.
 - Which performance, availability, accessibility, security, or privacy criteria should apply? Deferred: ticket line 26 sets no targets. One proposed target is a 95th-percentile sign-in callback time below 1.5 seconds excluding provider latency. Its measurement method remains open.
 

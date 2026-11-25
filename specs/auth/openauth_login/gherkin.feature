@@ -56,6 +56,7 @@ Feature: User can log in through email via OAuth
     And Google authenticates an unlinked subject with verified email "mixed.case@example.com"
     When I continue with Google
     Then I should remain signed out and be directed to use my existing sign-in method
+    And the sign-in page should explain how to continue with my password and offer "Try again"
     And account "A" and its credentials should be unchanged
     And no identity link or duplicate account should be created
 
@@ -156,6 +157,7 @@ Feature: User can log in through email via OAuth
     When I click "Continue with Google"
     Then I should not be logged in
     And I should see the message "We couldn't sign you in with Google. Please try again."
+    And I should be back on the sign-in page with a "Try again" action
     And the failure should be recorded in the audit log
 
   @S-016 @criterion-3
@@ -168,9 +170,10 @@ Feature: User can log in through email via OAuth
   @S-017 @criterion-3
   Scenario: User reopens Theseus after an interrupted provider redirect
     Given I left Theseus for Google and the provider page failed to load
-    When I reopen the Theseus login page without completing a callback
+    When I return to Theseus without completing sign-in
     Then I should remain signed out
-    And I should see the enabled Microsoft option
+    And I should see the message "Sign-in wasn’t completed"
+    And I should be able to restart Google sign-in or choose "Continue with Microsoft"
 
   @S-018 @criterion-3
   Scenario: Suspended account cannot sign in
@@ -252,3 +255,10 @@ Feature: User can log in through email via OAuth
     Given I am signed in to my new passwordless account with the initial provider name "New User"
     When I change my Theseus display name to "Alex" and save it
     Then I should see "Alex" as my display name when I reopen my profile
+
+  @S-026 @criterion-2
+  Scenario: The originally requested Theseus page is no longer available
+    Given I was sent to sign in when I tried to open a Theseus page
+    And that page is no longer available
+    When I successfully sign in
+    Then I should be redirected to the Theseus home page

@@ -44,6 +44,12 @@ None specified.
 
 - What initial display name should Theseus use if the provider supplies no usable name?
 
+## Sign-in destinations and recovery
+
+- After sign-in, return the user to the Theseus page they tried to open. Use the home page if they started directly from sign-in or the original page is unavailable.
+- On a sign-in error, keep the user signed out and return them to the sign-in page with a clear message and a “Try again” action. If they need their existing sign-in method, explain how to continue with it.
+- When a user returns to Theseus after an interrupted sign-in, show “Sign-in wasn’t completed” and let them restart or choose another sign-in method.
+
 ## Output Paths
 
 - Intake brief: `specs/auth/openauth_login/brief.md`
