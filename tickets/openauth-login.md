@@ -23,7 +23,7 @@ This ticket covers the sign-in experience for Theseus users.
 
 ## Non-Functional Requirements
 
-The SDD workflow does not require a performance target. None is specified for OpenAuth sign-in.
+This release has no specified performance target and no additional availability, accessibility, security, or privacy requirements beyond those in this ticket.
 
 ## Out of Scope
 
@@ -38,11 +38,11 @@ The SDD workflow does not require a performance target. None is specified for Op
 ## New accounts
 
 - On successful sign-in with a new identity whose email matches no existing account, Theseus automatically creates a passwordless account.
-- Use the provider's display name as the initial Theseus display name. The user can edit it later.
+- Use the provider's display name as the initial Theseus display name. If the provider supplies no usable name, use “Theseus user”. The user can edit the name later.
 
 ## Open Questions
 
-- What initial display name should Theseus use if the provider supplies no usable name?
+- Resolved. The fallback display name is “Theseus user”.
 
 ## Sign-in destinations and recovery
 
@@ -65,8 +65,8 @@ The SDD workflow does not require a performance target. None is specified for Op
 
 ## Definition of Done
 
-- [ ] Intake generated and approved
-- [ ] Gherkin generated and approved
-- [ ] Open questions resolved
+- [x] Intake generated and approved
+- [x] Gherkin generated and approved
+- [x] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged
