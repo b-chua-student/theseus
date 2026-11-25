@@ -1,97 +1,100 @@
 Feature: Validate source-backed answers before display
-  Writers can check what the selected sources establish about their question.
+  Users see answers checked against Source Library evidence before they are displayed.
 
   Background:
-    Given the project's Source Library is searchable
+    Given the user asks when a pilot started and ended
+    And passage P1 in the Source Library states that the pilot started in May
 
   @S-001 @criterion-1
   Scenario: Display a supported answer
-    Given the writer asks when a pilot started and ended using their selected sources
-    And retrieved passages P1 and P2 give the May start and July end respectively
-    When the Assistant checks a draft giving May with P1 and July with P2
-    Then the writer sees May cited to P1 and July cited to P2
-
-  @S-002 @criterion-2
-  Scenario: Replace an answer to a different question
-    Given the writer asks when the pilot started and the retrieved passage P1 gives May
-    And the first draft only names the sponsor and a retry is available
-    When the Assistant completes the request
-    Then the writer sees the checked replacement giving May and citing P1
-    And the sponsor-only draft is never displayed
+    Given passage P2 in the Source Library states that the pilot ended in July
+    When the Assistant drafts an answer that gives May citing P1 and July citing P2
+    Then the user sees that answer
+    And the answer was checked for relevance, claims, and citations before it was displayed
 
   @S-003 @criterion-3
-  Scenario: Correct an overstated date
-    Given the writer asks when the pilot ended
-    And retrieved passage P2 gives July without specifying a day
+  Scenario: Revise an overstated claim
+    Given passage P2 in the Source Library gives July as the end month without an exact day
     And a retry is available
-    When the Assistant checks a draft claiming July 12 based on P2
-    Then the writer sees a checked answer citing P2 for July without claiming a day
+    When the Assistant drafts an answer claiming the pilot ended on July 12 citing P2
+    Then the Assistant removes the unsupported day
+    And the revised answer is checked before it is displayed
+    And the displayed answer states July as the end month without a day
 
   @S-004 @criterion-3
   Scenario: Correct a mismatched citation
-    Given the writer asks when the pilot ended
-    And retrieved passage P1 gives the start date and only retrieved passage P2 gives the July end
+    Given only passage P2 in the Source Library establishes that the pilot ended in July
     And a retry is available
-    When the Assistant checks a draft citing P1 for the end date
-    Then the checked answer cites P2 for July
-    And the answer does not cite P1 for the end date
+    When the Assistant drafts an answer that cites P1 for the July end date
+    Then the Assistant corrects the citation to P2
+    And the corrected answer is checked before it is displayed
+    And the displayed answer cites P2 for July
 
   @S-005 @criterion-4
-  Scenario: Retrieve missing evidence and check the resulting answer
-    Given the writer asks when the pilot started and ended using the selected pilot report
-    And the first search retrieves only P1 giving May as the start
-    And a repeat search of the report returns P2 giving July as the end
+  Scenario: Retrieve missing evidence
+    Given the initial passages omit the end date
     And a retry is available
-    When the Assistant finds that the first search cannot establish the end date
-    Then the Assistant searches again for evidence of the end date
-    And the checked answer cites P1 for May and P2 for July
+    And passage P2 in the Source Library documents a July end date
+    When the Assistant detects the missing evidence
+    Then the Assistant searches again
+    And the resulting answer is checked against P1 and P2 before it is displayed
+    And the displayed answer cites P1 for May and P2 for July
+
+  @S-002 @criterion-2 @edge
+  Scenario: Withhold an answer to a different question
+    Given passage P3 in the Source Library names the pilot sponsor
+    When the Assistant drafts an answer that only names the sponsor citing P3
+    Then the relevance check fails
+    And the user never sees that draft as the answer
 
   @S-006 @criterion-5 @edge
   Scenario: Explain a remaining gap at the retry limit
-    Given the writer asks when the pilot started and ended
-    And retrieved passage P1 gives May as the start but no selected passage establishes the end
-    And no retries remain
+    Given the initial draft failed validation
+    And the first retry revised and rechecked the draft
+    And the second retry retrieved more evidence, revised the draft, and rechecked it
+    And no passage in the Source Library establishes the end date
     When the Assistant completes the request
-    Then the answer cites P1 for May and says the selected sources do not establish the end date
+    Then the Assistant makes no further retry
+    And the displayed answer cites P1 for the May start
+    And the displayed answer explains that the available passages do not establish an end date
 
-  @S-007 @criterion-2 @edge
-  Scenario: Withhold an irrelevant draft at the retry limit
-    Given the writer asks when the pilot started
-    And the retrieved passages identify only the sponsor
-    And every draft answers only who sponsored the pilot and no retries remain
-    When the Assistant completes the request
-    Then no sponsor-only draft is displayed
+  @S-007 @criterion-6
+  Scenario: Show progress only when validation exceeds five seconds
+    Given the first draft is ready to check
+    When validation has been running for exactly five seconds
+    Then the user has seen neither a progress message nor draft text
+    When validation continues past five seconds
+    Then the user sees “Checking the answer against your sources…”
+    And the unchecked draft stays hidden
+
+  @S-008 @criterion-7 @edge
+  Scenario: Return verified partial findings at the deadline
+    Given the Assistant has verified the May start against P1
+    And the checked passages leave the end date unresolved
+    And a retry is underway
+    When 30 seconds have elapsed since the first draft was ready to check
+    Then validation stops for this request
+    And the user sees the verified May start citing P1 and an explanation of the missing end date
+
+  @S-009 @criterion-7 @edge
+  Scenario: Reach the deadline before any validation completes
+    Given the first draft is waiting for its initial check to finish
+    When 30 seconds have elapsed since that draft was ready to check
+    Then the user is told the answer could not be checked
+    And the unchecked draft stays hidden
+
+  @S-010 @criterion-8 @edge
+  Scenario: Exhaust both retries with off-topic drafts
+    Given the initial draft and both retried drafts answer only who sponsored the pilot
+    And the checked passages establish both the start and end dates
+    When the last draft fails the relevance check
+    Then the user sees “I couldn’t produce a verified answer to your question.”
+    And no sponsor-only draft or claim of missing source evidence is displayed
     And the Assistant makes no further retry
-    And the writer is told that the retrieved passages do not establish the start date
 
-  @S-008 @criterion-5 @edge
-  Scenario: Stop when the request has exhausted its retry allowance
-    Given the writer asks when the pilot started and ended
-    And the request has reached its retry limit
-    And the retrieved passages establish the May start but contain no end date
-    When the Assistant completes the request
-    Then it makes no further search or revision
-    And the answer reports the supported start and explains that the end date is unverified
-
-  @S-009 @criterion-5 @edge
-  Scenario: Explain when no selected evidence answers the question
-    Given the writer asks when the pilot started
-    And no relevant passage was retrieved from the selected sources and no retries remain
-    When the Assistant completes the request
-    Then the answer says the start date could not be verified from the selection
-    And the answer cites no passage
-
-  @S-010 @criterion-2 @edge
-  Scenario: Withhold a draft when validation cannot complete
-    Given the writer asks a source-backed question
-    When a service error prevents the Assistant from checking its draft
-    Then the unchecked draft is never displayed
-
-  @S-012 @criterion-3 @edge
-  Scenario: Correct a claim that an unlisted pilot site was excluded
-    Given the writer asks whether a third site participated in the pilot
-    And the retrieved report names two sites without saying the list is complete
-    And a draft says the third site was excluded
-    And a retry is available
-    When the Assistant checks the draft against the report
-    Then the checked answer explains that the report does not establish whether the third site participated
+  @S-011 @criterion-9 @edge
+  Scenario: Explain an interrupted validation
+    Given a draft is awaiting validation
+    When a service error prevents the check from completing
+    Then the user sees “I couldn’t finish checking this answer. Please try again.”
+    And the unchecked draft stays hidden

@@ -1,59 +1,60 @@
 # Brief: Validate source-backed Assistant answers
 
-- ID: #125
-- Owner: Unconfirmed
-- Date: 2026-11-25
-- Base SHA: `f53bbb5`
+- ID: assistant-answer-validation (#125)
+- Owner: spatrickjs
+- Date: 2026-11-26
+- Base SHA: 1dab3f5
 
 ## Goal
 
-Give writers an answer that addresses their question and accurately represents the evidence retrieved from their selected library sources.
+Give Theseus users answers that address their questions and accurately reflect evidence from the Source Library, by checking each draft answer before it is shown.
 
 ## Users / Roles
 
-- A Theseus writer asking the Assistant a source-backed question.
+- Theseus user who asks the Assistant a question answered from the Source Library.
 
 ## In Scope
 
-- Check the draft answer against the question, the retrieved passages, and the passages cited for individual claims.
-- Revise misleading claims and citations. Search again when more evidence is needed, then check the resulting answer before showing it.
-- Explain what the available evidence supports and where it falls short when retries are exhausted.
+- Check that a draft addresses the question and that its claims and citations are supported by the retrieved passages.
+- Revise a draft that overstates the evidence or cites a passage that does not support it, then check the revision.
+- When the retrieved passages are insufficient, look for better evidence and check the resulting draft.
+- Limit retries per request and explain any evidence gaps that remain.
 
 ## Non-Goals
 
-- Offline evaluation runs for maintainers, tracked separately under assistant answer evaluation.
-- Applying source validation to a question asked without library sources.
+- Offline evaluation runs for maintainers, tracked in `tickets/assistant-answer-evaluation.md`.
 
 ## Constraints
 
-- Check every draft, including revisions, against the writer's question and the retrieved evidence before display.
-- Bound retries for each request.
+- Validate source-backed answers before showing them to the user.
+- Allow two retries after the initial validation. Each retry can revise the draft, retrieve more evidence, or do both. Checking the resulting draft is part of that retry.
+- Allow 30 seconds for validation and all retries combined, starting when the first draft is ready to check.
 
 ## Known Touchpoints
 
-- Assistant answers, Source Library passages, and citations.
+- Assistant answering flow that retrieves passages from the Source Library (unverified hint from the ticket context).
 
 ## Assumptions
 
-- No additional assumptions.
+- None supplied.
 
 ## Open Questions
 
-- Retry count, how different retry types share the allowance, and acceptable wait time — Deferred: product decision needed.
-- Whether to show progress while checking an answer — Deferred: product decision needed.
-- Message or error when every draft is off-topic and retries are exhausted — Deferred: product decision needed.
-- How should the Assistant communicate a service error that prevents validation, and what recovery should it offer? — Deferred: product decision needed.
-- Intake owner — Deferred: assignment has not been confirmed in the supplied ticket.
+- Suggestion, not a requirement: should validation apply to answers that do not use the Source Library? Deferred: not covered by the ticket.
 
 ## Success Criteria
 
-1. Show a relevant answer whose claims are supported by the retrieved passages it cites.
-2. Withhold off-topic or unsupported drafts from display. Check any replacement before showing it.
-3. Correct overstatements and mismatched citations. Distinguish missing support from contradictory evidence.
-4. When evidence is insufficient and a retry is available, search again and check the resulting answer.
-5. Stop at the request's retry limit and report the supported findings and remaining evidence gaps.
+1. A relevant answer is displayed once its claims and citations pass validation.
+2. A draft that fails to address the question is never displayed.
+3. An unsupported claim or mismatched citation is corrected, and the revision is checked before it is displayed.
+4. When evidence is insufficient and retries remain, the Assistant searches again and checks the resulting draft before display.
+5. At the retry limit, the displayed answer states what the sources support and identifies the remaining evidence gaps.
+6. If validation is still running after five seconds, show “Checking the answer against your sources…” and keep draft text hidden.
+7. At the deadline, show any validated findings and explain remaining evidence gaps. If no validation completed, tell the user the answer could not be checked.
+8. If every draft is off-topic and retries are exhausted, say “I couldn’t produce a verified answer to your question.” Describe a source gap only when checked passages establish one.
+9. If a service error prevents validation, withhold the unchecked draft and say “I couldn’t finish checking this answer. Please try again.”
 
 ## Reference Links
 
-- [Answer validation ticket #125](https://github.com/b-chua-student/theseus/issues/125)
-- [Combined-context ticket #120](https://github.com/b-chua-student/theseus/issues/120)
+- Ticket: `tickets/assistant-answer-validation.md`
+- Issue: #125
