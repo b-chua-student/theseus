@@ -29,9 +29,11 @@ None specified.
 
 - Changes to sign-in methods other than OpenAuth.
 
-## Open Questions
+## Existing accounts
 
-- How should OpenAuth sign-in handle users with existing Theseus accounts?
+- A linked identity continues to identify the same account when the provider email changes. The Theseus email stays unchanged until the user updates it through the usual email-change flow.
+- If an unlinked identity's email matches an existing account, direct the user to their existing sign-in method. Once signed in, the user can explicitly link the provider.
+- Deny OpenAuth sign-in to suspended accounts.
 
 ## Output Paths
 

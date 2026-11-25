@@ -25,6 +25,9 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 
 - A user must successfully authenticate with OpenAuth. Both providers support sign-in with an unverified email address. (from ticket, lines 13, 22)
 - The ticket specifies no non-functional requirements. (from ticket, line 26)
+- A linked identity still signs in to the same account after a provider email change. Only the usual email-change flow updates the Theseus email. (from ticket, line 34)
+- If an unlinked identity matches an existing account by email, direct the user to their existing sign-in method. They can explicitly link the provider once signed in. (from ticket, line 35)
+- Suspended accounts cannot sign in through OpenAuth. (from ticket, line 36)
 
 ## Known Touchpoints
 
@@ -36,7 +39,6 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 
 ## Open Questions
 
-- How should existing accounts be handled? Ticket line 34 leaves account matching open. One proposal is to recognize a previously linked identity even after an email change, direct an unlinked user with a matching email to their existing sign-in method, and refuse sign-in to suspended accounts.
 - Should a new identity create a passwordless account automatically, and what display name should it receive? Deferred: the ticket does not define provisioning or a fallback name.
 - Where should users land after sign-in, and what should they see after an error or interruption? Deferred: ticket lines 17 and 18 specify sign-in status only.
 - Should this feature include logout, audit events, or limits on stored profile data? Deferred: the ticket does not specify these behaviors.

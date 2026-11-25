@@ -99,10 +99,11 @@ Feature: User can log in through email via OAuth
 
   @S-010 @criterion-2
   Scenario: Linked identity is matched by provider subject if the provider email changes
-    Given an account exists linked to Google subject "google-sub-123"
+    Given an account with email "original@example.com" is linked to Google subject "google-sub-123"
     And Google will authenticate subject "google-sub-123" with the new verified email "changed@example.com"
     When I click "Continue with Google"
     Then I should be logged in to the existing account
+    And my Theseus email should still be "original@example.com"
 
   # ---------------------------------------------------------------
   # Email validation rules
@@ -236,3 +237,11 @@ Feature: User can log in through email via OAuth
     When I log in successfully with Google as "audit.user@example.com"
     Then the audit log should contain a "login_success" entry for "audit.user@example.com" with provider "Google"
     And the audit log entry should not contain any tokens
+
+  @S-024 @criterion-2
+  Scenario: User explicitly links a matching provider after signing in
+    Given I was directed to my existing sign-in method because my unlinked Google identity matched my Theseus email
+    And I signed in to that account using my existing method
+    When I explicitly link that Google identity and sign out
+    And I sign in again with the same Google identity
+    Then I should be logged in to my existing Theseus account
