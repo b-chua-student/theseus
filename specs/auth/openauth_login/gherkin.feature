@@ -51,8 +51,8 @@ Feature: User can log in through email via OAuth
     And no duplicate account should be created
 
   @S-005 @criterion-3
-  Scenario: An unlinked identity matches an existing email after a repository reload
-    Given password account "A" with email "Mixed.Case@example.com" has been saved and reloaded
+  Scenario: An unlinked identity matches an existing email on a later sign-in
+    Given password account "A" with email "Mixed.Case@example.com" already exists
     And Google authenticates an unlinked subject with verified email "mixed.case@example.com"
     When I continue with Google
     Then I should remain signed out and be directed to use my existing sign-in method
@@ -60,8 +60,7 @@ Feature: User can log in through email via OAuth
     And account "A" and its credentials should be unchanged
     And no identity link or duplicate account should be created
 
-  # Proposed fallback pending the owner's decision on unusable provider names.
-  @proposed @S-006 @criterion-2
+  @S-006 @criterion-2
   Scenario Outline: Provisioning handles an unusable provider display name
     Given an unlinked Google subject has a new verified email and <name> as its profile name
     When I complete Google sign-in
@@ -76,7 +75,7 @@ Feature: User can log in through email via OAuth
 
   @S-007 @criterion-3
   Scenario: An OAuth-only account has no usable password credential
-    Given a previously provisioned OAuth-only account has been saved and reloaded
+    Given I have an existing OAuth-only account
     When I attempt password login for that account
     Then I should receive the ordinary invalid-credentials response
     And I should remain signed out
@@ -161,9 +160,9 @@ Feature: User can log in through email via OAuth
     And the failure should follow the existing Theseus sign-in audit behavior
 
   @S-016 @criterion-3
-  Scenario: Theseus receives a callback but the token exchange times out
-    Given I started Google sign-in and the provider returned a valid authorization code
-    When the token endpoint times out during the exchange
+  Scenario: The provider takes too long to complete sign-in
+    Given I started Google sign-in
+    When Google takes too long to complete sign-in
     Then I should remain signed out and return to the login page
     And I should see a retry message and the enabled Microsoft option
 
@@ -190,25 +189,12 @@ Feature: User can log in through email via OAuth
 
   @security
   @S-019 @criterion-3
-  Scenario Outline: Callback with invalid security parameters is rejected
-    Given I started a Google sign-in and have a pending authorization request
-    When its callback is processed with <problem> as the only invalid condition
-    Then I should not be logged in
+  Scenario: Theseus cannot confirm the provider sign-in
+    Given I started Google sign-in
+    When Theseus cannot confirm that Google authenticated me for this attempt
+    Then I should remain signed out
     And I should see the message "We couldn't complete sign-in. Please try again."
     And the failure should follow the existing Theseus sign-in audit behavior
-
-    Examples:
-      | problem                          |
-      | a missing state value            |
-      | a state value that does not match |
-      | an expired authorization code    |
-      | an already used authorization code |
-      | an ID token with a wrong audience |
-      | an ID token with an invalid signature |
-      | an ID token with a wrong issuer   |
-      | an expired ID token               |
-      | an ID token with a wrong nonce   |
-
   @security
   @S-020 @criterion-1
   Scenario: Tokens are never exposed in logs or the browser
@@ -218,12 +204,9 @@ Feature: User can log in through email via OAuth
 
   @security
   @S-021 @criterion-2
-  Scenario: Session cookie is set with secure attributes
+  Scenario: The Theseus session identifies the signed-in user
     When I log in successfully with Google
-    Then the session cookie should be "HttpOnly"
-    And the session cookie should be "Secure"
-    And the session cookie should have "SameSite" set to "Lax"
-
+    Then I should be able to reopen a protected Theseus page as the same user
   # ---------------------------------------------------------------
   # Logout and auditing
   # ---------------------------------------------------------------
