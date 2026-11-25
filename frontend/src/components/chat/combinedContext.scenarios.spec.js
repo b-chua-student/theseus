@@ -461,6 +461,7 @@ describe('Feature: Compare manuscript claims with selected library sources (@com
   for (const scenario of scenarios) {
     const id = scenario.tags.find((tag) => /^S-\d{3}$/.test(tag));
     it(`${id} ${scenario.name}`, async () => {
+      expect(scenario.steps.map((step) => step.keyword)).toContain('Then');
       const panel = new Panel();
       for (const step of scenario.steps) {
         const { run, args } = findStep(steps, step);

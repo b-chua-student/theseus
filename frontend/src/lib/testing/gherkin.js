@@ -7,8 +7,8 @@
  * And/But steps take the keyword of the step before them.
  */
 
-const STEP = /^(Given|When|Then|And|But)\s+(.+)$/;
-const SCENARIO = /^(Scenario Outline|Scenario Template|Scenario|Example):\s*(.+)$/;
+const STEP = /^(Given|When|Then|And|But)\s+(\S.*)$/;
+const SCENARIO = /^(Scenario Outline|Scenario Template|Scenario|Example):\s*(\S.*)$/;
 
 /** @typedef {{ keyword: 'Given' | 'When' | 'Then', text: string }} Step */
 
