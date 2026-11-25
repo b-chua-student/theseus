@@ -61,11 +61,10 @@ Feature: Validate source-backed answers before display
   @S-007 @criterion-6
   Scenario: Show progress only when validation exceeds five seconds
     Given the first draft is ready to check
-    When validation has been running for exactly five seconds
-    Then the user has seen neither a progress message nor draft text
     When validation continues past five seconds
-    Then the user sees “Checking the answer against your sources…”
-    And the unchecked draft stays hidden
+    Then the user saw no progress message during the first five seconds
+    And the user now sees “Checking the answer against your sources…”
+    And the unchecked draft stays hidden throughout validation
 
   @S-008 @criterion-7 @edge
   Scenario: Return verified partial findings at the deadline
