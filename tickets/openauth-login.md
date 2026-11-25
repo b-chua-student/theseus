@@ -35,6 +35,15 @@ None specified.
 - If an unlinked identity's email matches an existing account, direct the user to their existing sign-in method. Once signed in, the user can explicitly link the provider.
 - Deny OpenAuth sign-in to suspended accounts.
 
+## New accounts
+
+- On successful sign-in with a new identity whose email matches no existing account, Theseus automatically creates a passwordless account.
+- Use the provider's display name as the initial Theseus display name. The user can edit it later.
+
+## Open Questions
+
+- What initial display name should Theseus use if the provider supplies no usable name?
+
 ## Output Paths
 
 - Intake brief: `specs/auth/openauth_login/brief.md`

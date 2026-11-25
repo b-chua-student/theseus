@@ -30,7 +30,7 @@ Feature: User can log in through email via OAuth
 
   @smoke @happy-path
   @S-003 @criterion-2
-  Scenario: New user signs in with a verified email and an account is created
+  Scenario: First sign-in automatically creates a passwordless account with the provider's display name
     Given no account exists for "new.user@example.com"
     And Google returns verified email "new.user@example.com" and the display name "New User"
     When I complete Google sign-in and grant consent
@@ -59,7 +59,8 @@ Feature: User can log in through email via OAuth
     And account "A" and its credentials should be unchanged
     And no identity link or duplicate account should be created
 
-  @S-006 @criterion-2
+  # Proposed fallback pending the owner's decision on unusable provider names.
+  @proposed @S-006 @criterion-2
   Scenario Outline: Provisioning handles an unusable provider display name
     Given an unlinked Google subject has a new verified email and <name> as its profile name
     When I complete Google sign-in
@@ -245,3 +246,9 @@ Feature: User can log in through email via OAuth
     When I explicitly link that Google identity and sign out
     And I sign in again with the same Google identity
     Then I should be logged in to my existing Theseus account
+
+  @S-025 @criterion-2
+  Scenario: User edits the display name supplied by the provider
+    Given I am signed in to my new passwordless account with the initial provider name "New User"
+    When I change my Theseus display name to "Alex" and save it
+    Then I should see "Alex" as my display name when I reopen my profile
