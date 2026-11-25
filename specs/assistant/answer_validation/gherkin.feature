@@ -18,7 +18,6 @@ Feature: Validate source-backed answers before display
     When the Assistant completes the request
     Then the writer sees the checked replacement giving May and citing P1
     And the sponsor-only draft is never displayed
-    And reopening the conversation shows only the final answer for that question
 
   @S-003 @criterion-3
   Scenario: Correct an overstated date
@@ -38,13 +37,13 @@ Feature: Validate source-backed answers before display
     And the answer does not cite P1 for the end date
 
   @S-005 @criterion-4
-  Scenario: Retrieve missing evidence within the original selection
+  Scenario: Retrieve missing evidence and check the resulting answer
     Given the writer asks when the pilot started and ended using the selected pilot report
     And the first search retrieves only P1 giving May as the start
     And a repeat search of the report returns P2 giving July as the end
-    And an unselected report gives a different end date and a retry is available
+    And a retry is available
     When the Assistant finds that the first search cannot establish the end date
-    Then it searches again within the selected report
+    Then the Assistant searches again for evidence of the end date
     And the checked answer cites P1 for May and P2 for July
 
   @S-006 @criterion-5 @edge
@@ -58,15 +57,17 @@ Feature: Validate source-backed answers before display
   @S-007 @criterion-2 @edge
   Scenario: Withhold an irrelevant draft at the retry limit
     Given the writer asks when the pilot started
+    And the retrieved passages identify only the sponsor
     And every draft answers only who sponsored the pilot and no retries remain
     When the Assistant completes the request
-    Then no sponsor-only draft is displayed or saved
+    Then no sponsor-only draft is displayed
     And the Assistant makes no further retry
+    And the writer is told that the retrieved passages do not establish the start date
 
   @S-008 @criterion-5 @edge
   Scenario: Stop when the request has exhausted its retry allowance
     Given the writer asks when the pilot started and ended
-    And a revision has exhausted the request's retry allowance
+    And the request has reached its retry limit
     And the retrieved passages establish the May start but contain no end date
     When the Assistant completes the request
     Then it makes no further search or revision
@@ -80,30 +81,17 @@ Feature: Validate source-backed answers before display
     Then the answer says the start date could not be verified from the selection
     And the answer cites no passage
 
-  @S-010 @criterion-6 @edge
-  Scenario: Report a failure during validation
+  @S-010 @criterion-2 @edge
+  Scenario: Withhold a draft when validation cannot complete
     Given the writer asks a source-backed question
     When a service error prevents the Assistant from checking its draft
-    Then the writer sees an error and no draft answer
-    And the writer can ask the question again
-
-  @S-011 @criterion-7 @edge
-  Scenario Outline: Answer without library validation when no library sources were selected
-    Given the writer asks a question using <context> without selecting library sources
-    When the Assistant answers
-    Then the answer is displayed without source validation
-
-    Examples:
-      | context             |
-      | general knowledge   |
-      | the manuscript only |
+    Then the unchecked draft is never displayed
 
   @S-012 @criterion-3 @edge
-  Scenario: A source that omits a character does not contradict a quoted claim
-    Given the writer quotes "Jack is a bee character" and shares no other manuscript text
-    And the writer asks whether the selected source supports that quote
-    And the retrieved passage names Jason and Santiago without saying they are the only bee characters
-    And the draft calls this a contradiction and a retry is available
-    When the Assistant checks the answer about the quote
-    Then the writer sees that the selected passage does not establish whether Jack is a bee character
-    And the answer does not describe the passage as contradicting the quote
+  Scenario: Correct a claim that an unlisted pilot site was excluded
+    Given the writer asks whether a third site participated in the pilot
+    And the retrieved report names two sites without saying the list is complete
+    And a draft says the third site was excluded
+    And a retry is available
+    When the Assistant checks the draft against the report
+    Then the checked answer explains that the report does not establish whether the third site participated

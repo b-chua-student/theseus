@@ -26,34 +26,32 @@ Give writers an answer that addresses their question and accurately represents t
 
 ## Constraints
 
-- Keep the writer's original question, selected sources, and manuscript or quote boundaries throughout the request.
-- Bound retries for each request. Withheld drafts stay out of the displayed answer and saved conversation.
-- If validation fails to complete because of a service error, tell the writer and allow them to ask again.
+- Check every draft, including revisions, against the writer's question and the retrieved evidence before display.
+- Bound retries for each request.
 
 ## Known Touchpoints
 
-- Assistant answers, Source Library passages and citations, and saved conversations.
+- Assistant answers, Source Library passages, and citations.
 
 ## Assumptions
 
-- The existing intake treats failure to finish validation and exhaustion of retries as separate outcomes.
+- No additional assumptions.
 
 ## Open Questions
 
 - Retry count, how different retry types share the allowance, and acceptable wait time — Deferred: product decision needed.
 - Whether to show progress while checking an answer — Deferred: product decision needed.
 - Message or error when every draft is off-topic and retries are exhausted — Deferred: product decision needed.
+- How should the Assistant communicate a service error that prevents validation, and what recovery should it offer? — Deferred: product decision needed.
 - Intake owner — Deferred: assignment has not been confirmed in the supplied ticket.
 
 ## Success Criteria
 
 1. Show a relevant answer whose claims are supported by the retrieved passages it cites.
-2. Withhold off-topic or unsupported drafts from display and history. Check any replacement before showing it.
+2. Withhold off-topic or unsupported drafts from display. Check any replacement before showing it.
 3. Correct overstatements and mismatched citations. Distinguish missing support from contradictory evidence.
-4. When evidence is insufficient and a retry is available, search again within the original selection and check the resulting answer.
+4. When evidence is insufficient and a retry is available, search again and check the resulting answer.
 5. Stop at the request's retry limit and report the supported findings and remaining evidence gaps.
-6. If validation cannot complete because of a service error, show an error and allow another request.
-7. Questions asked without library sources continue without source validation.
 
 ## Reference Links
 
