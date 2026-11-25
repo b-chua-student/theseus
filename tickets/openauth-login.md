@@ -23,7 +23,7 @@ This ticket covers the sign-in experience for Theseus users.
 
 ## Non-Functional Requirements
 
-None specified.
+The SDD workflow does not require a performance target. None is specified for OpenAuth sign-in.
 
 ## Out of Scope
 

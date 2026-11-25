@@ -20,4 +20,4 @@ The ticket leaves provider selection and existing-account policy open on lines 3
 - Confirm the intended destination and user-facing error messages, including interrupted sign-in. S-008 uses a path the SPA does not currently render as a dedicated page.
 - Are logout, audit events and their fields, token exposure checks, and production cookie attributes in scope as specified in S-015 and S-020 through S-023?
 - Which storage adapters and deployment configurations must support the feature? Confirm PostgreSQL scope and where pending requests live across workers.
-- Ticket line 26 specifies no non-functional targets. Should latency or accessibility checks become acceptance criteria? The previously suggested 1.5-second p95 threshold would need an agreed measurement method.
+- Should accessibility checks become acceptance criteria?

@@ -33,7 +33,7 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 - Keep only the stable provider identity identifier, email, email verification status, and account display name. Discard tokens after authentication and omit raw profiles and unused fields from storage. (from ticket, lines 57, 58)
 
 - A user must successfully authenticate with OpenAuth. Both providers support sign-in with an unverified email address. (from ticket, lines 13, 22)
-- The ticket specifies no non-functional requirements. (from ticket, line 26)
+- OpenAuth sign-in has no required performance target. (from ticket, line 26)
 - A linked identity still signs in to the same account after a provider email change. Only the usual email-change flow updates the Theseus email. (from ticket, line 34)
 - If an unlinked identity matches an existing account by email, direct the user to their existing sign-in method. They can explicitly link the provider once signed in. (from ticket, line 35)
 - Suspended accounts cannot sign in through OpenAuth. (from ticket, line 36)
@@ -49,7 +49,7 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 ## Open Questions
 
 - What initial display name should Theseus use if the provider supplies no usable name? “Theseus user” is a proposed fallback. (from ticket, line 45)
-- Which performance, availability, accessibility, security, or privacy criteria should apply? Deferred: ticket line 26 sets no targets. One proposed target is a 95th-percentile sign-in callback time below 1.5 seconds excluding provider latency. Its measurement method remains open.
+- Should any additional availability, accessibility, security, or privacy criteria apply?
 
 ## Success Criteria
 

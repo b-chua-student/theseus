@@ -11,7 +11,7 @@ The [source ticket](../../../tickets/openauth-login.md) specifies two observable
 - Which production providers can supply the claims the draft expects, including a verified email? Which deployment owns each provider registration and its allowed callback URI?
 - Should an existing issuer-and-subject link always select its original account, while an unlinked identity with an existing email is directed to the existing sign-in method? The answer determines what must be persisted and what happens on a collision.
 - Which local page should demonstrate return navigation? S-008 names `/settings/profile`, but the current app renders projects, dashboard and editor views through component state. Creating a settings page would expand the feature.
-- Which draft constraints should become acceptance criteria? The ticket specifies no non-functional requirements. The brief proposes accessibility, privacy, outage isolation and a callback p95 below 1.5 seconds excluding provider latency. The suspension scenario also needs a source of account status and a rule for existing accounts.
+- Which draft constraints should become acceptance criteria? The brief leaves additional availability, accessibility, security, and privacy criteria open. The suspension scenario also needs a source of account status and a rule for existing accounts.
 
 ## Runtime wiring and browser navigation
 
