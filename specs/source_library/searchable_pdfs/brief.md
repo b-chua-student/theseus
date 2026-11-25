@@ -44,7 +44,8 @@ Allow researchers to search the text of uploaded PDFs through Source Library ret
 
 ## Success Criteria
 
-1. A query about text in a searchable PDF can retrieve the matching passage and its page when available.
+1. A query about text in a searchable PDF retrieves the matching passage and its page when available.
+2. An Assistant question about text in a searchable PDF retrieves the matching passage and its page when available.
 
 ## Reference Links
 
