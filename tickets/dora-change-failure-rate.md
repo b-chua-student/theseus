@@ -11,14 +11,26 @@ Theseus deploys to production on Render, where maintainers can review production
 ## Scope
 - Report the percentage of production deployments that require immediate intervention, such as a rollback or hotfix.
 - Let maintainers run the report on demand and run it automatically after each merge into main.
+- Automatically create a GitHub incident issue when a production rollback or a hotfix from a pull request labeled `production-hotfix` goes live. Update an explicitly linked GitHub incident issue when one exists.
 
 ## Expected Outcomes
-- [ ] The report shows the number of production deployments requiring intervention, the total number of production deployments, and the resulting percentage when the total is greater than zero.
+- [ ] With complete evidence and at least one production deployment, the report shows the number requiring immediate intervention, the total, and the resulting percentage.
+- [ ] When production history confirms there were no deployments, the report shows zero for both counts and marks the rate unavailable.
+- [ ] When evidence is incomplete, the report marks the rate unavailable, identifies the missing evidence, and labels any displayed counts as confirmed so far.
+- [ ] Manual and automatic reports display a cutoff 24 hours before the run starts and include only deployments that went live at or before that cutoff within the reporting period.
 - [ ] A maintainer can start a report on demand.
 - [ ] Each merge into main starts a report automatically.
+- [ ] Each qualifying corrective deployment is recorded on one GitHub incident issue, with a link to the corrective action and attribution pending maintainer confirmation.
+- [ ] Reprocessing a corrective deployment does not create another issue or duplicate its entry on an existing issue.
 
 ## Rules / Constraints
-- Count each qualifying deployment once, even if it requires several interventions.
+- Use Render production deployment history for the total.
+- Count an intervention only when a maintainer-confirmed incident record states that the original deployment caused the issue and records its Render deploy ID, the intervention type and start time, and a link to the rollback deployment or hotfix pull request.
+- An intervention qualifies if it starts within 24 hours of the original deployment going live, including exactly 24 hours. Attribute it to the original deployment's reporting period.
+- Count each qualifying original deployment once, even if it requires several interventions.
+- Automatic issue creation records the corrective deployment. A maintainer confirms which original deployment caused the incident.
+- Apply `production-hotfix` to the original hotfix pull request, whether it targets `staging` or `main`. For a hotfix merged into `staging`, recognize it when it reaches production through an unlabeled promotion pull request into `main`.
+- If an incident issue already exists, link it from the original hotfix pull request.
 
 ## Non-Functional Requirements
 No additional non-functional requirements specified.
@@ -27,7 +39,7 @@ No additional non-functional requirements specified.
 - Changes to deployment operations and reporting for other metrics.
 
 ## Open Questions
-- What evidence links an intervention to a deployment? What qualifies as immediate, and how should periods with no deployments or incomplete evidence appear?
+- None.
 
 ## Output Paths
 This feature lives in `specs/devops/dora-change-failure-rate/`.
