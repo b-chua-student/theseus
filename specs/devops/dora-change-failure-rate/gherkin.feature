@@ -8,14 +8,13 @@ Feature: Track DORA change failure rate
 
   @S-028 @criterion-1
   Scenario: Report the share of production deployments requiring intervention
-    Given complete evidence and Render history showing 4 production deployments and 1 staging deployment within the reporting period
+    Given complete evidence and Render history of 4 production deployments and 1 staging deployment in the report period
     And one production deployment required a confirmed rollback within 24 hours of going live
     And another production deployment required a confirmed hotfix within 24 hours of going live
     And the staging deployment required immediate intervention
     And the other two production deployments required no intervention
     When a maintainer reviews the change failure rate report
-    Then the report shows 2 production deployments requiring immediate intervention
-    And the report shows 4 total production deployments
+    Then the report shows 2 production deployments requiring immediate intervention out of 4 total production deployments
     And the change failure rate is 50%
 
   @S-031 @criterion-3
