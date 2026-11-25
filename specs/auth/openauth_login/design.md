@@ -8,6 +8,7 @@
 | D-002 | Exchange the code server-side and validate the provider response before resolving an account or establishing a session. | OIDC client, identity login service, Flask session | R-002, R-003 |
 | D-003 | If provisioning is approved, commit the user and external identity atomically. Preserve legacy password users and resolve concurrent inserts using the committed identity. | Identity repository port, in-memory and persistent adapters, password login | R-002, R-003, R-004 |
 | D-004 | Read authentication state from the existing session endpoint after navigation. If logout is included, confirm the server session ended before showing logout success. | App.svelte, signin.svelte, auth.js, Flask auth routes | R-001, R-002, R-003 |
+| D-005 | The signed-in user selects Link provider and submits a CSRF-protected POST to `/api/auth/oauth/<provider>/link`. Bind the single-use authorization request to the link action, session, and account. On a validated callback in the same authenticated session, atomically attach the issuer and subject to that account. Reject an identity owned by another account without changing either account. | Account UI, Flask auth blueprint, pending-request store, identity repository | R-005 |
 
 ## Components and Flow
 
