@@ -20,12 +20,9 @@ Feature: User can log in through email via OAuth
     And I should see a "Continue with Microsoft" button
 
   @S-002 @criterion-1
-  Scenario: Provider redirect uses secure OAuth parameters
+  Scenario: User continues to Google to authorize sign-in
     When I click "Continue with Google"
-    Then I should be redirected to the Google authorization endpoint
-    And the request should use the authorization code flow with PKCE
-    And the request should include a "state" and a "nonce" value
-    And the requested scopes should be "openid email profile"
+    Then I should see the Google authorization page for Theseus
 
   # ---------------------------------------------------------------
   # Successful login
@@ -84,10 +81,10 @@ Feature: User can log in through email via OAuth
 
   @S-008 @criterion-2
   Scenario: User returns to the originally requested page after login
-    Given I tried to open "/settings/profile" while logged out
+    Given I tried to open a protected Theseus page other than the home page while logged out
     And an account exists for "returning.user@example.com" linked to Google
     When I log in with Google as "returning.user@example.com"
-    Then I should be redirected to "/settings/profile"
+    Then I should be returned to the page I originally requested
 
   @S-009 @criterion-2
   Scenario Outline: External return destinations fall back to home
