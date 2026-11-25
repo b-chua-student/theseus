@@ -173,7 +173,8 @@ Feature: User can log in through email via OAuth
 
   @S-018 @criterion-3
   Scenario: Suspended account cannot sign in
-    Given an account exists for "suspended.user@example.com" with status "suspended"
+    Given an account exists for "suspended.user@example.com" linked to Google
+    And that account has status "suspended"
     And Google will authenticate me as "suspended.user@example.com" with a verified email
     When I click "Continue with Google"
     Then I should not be logged in
