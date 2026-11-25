@@ -10,6 +10,7 @@
 | R-002 | Successful OpenAuth sign-in establishes a Theseus session. | from ticket | 17 | S-003, S-004, S-006, S-008, S-009, S-010, S-011 |
 | R-003 | Completing OpenAuth sign-in requires successful OpenAuth authentication. A failed attempt leaves the user signed out. | from ticket | 18, 22 | S-005, S-012, S-013, S-014, S-015, S-016, S-017, S-018, S-019 |
 | R-004 | Other sign-in methods retain their existing behavior. | from ticket | 30 | S-005, S-007 |
+| R-005 | On an unlinked email match, direct the user to their existing sign-in method. Once authenticated, they can explicitly link the provider for future sign-in. | from ticket | 35 | S-005, S-024 |
 
 ## Open Questions
 
