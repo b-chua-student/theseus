@@ -30,7 +30,8 @@ Show Theseus maintainers how often production deployments require immediate inte
 - Count an intervention only when a maintainer-confirmed incident record states that the original deployment caused the issue and includes its Render deploy ID, the intervention type and start time, and a link to the rollback deployment or hotfix pull request.
 - An intervention qualifies if it starts within 24 hours of the original deployment going live, including exactly 24 hours. Attribute it to the original deployment's reporting period.
 - Count each qualifying original deployment once, even if it requires several interventions.
-- For both triggers, include only deployments within the reporting period that went live at or before the cutoff, 24 hours before the run starts.
+- For both triggers, use a rolling 30-day period ending 24 hours before the run starts. Include deployments that went live after the start and at or before the cutoff.
+- Pending attribution makes the rate unavailable when confirming the incident could add an original deployment to the intervention count under the 24-hour rule.
 - Record each qualifying corrective deployment on one issue, even if it is processed more than once.
 - Automated issue entries link to the corrective action and mark attribution pending until a maintainer confirms the original deployment.
 - Apply `production-hotfix` to the original hotfix pull request into `staging` or `main`. Use that pull request to link an existing incident issue, when available.
@@ -58,10 +59,12 @@ Show Theseus maintainers how often production deployments require immediate inte
 5. The report attributes each confirmed intervention starting within 24 hours to the original deployment's reporting period.
 6. When production history confirms there were no deployments, the report shows zero for both counts and marks the rate unavailable.
 7. When evidence is incomplete, the report marks the rate unavailable, identifies what is missing, and labels any displayed counts as confirmed so far.
-8. Manual and automatic reports display the cutoff and include eligible deployments through that cutoff.
+8. Manual and automatic reports display both bounds and count deployments that went live after the start and at or before the cutoff.
 9. A qualifying corrective deployment creates a GitHub incident issue or updates its explicitly linked incident issue with the corrective action link and pending attribution.
 10. Reprocessing a qualifying corrective deployment leaves one incident issue entry for that deployment.
 11. A labeled hotfix merged into staging is recorded when it goes live in production after an unlabeled promotion into main. A labeled hotfix merged directly into main is also recorded when it goes live in production.
+
+12. When a pending incident could add a deployment to the intervention count, the report identifies the incident and marks the rate unavailable. When pending attribution cannot change the count and the remaining evidence is complete, the report shows the rate if there is at least one eligible deployment.
 
 ## Reference Links
 

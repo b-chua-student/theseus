@@ -17,7 +17,7 @@ Theseus deploys to production on Render, where maintainers can review production
 - [ ] With complete evidence and at least one production deployment, the report shows the number requiring immediate intervention, the total, and the resulting percentage.
 - [ ] When production history confirms there were no deployments, the report shows zero for both counts and marks the rate unavailable.
 - [ ] When evidence is incomplete, the report marks the rate unavailable, identifies the missing evidence, and labels any displayed counts as confirmed so far.
-- [ ] Manual and automatic reports display a cutoff 24 hours before the run starts and include only deployments that went live at or before that cutoff within the reporting period.
+- [ ] Manual and automatic reports display both bounds of a rolling 30-day period ending 24 hours before the run starts. Include deployments that went live after the start and at or before the cutoff.
 - [ ] A maintainer can start a report on demand.
 - [ ] Each merge into main starts a report automatically.
 - [ ] Each qualifying corrective deployment is recorded on one GitHub incident issue, with a link to the corrective action and attribution pending maintainer confirmation.
@@ -27,6 +27,7 @@ Theseus deploys to production on Render, where maintainers can review production
 - Use Render production deployment history for the total.
 - Count an intervention only when a maintainer-confirmed incident record states that the original deployment caused the issue and records its Render deploy ID, the intervention type and start time, and a link to the rollback deployment or hotfix pull request.
 - An intervention qualifies if it starts within 24 hours of the original deployment going live, including exactly 24 hours. Attribute it to the original deployment's reporting period.
+- Pending attribution makes the rate unavailable if confirming the incident could add an original deployment to the intervention count under the 24-hour rule. Identify that pending incident as missing evidence. If pending attribution cannot change the count, publish the rate when there is at least one eligible deployment and the rest of the evidence is complete.
 - Count each qualifying original deployment once, even if it requires several interventions.
 - Automatic issue creation records the corrective deployment. A maintainer confirms which original deployment caused the incident.
 - Apply `production-hotfix` to the original hotfix pull request, whether it targets `staging` or `main`. For a hotfix merged into `staging`, recognize it when it reaches production through an unlabeled promotion pull request into `main`.

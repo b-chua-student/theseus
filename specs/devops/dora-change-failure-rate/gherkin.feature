@@ -8,10 +8,11 @@ Feature: Track DORA change failure rate
 
   @S-028 @criterion-1
   Scenario: Report the share of production deployments requiring intervention
-    Given complete evidence for 4 production deployments in the report
+    Given complete evidence and Render history showing 4 production deployments and 1 staging deployment within the reporting period
     And one production deployment required a confirmed rollback within 24 hours of going live
     And another production deployment required a confirmed hotfix within 24 hours of going live
-    And only a staging deployment required immediate intervention among the remaining deployments
+    And the staging deployment required immediate intervention
+    And the other two production deployments required no intervention
     When a maintainer reviews the change failure rate report
     Then the report shows 2 production deployments requiring immediate intervention
     And the report shows 4 total production deployments
@@ -85,7 +86,7 @@ Feature: Track DORA change failure rate
     And the report shows 0 total production deployments
     And the rate is unavailable
 
-  @S-035 @criterion-7 @edge
+  @S-035 @criterion-7 @criterion-12 @edge
   Scenario Outline: Identify incomplete evidence
     Given the report has confirmed counts for some deployments
     And <evidence gap>
@@ -95,23 +96,27 @@ Feature: Track DORA change failure rate
     And any displayed counts are labeled as confirmed so far
 
     Examples:
-      | evidence gap                                                     |
-      | part of the production deployment history is unavailable         |
-      | a known hotfix has no confirmed link to its original deployment  |
+      | evidence gap                                                                                          |
+      | part of the production deployment history is unavailable                                              |
+      | a pending hotfix incident could add an eligible deployment to the intervention count under the 24-hour rule  |
 
   @S-036 @criterion-8 @edge
   Scenario Outline: Apply the same cutoff to each trigger
     Given the report starts at 12:00 UTC on November 25
-    And complete production history shows deployments went live at 11:00, 12:00, and 13:00 UTC on November 24
-    And all three deployments fall within the reporting period before applying the cutoff
+    And complete Render production history shows deployments went live at 11:00, 12:00, and 13:00 UTC on November 24
+    And only the deployment at <deployment time> UTC on November 24 required a confirmed rollback 1 hour after going live
     When a maintainer reviews the report started <trigger>
-    Then the report displays a cutoff of 12:00 UTC on November 24
+    Then the report displays a start of 12:00 UTC on October 25 and a cutoff of 12:00 UTC on November 24
+    And the report shows <intervention count> production deployments requiring immediate intervention
     And the report shows 2 total production deployments
+    And the change failure rate is <rate>
 
     Examples:
-      | trigger                                 |
-      | on demand                               |
-      | automatically after a merge into main   |
+      | trigger                                | deployment time | intervention count | rate |
+      | on demand                              | 12:00           | 1                  | 50%  |
+      | on demand                              | 13:00           | 0                  | 0%   |
+      | automatically after a merge into main  | 12:00           | 1                  | 50%  |
+      | automatically after a merge into main  | 13:00           | 0                  | 0%   |
 
   @S-039 @criterion-10 @edge
   Scenario: Record a corrective deployment only once
@@ -119,3 +124,22 @@ Feature: Track DORA change failure rate
     When the same rollback deployment is processed again
     Then one GitHub incident issue contains the rollback
     And that issue contains one entry for the rollback deployment
+
+  @S-040 @criterion-8 @edge
+  Scenario: Exclude deployments at the start of the reporting period
+    Given the report starts at 12:00 UTC on November 25
+    And complete Render production history shows deployments went live at 11:59, 12:00, and 12:01 UTC on October 25
+    And the deployment at 12:01 UTC required no intervention
+    When a maintainer reviews the report
+    Then the report displays a start of 12:00 UTC on October 25
+    And the report shows 1 total production deployment
+    And the change failure rate is 0%
+
+  @S-041 @criterion-12 @edge
+  Scenario: Publish the rate when a pending incident cannot affect it
+    Given a report has complete evidence for 2 eligible production deployments with no qualifying interventions
+    And a pending hotfix incident started more than 24 hours after both deployments went live
+    When a maintainer reviews the report
+    Then the report shows 0 production deployments requiring immediate intervention
+    And the report shows 2 total production deployments
+    And the change failure rate is 0%
