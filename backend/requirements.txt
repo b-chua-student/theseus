@@ -117,3 +117,4 @@ websockets==17.3
 Werkzeug==3.1.9
 wrapt==2.5.1
 yarl==1.25.1
+PyJWT[crypto]==2.15.1

@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from functools import wraps
+from secrets import token_urlsafe
 
 from flask import Blueprint, current_app, jsonify, request, session
 from flask.typing import ResponseReturnValue
@@ -10,6 +11,13 @@ from bootstrap.extensions import limiter
 from .requests import LoginRequest, RegisterRequest
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def establish_session(user_id: str) -> None:
+    """Begin an authenticated session with a fresh account-action token."""
+    session.clear()
+    session["user_id"] = user_id
+    session["oauth_csrf"] = token_urlsafe(32)
 
 
 @auth_bp.post("/login")
@@ -28,8 +36,7 @@ def login() -> ResponseReturnValue:
         password=body.password,
     )
 
-    session.clear()
-    session["user_id"] = str(user.id.value)
+    establish_session(str(user.id.value))
 
     return jsonify(id=str(user.id.value), display_name=user.display_name.value), 200
 
@@ -51,8 +58,7 @@ def register() -> ResponseReturnValue:
         password=body.password,
     )
 
-    session.clear()
-    session["user_id"] = str(user.id.value)
+    establish_session(str(user.id.value))
 
     return jsonify(id=str(user.id.value), display_name=user.display_name.value), 201
 
@@ -74,6 +80,8 @@ def login_required(view: Callable[..., ResponseReturnValue]) -> Callable[..., Re
 def me() -> ResponseReturnValue:
     """Handle GET /me: return the signed-in user's id, display name and email."""
     container = current_app.extensions["container"]
+    if "oauth_csrf" not in session:
+        session["oauth_csrf"] = token_urlsafe(32)
     user = container.identity.account.get_account.execute(user_id=session["user_id"])
     return jsonify(
         id=str(user.id.value),
