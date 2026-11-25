@@ -1,0 +1,29 @@
+name: DORA deployment frequency
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Use the trusted base context so fork merges can report with the Render secret.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Publish report to the job summary
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DORA_RENDER_SERVICE_ID: ${{ vars.DORA_RENDER_SERVICE_ID }}
+          DORA_RENDER_FIRST_DEPLOY_ID: ${{ vars.DORA_RENDER_FIRST_DEPLOY_ID }}
+        run: python -m scripts.dora_deployment_frequency

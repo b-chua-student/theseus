@@ -11,51 +11,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from statistics import median
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+if TYPE_CHECKING or __package__:
+    from . import dora_evidence
+else:
+    import dora_evidence
 
 TITLE = "Feature PR merge-to-production lead time"
 SHA = re.compile(r"[0-9a-f]{40}")
-SUCCESS = {"live", "deactivated"}
-OTHER_STATUSES = {
-    "created",
-    "queued",
-    "build_in_progress",
-    "update_in_progress",
-    "pre_deploy_in_progress",
-    "build_failed",
-    "update_failed",
-    "pre_deploy_failed",
-    "canceled",
-}
-
-
-class EvidenceError(Exception):
-    """An evidence failure with a fixed, safe diagnostic."""
-
-
-class NoRedirect(HTTPRedirectHandler):
-    """Keep authorization headers on the original API host."""
-
-    def redirect_request(self, *args: object, **kwargs: object) -> None:
-        """Decline redirects."""
-        return None
-
-
-def request(url: str, token: str, source: str) -> tuple[list[Any], str]:
-    """Fetch one JSON page without leaking request or response details."""
-    try:
-        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-        if source == "GitHub":
-            headers["X-GitHub-Api-Version"] = "2022-11-28"
-        with build_opener(NoRedirect()).open(Request(url, headers=headers), timeout=30) as response:
-            rows = json.load(response)
-            if not isinstance(rows, list):
-                raise ValueError
-            return rows, response.headers.get("Link", "")
-    except Exception:
-        raise EvidenceError(f"{source} evidence request failed.") from None
 
 
 @dataclass(frozen=True)
@@ -79,14 +44,6 @@ class Deploy:
     live: datetime
 
 
-def timestamp(value: str) -> datetime:
-    """Parse an offset-aware API timestamp and normalize it to UTC."""
-    result = datetime.fromisoformat(value)
-    if result.tzinfo is None:
-        raise ValueError
-    return result.astimezone(UTC)
-
-
 def revision(value: str) -> str:
     """Validate a full Git commit SHA."""
     if not SHA.fullmatch(value):
@@ -101,11 +58,11 @@ def github_rows(repo: str, token: str) -> Iterator[dict[str, Any]]:
         query = urlencode(
             dict(state="all", sort="created", direction="asc", per_page=100, page=page)
         )
-        rows, link = request(f"{endpoint}?{query}", token, "GitHub")
+        rows, link = dora_evidence.request(f"{endpoint}?{query}", token, "GitHub")
         yield from rows
         if 'rel="next"' not in link:
             return
-    raise EvidenceError("GitHub PR pagination did not terminate.")
+    raise dora_evidence.EvidenceError("GitHub PR pagination did not terminate.")
 
 
 def fetch_pulls(repo: str, token: str, label: str, end: datetime) -> list[Pull]:
@@ -121,7 +78,7 @@ def fetch_pulls(repo: str, token: str, label: str, end: datetime) -> list[Pull]:
             merged_value = row["merged_at"]
             if merged_value is None:
                 continue
-            merged = timestamp(merged_value)
+            merged = dora_evidence.timestamp(merged_value)
             base = row["base"]["ref"]
             if not isinstance(base, str) or not base:
                 raise ValueError
@@ -145,58 +102,19 @@ def fetch_pulls(repo: str, token: str, label: str, end: datetime) -> list[Pull]:
                 Pull(number, base, revision(row["merge_commit_sha"]), merged, feature, promotion)
             )
     except (KeyError, TypeError, ValueError, AttributeError):
-        raise EvidenceError("GitHub PR evidence is incomplete or invalid.") from None
+        raise dora_evidence.EvidenceError("GitHub PR evidence is incomplete or invalid.") from None
     return pulls
 
 
-def render_rows(service: str, token: str) -> Iterator[dict[str, Any]]:
-    """Walk Render history through the final cursor."""
-    endpoint = f"https://api.render.com/v1/services/{service}/deploys"
-    query: dict[str, str] = {"limit": "100"}
-    seen = set()
-    for _ in range(10000):
-        rows, _ = request(f"{endpoint}?{urlencode(query)}", token, "Render")
-        if not rows:
-            return
-        for row in rows:
-            yield row["deploy"]
-        cursor = rows[-1]["cursor"]
-        if not isinstance(cursor, str) or not cursor or cursor in seen:
-            raise EvidenceError("Render deployment pagination evidence is invalid.")
-        seen.add(cursor)
-        query["cursor"] = cursor
-    raise EvidenceError("Render deployment pagination did not terminate.")
-
-
 def fetch_deploys(service: str, token: str, first_id: str) -> list[Deploy]:
-    """Read the designated service and verify its independently confirmed history anchor."""
-    deployments = []
-    seen = set()
-    oldest = datetime.max.replace(tzinfo=UTC)
-    anchor = None
+    """Add Git revision evidence for the lead time report."""
+    arrivals = dora_evidence.fetch_production_arrivals(service, token, first_id)
     try:
-        for row in render_rows(service, token):
-            deploy_id = row["id"]
-            if not re.fullmatch(r"dep-[A-Za-z0-9]+", deploy_id) or deploy_id in seen:
-                raise ValueError
-            seen.add(deploy_id)
-            created = timestamp(row["createdAt"])
-            oldest = min(oldest, created)
-            if deploy_id == first_id:
-                anchor = created
-            status = row["status"]
-            if status in SUCCESS:
-                live = timestamp(row["finishedAt"])
-                if live < created:
-                    raise ValueError
-                deployments.append(Deploy(deploy_id, revision(row["commit"]["id"]), live))
-            elif status not in OTHER_STATUSES:
-                raise ValueError
+        return [Deploy(row["id"], revision(row["commit"]["id"]), live) for row, live in arrivals]
     except (KeyError, TypeError, ValueError):
-        raise EvidenceError("Render deployment evidence is incomplete or invalid.") from None
-    if not (anchor == oldest or (first_id == "empty" and not seen)):
-        raise EvidenceError("Render history does not match the verified first deployment.")
-    return deployments
+        raise dora_evidence.EvidenceError(
+            "Render deployment evidence is incomplete or invalid."
+        ) from None
 
 
 def git(*args: str) -> list[str]:
@@ -211,7 +129,7 @@ def git(*args: str) -> list[str]:
         )
         return result.stdout.splitlines()
     except (OSError, subprocess.SubprocessError, UnicodeError):
-        raise EvidenceError("Required Git revision history is unavailable.") from None
+        raise dora_evidence.EvidenceError("Required Git revision history is unavailable.") from None
 
 
 def promotion_manifest() -> dict[str, list[int]]:
@@ -230,7 +148,7 @@ def promotion_manifest() -> dict[str, list[int]]:
             ):
                 raise ValueError
     except (OSError, ValueError, TypeError, AttributeError):
-        raise EvidenceError("Promotion evidence file is invalid.") from None
+        raise dora_evidence.EvidenceError("Promotion evidence file is invalid.") from None
     return entries
 
 
@@ -242,7 +160,7 @@ def resolve(
 ) -> Iterator[tuple[Pull, Deploy]]:
     """Resolve original feature PRs by reachability and reviewed promotion evidence."""
     if git("rev-parse", "--is-shallow-repository") != ["false"]:
-        raise EvidenceError("Complete Git revision history is required.")
+        raise dora_evidence.EvidenceError("Complete Git revision history is required.")
     features = {pull.number: pull for pull in pulls if pull.feature}
     promotion_pulls = [
         pull
@@ -251,9 +169,9 @@ def resolve(
     ]
     promotions = {pull.revision: pull for pull in promotion_pulls}
     if len(promotions) != len(promotion_pulls):
-        raise EvidenceError("GitHub promotion revisions are ambiguous.")
+        raise dora_evidence.EvidenceError("GitHub promotion revisions are ambiguous.")
     if manifest.keys() - promotions.keys():
-        raise EvidenceError("Promotion evidence does not match a merged main PR.")
+        raise dora_evidence.EvidenceError("Promotion evidence does not match a merged main PR.")
     cache: dict[str, tuple[set[int], set[str]]] = {}
     for deploy in deploys:
         if deploy.live >= end:
@@ -281,17 +199,19 @@ def resolve(
                             or original.base != "staging"
                             or original.merged > promotion.merged
                         ):
-                            raise EvidenceError("Promotion evidence references an invalid PR.")
+                            raise dora_evidence.EvidenceError(
+                                "Promotion evidence references an invalid PR."
+                            )
                         numbers.add(number)
                 elif len(reachable[sha]) != 2:
-                    raise EvidenceError(
+                    raise dora_evidence.EvidenceError(
                         "A deployed staging promotion requires reviewed provenance."
                     )
             cache[deploy.revision] = numbers, carried_promotions
         numbers, carried_promotions = cache[deploy.revision]
         for sha in carried_promotions:
             if promotions[sha].merged > deploy.live:
-                raise EvidenceError("Production deployment predates its promotion.")
+                raise dora_evidence.EvidenceError("Production deployment predates its promotion.")
         for number in sorted(numbers):
             yield features[number], deploy
 
@@ -307,7 +227,7 @@ def calculate(
         if deploy.live >= end:
             continue
         if deploy.live < pull.merged:
-            raise EvidenceError("Production deployment predates a feature PR merge.")
+            raise dora_evidence.EvidenceError("Production deployment predates a feature PR merge.")
         earlier = first.get(pull.number)
         if earlier is None or (deploy.live, deploy.deployment_id) < (
             earlier[1].live,
@@ -372,7 +292,9 @@ def main() -> int:
             and re.fullmatch(r"(?:dep-[A-Za-z0-9]+|empty)", first_id)
             and all(value.strip() for value in (github_token, render_token, label))
         ):
-            raise EvidenceError("Required reporting configuration is missing or invalid.")
+            raise dora_evidence.EvidenceError(
+                "Required reporting configuration is missing or invalid."
+            )
         deploys = fetch_deploys(service, render_token, first_id)
         pulls = fetch_pulls(repo, github_token, label, end)
         traces = resolve(pulls, deploys, promotion_manifest(), end)
@@ -388,7 +310,7 @@ def main() -> int:
                 temporary.replace(summary)
             finally:
                 temporary.unlink(missing_ok=True)
-    except EvidenceError as error:
+    except dora_evidence.EvidenceError as error:
         sys.stderr.write(f"{error}\n")
         return 1
     except KeyError:
