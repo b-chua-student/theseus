@@ -50,6 +50,13 @@ None specified.
 - On a sign-in error, keep the user signed out and return them to the sign-in page with a clear message and a “Try again” action. If they need their existing sign-in method, explain how to continue with it.
 - When a user returns to Theseus after an interrupted sign-in, show “Sign-in wasn’t completed” and let them restart or choose another sign-in method.
 
+## Session, auditing, and provider data
+
+- OpenAuth users can end their Theseus session through the existing Theseus sign-out flow. Signing out of Google or Microsoft is outside this feature's scope.
+- Use the same sign-in audit events as other Theseus sign-in methods if those events already exist. Defer new event types and retention rules.
+- Retain only the provider's stable identity identifier for future sign-ins and the email, email verification status, and display name needed for the Theseus account.
+- Use provider tokens only during authentication and discard them afterward. Do not store raw provider profiles or unused fields.
+
 ## Output Paths
 
 - Intake brief: `specs/auth/openauth_login/brief.md`

@@ -158,7 +158,7 @@ Feature: User can log in through email via OAuth
     Then I should not be logged in
     And I should see the message "We couldn't sign you in with Google. Please try again."
     And I should be back on the sign-in page with a "Try again" action
-    And the failure should be recorded in the audit log
+    And the failure should follow the existing Theseus sign-in audit behavior
 
   @S-016 @criterion-3
   Scenario: Theseus receives a callback but the token exchange times out
@@ -195,7 +195,7 @@ Feature: User can log in through email via OAuth
     When its callback is processed with <problem> as the only invalid condition
     Then I should not be logged in
     And I should see the message "We couldn't complete sign-in. Please try again."
-    And the failure should be recorded in the audit log
+    And the failure should follow the existing Theseus sign-in audit behavior
 
     Examples:
       | problem                          |
@@ -229,7 +229,7 @@ Feature: User can log in through email via OAuth
   # ---------------------------------------------------------------
 
   @S-022 @criterion-2
-  Scenario: User logs out
+  Scenario: OpenAuth user ends the Theseus session through the existing sign-out flow
     Given I am logged in via Google
     When I click "Log out"
     Then my session should be ended
@@ -237,9 +237,10 @@ Feature: User can log in through email via OAuth
     And protected pages should require me to log in again
 
   @S-023 @criterion-2
-  Scenario: Successful login is audited
+  Scenario: Successful OpenAuth sign-in reuses an existing Theseus audit event
+    Given Theseus records an audit event for successful sign-ins with its other methods
     When I log in successfully with Google as "audit.user@example.com"
-    Then the audit log should contain a "login_success" entry for "audit.user@example.com" with provider "Google"
+    Then the audit log should record the same type of sign-in event
     And the audit log entry should not contain any tokens
 
   @S-024 @criterion-2
@@ -262,3 +263,16 @@ Feature: User can log in through email via OAuth
     And that page is no longer available
     When I successfully sign in
     Then I should be redirected to the Theseus home page
+
+  @S-027 @criterion-2
+  Scenario: Only the provider data needed by Theseus is retained
+    Given my provider supplies a stable identity identifier, email, email verification status, display name, and additional profile fields
+    When I complete sign-in with that provider
+    Then the retained provider data should contain only the stable identity identifier, email, email verification status, and display name
+    And Theseus should retain neither the raw provider profile nor any provider tokens
+
+  @S-028 @criterion-3
+  Scenario: Provider tokens are discarded after unsuccessful authentication
+    Given Theseus has received provider tokens during my sign-in attempt
+    When authentication ends in failure
+    Then Theseus should retain no provider tokens from that attempt

@@ -25,8 +25,12 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 ## Non-Goals
 
 - Changes to sign-in methods other than OpenAuth. (from ticket, line 30)
+- Provider sign-out, new audit event types, and new retention rules. (from ticket, lines 55, 56)
 
 ## Constraints
+
+- OpenAuth users end their Theseus session through the existing sign-out flow. Reuse existing sign-in audit events when available. (from ticket, lines 55, 56)
+- Keep only the stable provider identity identifier, email, email verification status, and account display name. Discard tokens after authentication and omit raw profiles and unused fields from storage. (from ticket, lines 57, 58)
 
 - A user must successfully authenticate with OpenAuth. Both providers support sign-in with an unverified email address. (from ticket, lines 13, 22)
 - The ticket specifies no non-functional requirements. (from ticket, line 26)
@@ -45,7 +49,6 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 ## Open Questions
 
 - What initial display name should Theseus use if the provider supplies no usable name? “Theseus user” is a proposed fallback. (from ticket, line 45)
-- Should this feature include logout, audit events, or limits on stored profile data? Deferred: the ticket does not specify these behaviors.
 - Which performance, availability, accessibility, security, or privacy criteria should apply? Deferred: ticket line 26 sets no targets. One proposed target is a 95th-percentile sign-in callback time below 1.5 seconds excluding provider latency. Its measurement method remains open.
 
 ## Success Criteria
