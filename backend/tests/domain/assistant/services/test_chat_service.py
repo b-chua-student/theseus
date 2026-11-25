@@ -837,3 +837,83 @@ def test_ask_does_not_read_citations_from_the_appended_gap_report(
 
     assert "Study [1]" in answer.text
     assert answer.citations == ()
+
+
+def _record_embedded_texts(library: Library) -> list[str]:
+    """Record the texts the library embedder is asked to embed from now on."""
+    embedded: list[str] = []
+    original = library.embedder.generate
+
+    def recording(chunks: list[Chunk]) -> list:  # type: ignore[type-arg]
+        embedded.extend(chunk.text for chunk in chunks)
+        return original(chunks)
+
+    library.embedder.generate = recording  # type: ignore[method-assign]
+    return embedded
+
+
+def test_ask_searches_with_the_question_and_the_draft_when_manuscript_is_checked(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    embedded = _record_embedded_texts(library)
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Which selected studies support my enrollment figure?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="The trial enrolled 18 participants.",
+            source_ids=[str(methods.value)],
+            manuscript=True,
+        ),
+    )
+
+    assert embedded == [
+        "Which selected studies support my enrollment figure?\nThe trial enrolled 18 participants."
+    ]
+
+
+def test_ask_searches_with_the_quote_and_question_only_when_a_quote_is_given(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    embedded = _record_embedded_texts(library)
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "How does this compare?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="Adults recovered in 8 days. Children recovered in 5 days.",
+            source_ids=[str(methods.value)],
+            quote="Children recovered in 5 days",
+            manuscript=True,
+        ),
+    )
+
+    assert embedded == ["Children recovered in 5 days\nHow does this compare?"]
+
+
+def test_ask_searches_with_no_draft_text_when_manuscript_is_unchecked(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    embedded = _record_embedded_texts(library)
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Which selected studies support my enrollment figure?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="The trial enrolled 18 participants.",
+            source_ids=[str(methods.value)],
+            manuscript=False,
+        ),
+    )
+
+    assert embedded == ["Which selected studies support my enrollment figure?"]
+    assert model.drafts == [None]

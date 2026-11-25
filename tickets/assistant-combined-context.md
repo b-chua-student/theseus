@@ -15,7 +15,7 @@ The Assistant currently offers separate Manuscript and Source Library context op
 
 ## Expected Outcomes
 
-- [ ] A user can select library sources and ask which of those sources support a claim in the current manuscript. The Assistant uses the manuscript and evidence from the selected sources in the same answer.
+- [ ] A user can select library sources and ask which of those sources support a claim in the current manuscript. The Assistant uses the manuscript and evidence from the selected sources in the same answer. The user does not need to restate the claim in the question.
 - [ ] A user can quote a selected passage and ask how it compares with evidence from the selected sources. The answer addresses that passage.
 
 ## Rules / Constraints

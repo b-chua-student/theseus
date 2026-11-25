@@ -138,6 +138,7 @@ class ChatService:
                     query.text,
                     context.source_ids,
                     quote=context.quote,
+                    draft=context.manuscript_text,
                     fixed_texts=self._fixed_texts(history, query, context),
                 )
                 if context.search_library

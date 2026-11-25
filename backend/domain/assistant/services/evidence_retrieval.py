@@ -23,6 +23,7 @@ from domain.assistant.models.value_objects import (
     SourceOutcome,
     SourceStatus,
 )
+from domain.assistant.services.search_text import build_search_text
 
 logger = logging.getLogger(__name__)
 
@@ -119,12 +120,15 @@ class EvidenceRetriever:
         selected: Sequence[str] | None,
         *,
         quote: str | None = None,
+        draft: str | None = None,
         fixed_texts: Sequence[str] = (),
     ) -> Evidence:
         """Return the evidence for ``question`` from the selected sources of the project.
 
         ``selected`` are the requested source IDs; None means every active source of the
-        project. IDs outside the project are ignored. ``fixed_texts`` are the history, question,
+        project. IDs outside the project are ignored. The search text is the question with the
+        quote or, when there is no quote, a bounded excerpt of ``draft`` (None when Manuscript is
+        not selected); see ``build_search_text``. ``fixed_texts`` are the history, question,
         draft and quote that are sent regardless, and are counted against the budget.
         """
         if (
@@ -141,7 +145,8 @@ class EvidenceRetriever:
             documents = {
                 d.doc_ref_id: d for d in self._document_repository.list_by_project(project_id)
             }
-            searches = self._search_all(refs, documents, question, quote)
+            text = build_search_text(question, quote=quote, draft=draft)
+            searches = self._search_all(refs, documents, text)
             return self._admit(searches, self._budget(fixed_texts))
         except Exception:
             # Retrieval is best-effort: an outage shouldn't block chat.
@@ -170,11 +175,9 @@ class EvidenceRetriever:
         self,
         refs: list[DocumentRefId],
         documents: dict[DocumentRefId, IndexedDocument],
-        question: str,
-        quote: str | None,
+        text: str,
     ) -> list[_Search]:
         assert self._embedding_generator is not None
-        text = f"{quote}\n{question}" if quote else question
         probe = Chunk(id=ChunkId.new(), text=text, position="", location="", content_hash="")
         try:
             [embedding] = self._embedding_generator.generate([probe])
