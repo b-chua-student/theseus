@@ -19,6 +19,7 @@
   let savedConversations = $state([]);
   let historyLoading = $state(false);
   let historyError = $state('');
+  let historyOpen = $state(false);
   let loadedProject = $state(null);
   let historyRequest = 0;
 
@@ -26,6 +27,7 @@
     const id = projectId;
     if (id !== loadedProject) {
       loadedProject = id;
+      historyOpen = false;
       conversationId = null;
       messages = [];
       savedConversations = [];
@@ -227,6 +229,8 @@
 {#snippet icon(name, size = 14)}
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     {#if name === 'panel'}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/>
+    {:else if name === 'compose'}<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m15.5 4.5 4 4M10 18l-4 1 1-4L18.5 3.5a2.83 2.83 0 0 1 4 4Z" transform="translate(0 -1)"/>
+    {:else if name === 'refresh'}<path d="M20 7a9 9 0 1 0 1 8M20 2v5h-5"/>
     {:else if name === 'send'}<path d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13"/>{/if}
   </svg>
 {/snippet}
@@ -235,9 +239,14 @@
         <header class="scholar-header">
           <div class="scholar-identity"><span class="scholar-avatar" aria-hidden="true">t<span></span></span><div><h3>Theseus Scholar AI</h3></div></div>
           <button type="button" class="scholar-close" onclick={onclose} aria-label="Close assistant" title="Close assistant">{@render icon('panel')}</button>
+          <div class="history-actions">
+            <button type="button" aria-label="New chat" title="New chat" disabled={loading} onclick={newConversation}>{@render icon('compose', 16)}</button>
+            <button type="button" aria-label="Refresh" title="Refresh saved conversations" disabled={historyLoading || loading} onclick={() => refreshHistory()}>{@render icon('refresh', 16)}</button>
+            <button type="button" aria-expanded={historyOpen} aria-controls="assistant-history" onclick={() => historyOpen = !historyOpen}>History</button>
+          </div>
         </header>
 
-        <div class="conversation-history">
+        <div class="conversation-history" id="assistant-history" hidden={!historyOpen}>
           <label for="saved-conversations">Saved conversations</label>
           <select id="saved-conversations" value={conversationId ?? ''} disabled={loading || historyLoading} onchange={(event) => openConversation(event.currentTarget.value)}>
             <option value="">{historyLoading ? 'Loading conversations…' : 'Choose a conversation'}</option>
@@ -245,12 +254,9 @@
               <option value={conversation.id}>{conversation.title}</option>
             {/each}
           </select>
-          <button type="button" disabled={loading} onclick={newConversation}>New chat</button>
-          <button type="button" disabled={historyLoading || loading} onclick={() => refreshHistory()}>Refresh</button>
           {#if historyError}<p role="alert">{historyError}</p>
           {:else if !historyLoading && savedConversations.length === 0}<p>No saved conversations yet.</p>{/if}
         </div>
-        <ContextDropdown {projectId} bind:selection manuscriptAvailable={!!editor} />
         {#each unavailableSources as source (source.id)}
           <p class="scholar-unavailable" role="status">{source.title} is unavailable and was left out of the selection.</p>
         {/each}
@@ -284,6 +290,7 @@
           {#if loading}<div class="scholar-thinking" role="status"><span class="tiny-avatar" aria-hidden="true">t</span>Theseus is thinking<span class="thinking-dots" aria-hidden="true">…</span></div>{/if}
         </div>
         <div class="scholar-composer-area">
+          <ContextDropdown {projectId} bind:selection manuscriptAvailable={!!editor} />
           {#if selectionQuote}<div class="scholar-selection"><span class="selection-tag">QUOTED</span><span class="selection-excerpt" title={selectionQuote}>{selectionQuote}</span><button type="button" onclick={() => selectionQuote = ''} aria-label="Dismiss selected passage">×</button></div>{/if}
           <div class="scholar-composer-tools"><select aria-label="Writing tools" onchange={writingTool}><option value="">Writing tools</option><option value="Rewrite the current manuscript passage in a formal academic tone.">Academic tone</option><option value="Explain the current manuscript in clear, concise language.">Clear and concise</option><option value="Review the current manuscript for structure, clarity, and unsupported claims.">Review writing</option></select>
             {#if hasSelection && !selectionQuote}<button type="button" onclick={quoteSelection}>Quote selection</button>{/if}
@@ -301,7 +308,11 @@
   .conversation-history { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px; }
   .conversation-history label, .conversation-history p { width: 100%; font-size: 11px; margin: 0; }
   .conversation-history select { width: 100%; min-width: 0; }
-  .conversation-history button, .conversation-history select { padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: inherit; }
+  .conversation-history[hidden] { display: none; }
+  .history-actions { display: flex; width: 100%; gap: 6px; }
+  .history-actions button, .conversation-history select { padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: inherit; }
+  .history-actions button { font-size: 11px; }
+  .history-actions button:last-child { margin-left: auto; }
 
   .scholar-chat, .scholar-chat * { box-sizing: border-box; }
   button, select, textarea { font: inherit; color: inherit; margin: 0; }
@@ -310,7 +321,7 @@
   button:not(:disabled):hover { background: #e9ede9; }
   button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
   .chat.scholar-chat { width: 370px; min-width: 0; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); font-family: var(--sans); }
-  .scholar-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px; gap: 10px; }
+  .scholar-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 14px 14px 10px; gap: 10px; }
   .scholar-identity { display: flex; gap: 9px; align-items: center; min-width: 0; }.scholar-identity > div { min-width: 0; }.scholar-identity h3 { font-family: var(--sans); font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; margin: 0 0 3px; }
   .scholar-avatar { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 10px; background: var(--accent); color: white; font: 600 17px var(--sans); flex-shrink: 0; position: relative; }.scholar-avatar > span { position: absolute; width: 7px; height: 7px; background: #bed1cb; border: 2px solid var(--surface); border-radius: 50%; right: -2px; top: 0; }.scholar-close { background: transparent; border: 0; padding: 3px; color: var(--text-muted); }
 

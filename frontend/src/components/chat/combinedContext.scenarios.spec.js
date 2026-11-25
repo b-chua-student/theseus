@@ -222,6 +222,8 @@ class Panel {
   async openSaved() {
     await this.ui();
     await this.close();
+    const closedHistory = screen.queryByRole('button', { name: 'History', expanded: false });
+    if (closedHistory) await this.user.click(closedHistory);
     await screen.findByRole('option', { name: 'Saved chat' });
     await this.user.click(screen.getByRole('button', { name: 'New chat' }));
     await this.user.selectOptions(screen.getByRole('combobox', { name: 'Saved conversations' }), SAVED);

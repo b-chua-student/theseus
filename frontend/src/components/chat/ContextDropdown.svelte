@@ -92,7 +92,8 @@
 
 <div class="context-dropdown" bind:this={root} role="presentation" {onkeydown}>
   <button type="button" class="context-button" bind:this={button} aria-expanded={open} aria-haspopup="dialog" onclick={toggle}>
-    Context: {summary}
+    <span class="context-caption">Context:</span>
+    <span class="context-summary">{summary}</span>
   </button>
   {#if open}
     <div class="context-menu" role="dialog" aria-label="Context options">
@@ -120,11 +121,42 @@
 </div>
 
 <style>
-  .context-dropdown { position: relative; margin: 8px 14px 0; font-size: 11px; }
-  .context-button { width: 100%; justify-content: space-between; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-muted); color: var(--text); font: 10px var(--sans); text-align: left; overflow-wrap: anywhere; }
-  .context-menu { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); display: flex; flex-direction: column; max-height: 360px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 6px 18px #0002; }
+  .context-dropdown { position: relative; margin: 0 0 8px; font-size: 11px; }
+  .context-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--accent);
+    text-align: left;
+    cursor: pointer;
+  }
+  .context-caption { color: var(--text-muted); font: 10px var(--mono); }
+  .context-summary { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 600 11px var(--sans); }
+  .context-button::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border: solid currentColor;
+    border-width: 0 1.5px 1.5px 0;
+    transform: translateY(-2px) rotate(45deg);
+  }
+  .context-button[aria-expanded='true']::after { transform: translateY(2px) rotate(225deg); }
+  .context-button:hover, .context-button[aria-expanded='true'] { border-color: var(--accent); }
+  .context-dropdown :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .context-menu { position: absolute; z-index: 5; left: 0; right: 0; bottom: calc(100% + 4px); display: flex; flex-direction: column; max-height: min(360px, 50dvh); overflow-y: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 6px 18px #0002; }
   .context-fixed { display: flex; flex-direction: column; flex-shrink: 0; gap: 2px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-  .context-menu label { display: flex; align-items: center; gap: 7px; padding: 4px 0; overflow-wrap: anywhere; }
+  .context-menu label { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 5px; overflow-wrap: anywhere; }
+  .context-menu label:has(input:checked) { background: var(--surface-muted); color: var(--accent); }
+  .context-menu label:has(input:disabled) { color: var(--text-muted); }
+  .context-menu label:has(input:enabled) { cursor: pointer; }
+  .context-menu input[type='checkbox'] { flex: none; margin: 0; accent-color: var(--accent); }
   .context-menu button { align-self: flex-start; padding: 4px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); }
   .context-fixed input[type='search'] { margin-top: 4px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px; background: var(--paper); color: inherit; font: inherit; }
   .context-sources { flex: 1; min-height: 0; overflow-y: auto; padding-top: 4px; }
