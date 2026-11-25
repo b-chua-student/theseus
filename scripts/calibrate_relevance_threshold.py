@@ -4,14 +4,20 @@ Run from the repository root with GEMINI_API_KEY set in backend/.env:
 
     python scripts/calibrate_relevance_threshold.py [--data scripts/calibration/labelled_passages.json]
 
-The script embeds each query (with its quote, as the assistant does) and each labelled passage
-with the same Gemini embedding model that indexes the library, then scores every pair by cosine
-similarity. Passages labelled supporting, qualifying or contradicting count as relevant, because
-conflicting evidence must reach the model. Unrelated passages must fall below the threshold.
+Each case is scored with the exact text the assistant searches with: the production
+``build_search_text`` applied to the case's question, its quote and its draft. A case with a
+quote searches with the quote and question. A case with a draft searches with the question and a
+draft excerpt of at most 1,200 characters; ``filler_sentences`` puts that many unrelated
+sentences before the draft's claim, to make a long draft whose claim is at the end.
 
-Even-numbered cases choose the threshold; odd-numbered cases only check it. Only the embedding
-API is called, and only with the text in the data file. Nothing is written, and the assistant is
-not reconfigured: set ASSISTANT_RELEVANCE_THRESHOLD yourself once you accept the suggestion.
+The query and every labelled passage are embedded with the Gemini embedding model that indexes
+the library, in a single embedding request with no retries, and scored by cosine similarity.
+Passages labelled supporting, qualifying or contradicting count as relevant, because conflicting
+evidence must reach the model. Unrelated passages must fall below the threshold.
+
+Cases are split in alternating pairs: the first two choose the threshold, the next two only
+check it, and so on, so that both sets mix the question-only, quote and draft cases. Nothing is
+written and the assistant is not reconfigured: set ASSISTANT_RELEVANCE_THRESHOLD yourself.
 """
 
 import argparse
@@ -21,13 +27,26 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from google.genai import types
+
+    from domain.assistant.infrastructure.adapters.gemini_embedding_generator import (
+        EmbeddingModels,
+    )
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "backend"))
+
+from domain.assistant.services.search_text import build_search_text  # noqa: E402
 
 Embedder = Callable[[list[str]], list[list[float]]]
 
-ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA = ROOT / "scripts" / "calibration" / "labelled_passages.json"
 RELEVANT_LABELS = {"supporting", "qualifying", "contradicting"}
 UNRELATED = "unrelated"
+FILLER = "The weather station recorded the readings each morning."
 
 
 @dataclass(frozen=True)
@@ -37,6 +56,7 @@ class Sample:
     label: str
     score: float
     text: str = field(default="", compare=False)
+    case: int = field(default=-1, compare=False)
 
     @property
     def relevant(self) -> bool:
@@ -89,6 +109,19 @@ def evaluate(samples: Sequence[Sample], threshold: float) -> Metrics:
     return Metrics(threshold, tp, fp, fn, tn)
 
 
+def missed(samples: Sequence[Sample], threshold: float) -> list[Sample]:
+    """Return the relevant passages the threshold would drop, lowest first."""
+    return sorted((s for s in samples if s.relevant and s.score < threshold), key=lambda s: s.score)
+
+
+def admitted(samples: Sequence[Sample], threshold: float) -> list[Sample]:
+    """Return the unrelated passages the threshold would keep, highest first."""
+    return sorted(
+        (s for s in samples if not s.relevant and s.score >= threshold),
+        key=lambda s: -s.score,
+    )
+
+
 def choose_threshold(samples: Sequence[Sample]) -> float:
     """Return the cutoff that best separates relevant from unrelated passages.
 
@@ -114,46 +147,101 @@ def choose_threshold(samples: Sequence[Sample]) -> float:
     return (best + lower[-1]) / 2 if lower else best
 
 
-def split_cases(cases: Sequence[dict]) -> tuple[list[dict], list[dict]]:
-    """Split cases into those that choose the threshold and those that only check it."""
-    return list(cases[0::2]), list(cases[1::2])
+def split_indices(count: int) -> tuple[list[int], list[int]]:
+    """Return the case indices that choose the threshold and those that only check it.
+
+    Cases alternate in pairs, so each set mixes the question-only, quote and draft cases.
+    """
+    fit = [i for i in range(count) if i % 4 in (0, 1)]
+    check = [i for i in range(count) if i % 4 in (2, 3)]
+    return fit, check
+
+
+def case_draft(case: dict) -> str | None:
+    """Return a case's draft, with any filler sentences before its claim, or None."""
+    draft = case.get("draft")
+    if draft is None:
+        return None
+    return " ".join([*([FILLER] * case.get("filler_sentences", 0)), draft])
 
 
 def query_text(case: dict) -> str:
-    """Return the text the assistant embeds for a case: the quote, then the question."""
-    quote = case.get("quote")
-    return f"{quote}\n{case['query']}" if quote else case["query"]
+    """Return the exact text the assistant embeds when it searches for a case."""
+    return build_search_text(case["query"], quote=case.get("quote"), draft=case_draft(case))
 
 
-def score_cases(cases: Sequence[dict], embed: Embedder) -> list[Sample]:
-    """Score every passage of every case against its query."""
+def score_all(cases: Sequence[dict], embed: Embedder) -> list[list[Sample]]:
+    """Score every passage of every case against its query, in one embedding call."""
     texts = [query_text(case) for case in cases]
     texts += [p["text"] for case in cases for p in case["passages"]]
     vectors = embed(texts)
     queries, passages = vectors[: len(cases)], iter(vectors[len(cases) :])
     return [
-        Sample(p["label"], cosine(query, next(passages)), p["text"])
-        for query, case in zip(queries, cases, strict=True)
-        for p in case["passages"]
+        [Sample(p["label"], cosine(query, next(passages)), p["text"], index) for p in case["passages"]]
+        for index, (query, case) in enumerate(zip(queries, cases, strict=True))
     ]
 
 
-def gemini_embedder() -> Embedder:
-    """Return an embedder backed by the assistant's Gemini embedding generator."""
-    sys.path.insert(0, str(ROOT / "backend"))
+class CountingEmbeddingModels:
+    """Passes embedding requests through to Gemini and counts them."""
+
+    def __init__(self, models: "EmbeddingModels") -> None:
+        self._models = models
+        self.requests = 0
+
+    def embed_content(
+        self, *, model: str, contents: list[str], config: "types.EmbedContentConfig"
+    ) -> "types.EmbedContentResponse":
+        """Count the request, then send it."""
+        self.requests += 1
+        return self._models.embed_content(model=model, contents=contents, config=config)
+
+
+class CountingEmbeddingClient:
+    """A Gemini client whose embedding requests are counted."""
+
+    def __init__(self, models: CountingEmbeddingModels, owner: object) -> None:
+        self._models = models
+        # The real client closes its HTTP connection when it is garbage-collected, so keep it.
+        self._owner = owner
+
+    @property
+    def models(self) -> CountingEmbeddingModels:
+        """Return the counting models API."""
+        return self._models
+
+
+def gemini_embedder() -> tuple[Embedder, Callable[[], int]]:
+    """Return an embedder backed by Gemini and a function counting its API requests.
+
+    The key is read from backend/.env and never printed. The Gemini client makes one attempt
+    per request, so nothing is retried.
+    """
+    import os
+
+    from dotenv import load_dotenv
+    from google import genai
+    from google.genai import types
+
     from domain.assistant.infrastructure.adapters.gemini_embedding_generator import (
         GeminiEmbeddingGenerator,
     )
     from domain.assistant.models.value_objects import Chunk, ChunkId
 
-    generator = GeminiEmbeddingGenerator()
+    load_dotenv(ROOT / "backend" / ".env")
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        raise SystemExit("GEMINI_API_KEY is not set in backend/.env")
+    real = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=30_000))
+    counting = CountingEmbeddingModels(real.models)
+    generator = GeminiEmbeddingGenerator(client=CountingEmbeddingClient(counting, real))
     print(f"Embedding model: {generator.model}")
 
     def embed(texts: list[str]) -> list[list[float]]:
         chunks = [Chunk(ChunkId.new(), text, "", "", "") for text in texts]
         return [e.vector for e in generator.generate(chunks)]
 
-    return embed
+    return embed, lambda: counting.requests
 
 
 def describe(name: str, metrics: Metrics) -> str:
@@ -161,8 +249,7 @@ def describe(name: str, metrics: Metrics) -> str:
     return (
         f"{name}: threshold {metrics.threshold:.4f}  recall {metrics.recall:.2f}  "
         f"precision {metrics.precision:.2f}  unrelated kept {metrics.false_positive_rate:.2f}  "
-        f"(kept {metrics.true_positives + metrics.false_positives}, "
-        f"missed {metrics.false_negatives})"
+        f"(relevant missed {metrics.false_negatives}, unrelated admitted {metrics.false_positives})"
     )
 
 
@@ -179,28 +266,52 @@ def label_ranges(samples: Sequence[Sample]) -> list[str]:
     return lines
 
 
+def sweep(samples: Sequence[Sample], start: float = 0.60, stop: float = 0.90) -> list[str]:
+    """Return a table of recall and unrelated-kept for evenly spaced cutoffs."""
+    lines = ["  cutoff  relevant kept  unrelated kept"]
+    for step in range(round((stop - start) / 0.025) + 1):
+        threshold = start + step * 0.025
+        metrics = evaluate(samples, threshold)
+        lines.append(
+            f"  {threshold:.3f}  {metrics.true_positives:>3}/{metrics.true_positives + metrics.false_negatives:<3}"
+            f"        {metrics.false_positives:>3}/{metrics.false_positives + metrics.true_negatives:<3}"
+        )
+    return lines
+
+
+def report_set(name: str, samples: Sequence[Sample], threshold: float) -> None:
+    """Print how a threshold does on one set, naming each miss and each admission."""
+    print(describe(name, evaluate(samples, threshold)))
+    for s in missed(samples, threshold):
+        print(f"  MISSED relevant  ({s.label}) {s.score:.3f}  case {s.case}: {s.text}")
+    for s in admitted(samples, threshold):
+        print(f"  ADMITTED unrelated {s.score:.3f}  case {s.case}: {s.text}")
+
+
 def main() -> None:
     """Score the labelled passages and print the suggested threshold."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     cases = json.loads(parser.parse_args().data.read_text(encoding="utf-8"))
-    calibration, held_out = split_cases(cases)
+    fit_index, check_index = split_indices(len(cases))
 
-    embed = gemini_embedder()
-    fit = score_cases(calibration, embed)
-    check = score_cases(held_out, embed)
+    embed, requests = gemini_embedder()
+    scored = score_all(cases, embed)
+    fit = [s for i in fit_index for s in scored[i]]
+    check = [s for i in check_index for s in scored[i]]
 
     threshold = choose_threshold(fit)
-    print(f"\nScores by label ({len(calibration)} calibration cases):")
+    print(f"\nScores by label ({len(fit_index)} calibration cases):")
     print("\n".join(label_ranges(fit)))
-    print()
-    print(describe("calibration", evaluate(fit, threshold)))
-    print(describe("held-out   ", evaluate(check, threshold)))
-    for name, samples in (("calibration", fit), ("held-out", check)):
-        for s in sorted(samples, key=lambda s: -s.score):
-            if not s.relevant and s.score >= threshold:
-                print(f"  unrelated kept ({name}): {s.score:.3f}  {s.text}")
-    print(f"\nSuggested ASSISTANT_RELEVANCE_THRESHOLD={threshold:.4f}")
+    print(f"\nScores by label ({len(check_index)} held-out cases):")
+    print("\n".join(label_ranges(check)))
+    print(f"\nChosen on the calibration cases: {threshold:.4f}\n")
+    report_set("calibration", fit, threshold)
+    report_set("held-out   ", check, threshold)
+    print("\nAll cases pooled:")
+    print("\n".join(sweep(fit + check)))
+    print(f"\nEmbedding requests used: {requests()}")
+    print(f"Suggested ASSISTANT_RELEVANCE_THRESHOLD={threshold:.4f}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 [
   {
     "query": "Which studies support my enrollment figure of 18 participants?",
+    "draft": "The trial enrolled 18 participants.",
     "passages": [
       {"label": "supporting", "text": "The trial enrolled 18 participants across two sites."},
       {"label": "qualifying", "text": "Eighteen adults were enrolled in the adult arm; a separate pediatric arm enrolled nine more."},
@@ -22,6 +23,7 @@
   },
   {
     "query": "Do the selected studies support that sleep improves memory consolidation?",
+    "draft": "Sleep improves memory consolidation.",
     "passages": [
       {"label": "supporting", "text": "Participants who slept after learning recalled 20 percent more word pairs than those who stayed awake."},
       {"label": "qualifying", "text": "Sleep improved recall of word pairs, but only for material learned within two hours of bedtime."},
@@ -43,6 +45,7 @@
   },
   {
     "query": "Do the selected studies agree that tutoring raises reading scores?",
+    "draft": "Tutoring raises reading scores.",
     "passages": [
       {"label": "supporting", "text": "Pupils who received weekly tutoring gained eight points more on reading tests than their peers."},
       {"label": "qualifying", "text": "Tutoring raised reading scores for younger pupils, with no effect in the oldest grade."},
@@ -64,6 +67,7 @@
   },
   {
     "query": "Which selected studies report that the battery keeps 80 percent capacity after 500 cycles?",
+    "draft": "The battery keeps 80 percent capacity after 500 cycles.",
     "passages": [
       {"label": "supporting", "text": "After 500 charge cycles the cells retained 80 percent of their original capacity."},
       {"label": "qualifying", "text": "Cells kept 80 percent capacity after 500 cycles when charged at room temperature only."},
@@ -85,6 +89,7 @@
   },
   {
     "query": "Do my sources back up that remote workers report higher job satisfaction?",
+    "draft": "Remote workers report higher job satisfaction.",
     "passages": [
       {"label": "supporting", "text": "Remote workers rated their job satisfaction higher than office workers on every survey wave."},
       {"label": "qualifying", "text": "Remote workers reported higher job satisfaction, though only those with a dedicated home workspace."},
@@ -106,6 +111,7 @@
   },
   {
     "query": "Which selected studies find that mindfulness reduces anxiety?",
+    "draft": "Mindfulness reduces anxiety.",
     "passages": [
       {"label": "supporting", "text": "Anxiety scores fell by a third in the group that completed the eight-week mindfulness course."},
       {"label": "qualifying", "text": "Mindfulness reduced anxiety in participants with mild symptoms but not in severe cases."},
@@ -123,6 +129,42 @@
       {"label": "contradicting", "text": "Median survival with the new regimen was 9 months."},
       {"label": "unrelated", "text": "Patients were followed up by telephone every three months."},
       {"label": "unrelated", "text": "The lighthouse was restored with funds from a heritage grant."}
+    ]
+  },
+  {
+    "query": "Which selected studies support my fatigue finding?",
+    "draft": "Daily iron supplements reduced fatigue in the trial group.",
+    "filler_sentences": 30,
+    "passages": [
+      {"label": "supporting", "text": "Participants taking daily iron supplements reported less fatigue than those on placebo."},
+      {"label": "qualifying", "text": "Daily iron supplements reduced fatigue only in participants who were iron deficient."},
+      {"label": "contradicting", "text": "Fatigue scores were the same in the iron and placebo groups."},
+      {"label": "unrelated", "text": "Supplements were dispensed in sealed blister packs by the study pharmacy."},
+      {"label": "unrelated", "text": "The ferry timetable changes at the start of the summer season."}
+    ]
+  },
+  {
+    "query": "Which selected studies support my dropout figure?",
+    "draft": "Only 4 percent of participants dropped out of the program.",
+    "filler_sentences": 30,
+    "passages": [
+      {"label": "supporting", "text": "Dropout was 4 percent over the twelve-week program."},
+      {"label": "qualifying", "text": "Dropout was 4 percent among adults, but 15 percent among adolescents."},
+      {"label": "contradicting", "text": "Dropout reached 19 percent by the end of the program."},
+      {"label": "unrelated", "text": "Participants who dropped out were asked to complete an exit questionnaire."},
+      {"label": "unrelated", "text": "The lecture hall seats four hundred people."}
+    ]
+  },
+  {
+    "query": "Do my sources back my glacier retreat estimate?",
+    "draft": "The glacier retreated 150 meters between 2010 and 2020.",
+    "filler_sentences": 30,
+    "passages": [
+      {"label": "supporting", "text": "The glacier front retreated by 150 meters over the decade 2010 to 2020."},
+      {"label": "qualifying", "text": "The glacier retreated 150 meters over the decade, but only on its eastern side."},
+      {"label": "contradicting", "text": "The glacier front retreated by 40 meters between 2010 and 2020."},
+      {"label": "unrelated", "text": "Retreat was measured with repeat satellite imagery and ground markers."},
+      {"label": "unrelated", "text": "The village bakery sells rye bread on market days."}
     ]
   }
 ]
