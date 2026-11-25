@@ -23,6 +23,7 @@
 | R-015 | Reuse existing sign-in audit events when available. | from ticket | 56 | S-015, S-019, S-023 |
 | R-016 | Retain only the stable provider identifier and the email, email verification status and display name needed for the account. | from ticket | 57, 58 | S-027 |
 | R-017 | Use provider tokens only during authentication and discard them afterward. Omit raw profiles and unused fields from storage. | from ticket | 58 | S-020, S-023, S-027, S-028 |
+| R-018 | Show both provider buttons on the regular sign-in page. Start available providers and explain unavailable choices on the same page. | from ticket | 76, 77 | S-002, S-029 |
 
 ## Open Questions
 

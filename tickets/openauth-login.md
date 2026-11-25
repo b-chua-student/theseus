@@ -70,3 +70,8 @@ This release has no specified performance target and no additional availability,
 - [x] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged
+
+## Provider buttons on the regular sign-in page
+
+- Show “Continue with Google” and “Continue with Microsoft” on the regular sign-in page even when a provider is unavailable.
+- Selecting an available provider starts its sign-in flow. Selecting an unavailable provider explains that sign-in with that provider is unavailable and leaves the user on the sign-in page.

@@ -20,9 +20,26 @@ Feature: User can log in through email via OAuth
     And I should see a "Continue with Microsoft" button
 
   @S-002 @criterion-1
-  Scenario: User continues to Google to authorize sign-in
-    When I click "Continue with Google"
-    Then I should see the Google authorization page for Theseus
+  Scenario Outline: User continues to the selected provider to authorize sign-in
+    When I click "Continue with <provider>"
+    Then I should see the <provider> authorization page for Theseus
+
+    Examples:
+      | provider  |
+      | Google    |
+      | Microsoft |
+
+  @edge @S-029 @criterion-4
+  Scenario Outline: Provider buttons remain visible when sign-in becomes unavailable
+    Given sign-in with <provider> has become unavailable
+    When I reopen the regular sign-in page and select "Continue with <provider>"
+    Then I should see that sign-in with <provider> is unavailable
+    And I should remain signed out on the sign-in page with both provider buttons visible
+
+    Examples:
+      | provider  |
+      | Google    |
+      | Microsoft |
 
   # ---------------------------------------------------------------
   # Successful login

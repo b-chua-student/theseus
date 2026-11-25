@@ -16,6 +16,7 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 ## In Scope
 
 - Sign in to Theseus through Google or Microsoft. (from ticket, line 13)
+- Show both provider buttons on the regular sign-in page. An available provider starts sign-in. An unavailable provider shows an explanation on the same page. (from ticket, lines 76, 77)
 - Automatically create a passwordless account when a new identity signs in and its email matches no existing account. Use the provider's display name when usable and “Theseus user” otherwise. The user can edit it later. (from ticket, lines 40, 41)
 
 - After sign-in, return users to the Theseus page they requested. Send them home if they started directly from sign-in or the requested page is unavailable. (from ticket, line 49)
@@ -56,6 +57,7 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 1. `@criterion-1` A Theseus user can start sign-in with OpenAuth. (from ticket, line 13)
 2. `@criterion-2` A user who successfully signs in with OpenAuth is signed in to Theseus. (from ticket, line 17)
 3. `@criterion-3` A user whose OpenAuth sign-in fails remains signed out of Theseus. (from ticket, lines 18, 22)
+4. `@criterion-4` Both provider buttons remain visible when a provider is unavailable, and selecting it explains its status. (from ticket, lines 76, 77)
 
 ## Reference Links
 
