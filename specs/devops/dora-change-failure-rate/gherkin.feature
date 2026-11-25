@@ -2,16 +2,16 @@ Feature: Track DORA change failure rate
   Theseus maintainers can see how often production deployments require immediate intervention.
 
   Background:
-    Given each confirmed intervention has a maintainer-confirmed incident record that identifies the original production deployment by its deploy ID and states that it caused the issue
-    And each such record includes the intervention type, start time, and a link to the rollback deployment or hotfix pull request
+    Given each confirmed intervention has an incident record that a maintainer confirmed
+    And the record identifies the original production deploy ID and confirms that the deploy caused the issue
+    And the record lists the intervention type and start time and links the rollback deploy or hotfix PR
 
   @S-028 @criterion-1
   Scenario: Report the share of production deployments requiring intervention
     Given complete evidence for 4 production deployments in the report
     And one production deployment required a confirmed rollback within 24 hours of going live
     And another production deployment required a confirmed hotfix within 24 hours of going live
-    And the other two production deployments required no intervention
-    And a staging deployment also required immediate intervention
+    And only a staging deployment required immediate intervention among the remaining deployments
     When a maintainer reviews the change failure rate report
     Then the report shows 2 production deployments requiring immediate intervention
     And the report shows 4 total production deployments
@@ -37,8 +37,8 @@ Feature: Track DORA change failure rate
     And the original deployment attribution is pending maintainer confirmation
 
     Examples:
-      | corrective deployment                                        |
-      | rollback                                                     |
+      | corrective deployment                                                         |
+      | rollback                                                                      |
       | hotfix merged directly into main from a pull request labeled production-hotfix |
 
   @S-038 @criterion-9 @criterion-11
