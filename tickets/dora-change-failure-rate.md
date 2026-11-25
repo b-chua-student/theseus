@@ -6,6 +6,8 @@ This metric helps maintainers see how often production changes require immediate
 ## Context
 The Theseus DevOps requirements call for this metric. [DORA metric definitions](https://dora.dev/guides/dora-metrics/)
 
+Theseus deploys to production on Render, where maintainers can review production deployment history.
+
 ## Scope
 - Report the percentage of production deployments that require immediate intervention, such as a rollback or hotfix.
 - Let maintainers run the report on demand and run it automatically after each merge into main.
