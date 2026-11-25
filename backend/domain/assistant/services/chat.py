@@ -140,6 +140,7 @@ class ChatService:
                     quote=context.quote,
                     draft=context.manuscript_text,
                     fixed_texts=self._fixed_texts(history, query, context),
+                    known_titles={s.id: s.title for s in conversation.sources if s.title},
                 )
                 if context.search_library
                 else Evidence.empty()
@@ -162,20 +163,26 @@ class ChatService:
             logger.exception("ChatService: model failed unexpectedly")
             raise ChatModelError("The assistant failed to answer.") from exc
 
-        citations = self._citations(answer, evidence.excerpts)
-        report = evidence.gap_report()
-        text = f"{answer.text}\n\n{report}" if report else answer.text
-        answer = replace(answer, text=text, citations=citations)
-        conversation.context_scope = context.scope
-        conversation.web = context.web
-        conversation.manuscript = context.manuscript
-        conversation.source_ids = (
-            list(context.source_ids) if context.source_ids is not None else None
-        )
-        conversation.sources = self._selected_sources(conversation, context.source_ids)
-        conversation.answer(exchange.id, answer)
+        try:
+            citations = self._citations(answer, evidence.excerpts)
+            report = evidence.gap_report()
+            text = f"{answer.text}\n\n{report}" if report else answer.text
+            answer = replace(answer, text=text, citations=citations)
+            conversation.context_scope = context.scope
+            conversation.web = context.web
+            conversation.manuscript = context.manuscript
+            conversation.source_ids = (
+                list(context.source_ids) if context.source_ids is not None else None
+            )
+            conversation.sources = self._selected_sources(conversation, context.source_ids)
+            conversation.answer(exchange.id, answer)
 
-        self._repository.save(conversation)
+            self._repository.save(conversation)
+        except Exception:
+            # The model already answered; don't leave the exchange pending, or every later
+            # question would be rejected.
+            conversation.discard_pending()
+            raise
         return answer
 
     @staticmethod
@@ -217,14 +224,16 @@ class ChatService:
         if not source_ids:
             return []
         earlier = {source.id: source.title for source in conversation.sources}
-        current = (
-            {
-                str(d.doc_ref_id.value): d.title.value
-                for d in self._document_repository.list_by_project(conversation.project_id)
-            }
-            if self._document_repository is not None
-            else {}
-        )
+        current: dict[str, str] = {}
+        if self._document_repository is not None:
+            try:
+                current = {
+                    str(d.doc_ref_id.value): d.title.value
+                    for d in self._document_repository.list_by_project(conversation.project_id)
+                }
+            except Exception:
+                # A failed refresh keeps the saved titles; it must not lose the answer.
+                logger.exception("ChatService: refreshing source titles failed; keeping saved ones")
         return [
             SelectedSource(id=value, title=current.get(value, earlier.get(value, "")))
             for value in source_ids

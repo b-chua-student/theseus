@@ -917,3 +917,74 @@ def test_ask_searches_with_no_draft_text_when_manuscript_is_unchecked(
 
     assert embedded == ["Which selected studies support my enrollment figure?"]
     assert model.drafts == [None]
+
+
+def _select(library: Library, *sources: DocumentRefId) -> ExchangeContext:
+    return ExchangeContext.decode(
+        "source_library", source_ids=[str(source.value) for source in sources]
+    )
+
+
+def test_a_failed_title_refresh_keeps_the_saved_titles_and_still_returns_the_answer(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    conversation_id = str(retrieving_service.start(project_id).value)
+    retrieving_service.ask(conversation_id, "First?", context=_select(library, methods))
+    original = library.documents.list_by_project
+    calls = 0
+
+    def flaky(project: ProjectId) -> list[IndexedDocument]:
+        nonlocal calls
+        calls += 1
+        if calls >= 2:  # the retriever reads once; the title refresh reads second
+            raise RuntimeError("repository down")
+        return original(project)
+
+    library.documents.list_by_project = flaky  # type: ignore[method-assign,assignment]
+
+    answer = retrieving_service.ask(conversation_id, "Second?", context=_select(library, methods))
+
+    saved = retrieving_service.get(project_id, conversation_id)
+    assert answer.text == "An answer."
+    assert len(saved.history) == 2
+    assert [(s.id, s.title) for s in saved.sources] == [(str(methods.value), "Methods")]
+
+
+def test_a_failure_while_finishing_the_exchange_discards_the_pending_question(
+    model: FakeChatModel, retrieving_service: ChatService, project_id: str
+) -> None:
+    conversation_id = str(retrieving_service.start(project_id).value)
+    real = retrieving_service._selected_sources  # noqa: SLF001
+
+    def broken(*args: object, **kwargs: object) -> list:  # type: ignore[type-arg]
+        raise RuntimeError("could not finish")
+
+    retrieving_service._selected_sources = broken  # type: ignore[method-assign,assignment]  # noqa: SLF001
+    with pytest.raises(RuntimeError, match="could not finish"):
+        retrieving_service.ask(conversation_id, "Lost?")
+
+    assert retrieving_service.get(project_id, conversation_id).pending is None
+    retrieving_service._selected_sources = real  # type: ignore[method-assign]  # noqa: SLF001
+    assert retrieving_service.ask(conversation_id, "Retry?").text == "An answer."
+
+
+def test_a_source_removed_since_the_last_exchange_is_reported_unavailable_by_its_saved_title(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    replication = library.add_source("Replication text", title="Replication")
+    conversation_id = str(retrieving_service.start(project_id).value)
+    retrieving_service.ask(
+        conversation_id, "First?", context=_select(library, methods, replication)
+    )
+    library.active.remove(replication)
+
+    retrieving_service.ask(
+        conversation_id, "Second?", context=_select(library, methods, replication)
+    )
+
+    assert [(o.title, o.status.value) for o in model.outcomes[-1]] == [
+        ("Replication", "unavailable")
+    ]
+    assert [chunk.title for chunk in model.calls[-1][2] or []] == ["Methods"]

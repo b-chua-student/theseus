@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 
@@ -122,11 +122,16 @@ class EvidenceRetriever:
         quote: str | None = None,
         draft: str | None = None,
         fixed_texts: Sequence[str] = (),
+        known_titles: Mapping[str, str] | None = None,
     ) -> Evidence:
         """Return the evidence for ``question`` from the selected sources of the project.
 
         ``selected`` are the requested source IDs; None means every active source of the
-        project. IDs outside the project are ignored. The search text is the question with the
+        project. A requested ID that is no longer an active source of the project is reported
+        unavailable, never searched, when it is known to belong to the project: it has an
+        indexed document there, or ``known_titles`` (ID to title, from the conversation's saved
+        selection) names it. Any other ID, such as one from another project, is ignored and
+        never named. The search text is the question with the
         quote or, when there is no quote, a bounded excerpt of ``draft`` (None when Manuscript is
         not selected); see ``build_search_text``. ``fixed_texts`` are the history, question,
         draft and quote that are sent regardless, and are counted against the budget.
@@ -139,15 +144,18 @@ class EvidenceRetriever:
         ):
             return Evidence.empty()
         try:
-            refs = self._selected_refs(project_id, selected)
-            if not refs:
-                return Evidence.empty()
+            refs, removed = self._selected_refs(project_id, selected)
             documents = {
                 d.doc_ref_id: d for d in self._document_repository.list_by_project(project_id)
             }
-            text = build_search_text(question, quote=quote, draft=draft)
-            searches = self._search_all(refs, documents, text)
-            return self._admit(searches, self._budget(fixed_texts))
+            gone = self._removed_outcomes(removed, documents, known_titles or {})
+            if not refs and not gone:
+                return Evidence.empty()
+            searches: list[_Search] = []
+            if refs:
+                text = build_search_text(question, quote=quote, draft=draft)
+                searches = self._search_all(refs, documents, text)
+            return self._admit(searches, self._budget(fixed_texts), gone)
         except Exception:
             # Retrieval is best-effort: an outage shouldn't block chat.
             logger.exception("EvidenceRetriever: retrieval failed; answering without context")
@@ -155,21 +163,41 @@ class EvidenceRetriever:
 
     def _selected_refs(
         self, project_id: ProjectId, selected: Sequence[str] | None
-    ) -> list[DocumentRefId]:
+    ) -> tuple[list[DocumentRefId], list[DocumentRefId]]:
+        """Return the selected active sources, and the requested IDs that are not active."""
         assert self._source_ids is not None
         allowed = self._source_ids(project_id)
         if selected is None:
-            return list(dict.fromkeys(allowed))
+            return list(dict.fromkeys(allowed)), []
         permitted = set(allowed)
         refs: dict[DocumentRefId, None] = {}
+        removed: dict[DocumentRefId, None] = {}
         for value in selected:
             try:
                 ref = DocumentRefId.from_str(value)
             except InvalidDocumentRefIdError:
                 continue
-            if ref in permitted:
-                refs[ref] = None
-        return list(refs)
+            (refs if ref in permitted else removed)[ref] = None
+        return list(refs), list(removed)
+
+    @staticmethod
+    def _removed_outcomes(
+        removed: list[DocumentRefId],
+        documents: dict[DocumentRefId, IndexedDocument],
+        known_titles: Mapping[str, str],
+    ) -> list[SourceOutcome]:
+        """Report each non-active requested ID as unavailable, if it belongs to the project.
+
+        Ownership is shown by a saved title from this conversation or by an indexed document of
+        this project. An ID with neither may belong to another project, so it is not named.
+        """
+        outcomes = []
+        for ref in removed:
+            document = documents.get(ref)
+            title = known_titles.get(str(ref.value)) or (document.title.value if document else "")
+            if title:
+                outcomes.append(SourceOutcome(ref, title, SourceStatus.UNAVAILABLE))
+        return outcomes
 
     def _search_all(
         self,
@@ -242,7 +270,12 @@ class EvidenceRetriever:
         fixed = sum(self._counter.count(text) for text in fixed_texts)
         return self._window - self._reserve - fixed
 
-    def _admit(self, searches: list[_Search], budget: int | None) -> Evidence:
+    def _admit(
+        self,
+        searches: list[_Search],
+        budget: int | None,
+        extra_outcomes: Sequence[SourceOutcome] = (),
+    ) -> Evidence:
         queues = {
             s.ref: deque(s.candidates) for s in sorted(searches, key=self._best, reverse=True)
         }
@@ -267,6 +300,7 @@ class EvidenceRetriever:
             status = self._status(search, admitted[search.ref])
             if status is not None:
                 outcomes.append(SourceOutcome(search.ref, search.title, status))
+        outcomes.extend(extra_outcomes)
         excerpts = [chunk for ref in queues for chunk in admitted[ref]]
         return Evidence(excerpts, outcomes, self._fitting(outcomes, remaining))
 

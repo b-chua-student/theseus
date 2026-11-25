@@ -1,5 +1,6 @@
 """Unit tests for per-source evidence retrieval, threshold and budget (T-008)."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import pytest
@@ -11,6 +12,7 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
     InMemoryIndexedDocumentRepository,
 )
 from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
+from domain.assistant.infrastructure.ports.index_job_queue import IndexJobQueue
 from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.aggregates import IndexedDocument
@@ -25,6 +27,7 @@ from domain.assistant.models.value_objects import (
     SourceStatus,
 )
 from domain.assistant.services.evidence_retrieval import UNTITLED, EvidenceRetriever
+from domain.assistant.services.reindex_documents import ReindexDocumentsService
 
 THRESHOLD = 0.5
 
@@ -193,6 +196,7 @@ def test_only_selected_sources_of_the_project_are_searched(fx: Fixture) -> None:
     )
 
     assert [chunk.title for chunk in evidence.excerpts] == ["Chosen"]
+    assert evidence.outcomes == []
     assert fx.store.searched == [chosen]
 
 
@@ -315,3 +319,78 @@ def test_the_quote_is_embedded_with_the_question(fx: Fixture) -> None:
     retriever.retrieve(fx.project, "How does it compare?", None, quote="5 days")
 
     assert embedded == ["5 days\nHow does it compare?"]
+
+
+def test_a_removed_source_of_the_project_is_reported_unavailable_and_never_searched(
+    fx: Fixture,
+) -> None:
+    removed = fx.source("Removed", ("secret", 0.9))
+    fx.active.remove(removed)
+    kept = fx.source("Kept", ("hit", 0.9))
+
+    evidence = fx.retriever().retrieve(fx.project, "q", [str(removed.value), str(kept.value)])
+
+    assert [chunk.title for chunk in evidence.excerpts] == ["Kept"]
+    assert statuses(evidence) == {"Removed": SourceStatus.UNAVAILABLE}
+    assert removed not in fx.store.searched
+
+
+def test_a_removed_source_is_named_by_the_title_saved_in_the_conversation(fx: Fixture) -> None:
+    gone = DocumentRefId.new()
+    retriever = EvidenceRetriever(
+        BrokenEmbedder(), fx.store, fx.documents, lambda _project: list(fx.active)
+    )
+
+    evidence = retriever.retrieve(
+        fx.project, "q", [str(gone.value)], known_titles={str(gone.value): "Replication"}
+    )
+
+    # Only the removed source was requested, so nothing was embedded or searched.
+    assert evidence.excerpts == []
+    assert statuses(evidence) == {"Replication": SourceStatus.UNAVAILABLE}
+    assert fx.store.searched == []
+
+
+def test_an_id_that_may_belong_to_another_project_is_never_named(fx: Fixture) -> None:
+    other = DocumentRefId.new()
+    fx.documents.add(IndexedDocument.create(IndexedDocumentTitle("Secret"), other, ProjectId.new()))
+    fx.store.passages[other] = [("secret passage", 0.99)]
+    unknown = DocumentRefId.new()
+
+    evidence = fx.retriever().retrieve(
+        fx.project,
+        "q",
+        [str(other.value), str(unknown.value)],
+        known_titles={str(unknown.value): ""},
+    )
+
+    assert evidence.excerpts == []
+    assert evidence.outcomes == []
+    assert evidence.reported == []
+    assert fx.store.searched == []
+
+
+class RecordingQueue(IndexJobQueue):
+    def __init__(self) -> None:
+        self.enqueued: list[DocumentRefId] = []
+
+    def enqueue_index(self, doc_ref_id: DocumentRefId) -> None:
+        self.enqueued.append(doc_ref_id)
+
+    def set_worker(self, worker: Callable[[DocumentRefId], None]) -> None:
+        raise NotImplementedError
+
+
+def test_after_the_reindex_trigger_old_vectors_remain_but_are_not_searched(fx: Fixture) -> None:
+    ref = fx.source("Methods", ("old-model passage", 0.9))
+    queue = RecordingQueue()
+
+    queued = ReindexDocumentsService(fx.documents, queue).execute()
+    evidence = fx.retriever().retrieve(fx.project, "q", None)
+
+    assert queued == 1
+    assert queue.enqueued == [ref]
+    assert fx.store.passages[ref] == [("old-model passage", 0.9)]  # the old vectors are still there
+    assert fx.store.searched == []
+    assert evidence.excerpts == []
+    assert statuses(evidence) == {"Methods": SourceStatus.UNAVAILABLE}

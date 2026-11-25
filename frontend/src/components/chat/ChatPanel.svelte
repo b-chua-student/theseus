@@ -33,6 +33,7 @@
       savedConversations = [];
       selection = initialSelection();
       unavailableSources = [];
+      selectionQuote = '';
       refreshHistory(id);
     }
   });

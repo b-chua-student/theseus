@@ -19,4 +19,5 @@
 
 ## Open Questions
 
+- Embedding-model change before the reindex command runs: documents stay searchable with vectors from the old model until then, so a query could be scored against them. Suggestion, not yet built: record the embedding model on each indexed document and treat a document from another model as unavailable.
 - The numeric relevance cutoff is not calibrated for production (T-008). `ASSISTANT_RELEVANCE_THRESHOLD` is unset by default, so with it unset a low-scoring passage can still be admitted and "searched without a match" cannot occur. The 0.6904 suggested by the calibration script was derived from question-style queries and needs rechecking with draft-bearing search text before it is set.
