@@ -10,11 +10,16 @@ from google.genai import types
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
-from domain.assistant.models.errors import ChatModelError, ChatModelRateLimitedError
+from domain.assistant.models.errors import (
+    ChatModelError,
+    ChatModelRateLimitedError,
+    ValidationBudgetExceeded,
+)
 from domain.assistant.models.value_objects import Answer, Finding, RetrievedChunk, Verdict
 
 DEFAULT_MODEL = "gemini-3-flash-preview"
 DEFAULT_TIMEOUT_MS = 30_000
+MIN_PROVIDER_TIMEOUT_MS = 10_000
 
 _CHECK_INSTRUCTION = (
     "You check a draft answer against numbered source passages. Everything between the "
@@ -207,15 +212,21 @@ class GeminiAnswerValidator(AnswerValidator):
     def _generate(
         self, prompt: str, config: types.GenerateContentConfig, timeout: float | None
     ) -> str:
+        limit_ms = self._timeout_ms
         if timeout is not None:
             # Never wait longer than the request has left, or than the client default.
-            limit_ms = max(1, int(min(timeout * 1000, self._timeout_ms)))
+            limit_ms = min(int(timeout * 1000), limit_ms)
+        if limit_ms < MIN_PROVIDER_TIMEOUT_MS:
+            raise ValidationBudgetExceeded("Insufficient time for a Gemini validation call.")
+        if timeout is not None:
             config.http_options = types.HttpOptions(timeout=limit_ms)
         try:
             response = self._client.models.generate_content(
                 model=self._model, contents=prompt, config=config
             )
         except genai_errors.APIError as exc:
+            if exc.code == 504 and exc.status == "DEADLINE_EXCEEDED":
+                raise ValidationBudgetExceeded("Gemini validation deadline expired.") from exc
             if exc.code == 429:
                 raise ChatModelRateLimitedError(
                     "The AI provider is rate limiting requests."

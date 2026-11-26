@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from typing import cast
 
 from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
-from domain.assistant.models.errors import AnswerValidationError
+from domain.assistant.models.errors import AnswerValidationError, ValidationBudgetExceeded
 from domain.assistant.models.value_objects import (
     Answer,
     Evidence,
@@ -262,7 +262,7 @@ class ValidateAnswer:
             raise _DeadlineReached
         outcome = future.result()
         # A result or an error at or after the deadline is the deadline outcome.
-        if outcome.at >= deadline:
+        if outcome.at >= deadline or isinstance(outcome.error, ValidationBudgetExceeded):
             raise _DeadlineReached
         if outcome.error is not None:
             logger.error("ValidateAnswer: a service failed", exc_info=outcome.error)

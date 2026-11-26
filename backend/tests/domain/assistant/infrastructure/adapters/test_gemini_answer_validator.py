@@ -21,7 +21,11 @@ from typing import Any
 import pytest
 from google.genai import errors as genai_errors
 
-from domain.assistant.models.errors import ChatModelError, ChatModelRateLimitedError
+from domain.assistant.models.errors import (
+    ChatModelError,
+    ChatModelRateLimitedError,
+    ValidationBudgetExceeded,
+)
 from domain.assistant.models.value_objects import Answer, Finding, Verdict
 from tests.domain.assistant.validation_support import QUESTION, passage
 
@@ -455,9 +459,8 @@ def provider_timeout_ms(models: FakeModels) -> int | None:
 @pytest.mark.parametrize(
     ("timeout", "expected_ms"),
     [
-        pytest.param(2.5, 2500, id="remaining-time-below-the-default"),
+        pytest.param(10.0, 10_000, id="provider-minimum"),
         pytest.param(100.0, 30_000, id="remaining-time-above-the-default"),
-        pytest.param(0.0004, 1, id="remaining-time-is-never-below-one-millisecond"),
         pytest.param(None, None, id="no-deadline-keeps-the-client-default"),
     ],
 )
@@ -486,10 +489,33 @@ def test_s009_revise_limits_the_provider_call_to_the_remaining_time() -> None:
         verdict=Verdict(unresolved=("a claim",)),
         passages=PASSAGES,
         manuscript_text="",
-        timeout=4.0,
+        timeout=12.0,
     )
 
-    assert provider_timeout_ms(models) == 4000
+    assert provider_timeout_ms(models) == 12_000
+
+
+def test_s009_insufficient_remaining_time_skips_provider_call() -> None:
+    validator, models = validator_with("unused")
+    with pytest.raises(ValidationBudgetExceeded):
+        validator.check(question=QUESTION, answer=Answer(DRAFT), passages=PASSAGES, timeout=8)
+    assert models.requests == []
+
+
+def test_s009_provider_deadline_exceeded_signals_validation_timeout() -> None:
+    validator, _ = validator_with(
+        genai_errors.APIError(504, {"error": {"status": "DEADLINE_EXCEEDED"}})
+    )
+    with pytest.raises(ValidationBudgetExceeded):
+        check(validator)
+
+
+def test_s011_unrelated_invalid_argument_remains_a_provider_error() -> None:
+    validator, _ = validator_with(
+        genai_errors.APIError(400, {"error": {"status": "INVALID_ARGUMENT"}})
+    )
+    with pytest.raises(ChatModelError, match="400"):
+        check(validator)
 
 
 def test_s004_a_claim_verified_for_a_passage_the_draft_does_not_cite_is_unresolved() -> None:

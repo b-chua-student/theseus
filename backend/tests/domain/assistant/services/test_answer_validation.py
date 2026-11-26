@@ -6,17 +6,52 @@ from uuid import uuid4
 
 import pytest
 
-from domain.assistant.models.errors import AnswerValidationError
-from domain.assistant.models.value_objects import Answer, Evidence, ProjectId, Query, Verdict
+from domain.assistant.models.errors import AnswerValidationError, ValidationBudgetExceeded
+from domain.assistant.models.value_objects import (
+    Answer,
+    Evidence,
+    Finding,
+    ProjectId,
+    Query,
+    Verdict,
+)
 from domain.assistant.services.answer_validation import TIMEOUT_MESSAGE, ValidateAnswer
 from domain.assistant.services.evidence_retriever import EvidenceRetriever
 from tests.domain.assistant.validation_support import (
     QUESTION,
     AcceptingValidator,
+    CheckStep,
+    FakeClock,
+    ScriptedValidator,
     passage,
 )
 
 P1 = passage("P1", "The pilot started in May.")
+
+
+@pytest.mark.parametrize("partial", [False, True])
+def test_provider_deadline_returns_only_completed_findings(partial: bool) -> None:  # noqa: FBT001
+    clock = FakeClock()
+    checks = []
+    if partial:
+        checks.append(
+            CheckStep(Verdict(verified=(Finding("Started in May", 1),), unresolved=("end date",)))
+        )
+    checks.append(CheckStep(error=ValidationBudgetExceeded("Provider deadline")))
+    validator = ScriptedValidator(checks, ["Unchecked revision"], clock)
+    answer = ValidateAnswer(validator, EvidenceRetriever(), clock.now).execute(
+        question=Query(QUESTION),
+        draft=Answer("Unchecked draft"),
+        evidence=Evidence((P1,)),
+        project_id=ProjectId.from_str(str(uuid4())),
+    )
+    if partial:
+        assert "Started in May [1]" in answer.text
+        assert "end date" in answer.text
+        assert "Unchecked" not in answer.text
+        assert [citation.key for citation in answer.citations] == [1]
+    else:
+        assert answer == Answer(TIMEOUT_MESSAGE)
 
 
 class BlockingValidator(AcceptingValidator):

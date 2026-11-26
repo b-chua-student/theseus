@@ -129,3 +129,9 @@ class AnswerValidationError(ChatModelError):
     """Checking the answer could not be completed, so no answer is shown."""
 
     code = "assistant.validation_interrupted"
+
+
+class ValidationBudgetExceeded(ChatModelError):
+    """A validation call cannot complete within its allowed time."""
+
+    code = "assistant.validation_budget_exceeded"
