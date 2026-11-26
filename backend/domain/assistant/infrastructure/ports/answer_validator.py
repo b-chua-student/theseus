@@ -5,12 +5,23 @@ from domain.assistant.models.value_objects import (
     Evidence,
     ProposedFinding,
     RetrievedChunk,
+    SourceDraft,
     Verdict,
 )
 
 
 class AnswerProposer(ABC):
-    """Optional generation port. Its proposed findings require local verification."""
+    """Generate a source draft in one attempt for a separate review."""
+
+    @abstractmethod
+    def draft(
+        self,
+        question: str,
+        evidence: Evidence,
+        manuscript_text: str = "",
+        timeout: float | None = None,
+    ) -> SourceDraft:
+        """Return answer text, candidate claims and any missing evidence before review."""
 
     @abstractmethod
     def propose(

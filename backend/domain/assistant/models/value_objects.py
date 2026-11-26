@@ -254,6 +254,15 @@ class ProposedFinding:
 
 
 @dataclass(frozen=True)
+class SourceDraft:
+    """One generated draft and its evidence needs, pending independent review."""
+
+    answer: Answer
+    claims: tuple[ProposedFinding, ...]
+    missing_evidence: str | None = None
+
+
+@dataclass(frozen=True)
 class Finding:
     """A claim that was checked and found supported.
 

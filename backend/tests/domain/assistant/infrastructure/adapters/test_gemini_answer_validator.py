@@ -86,7 +86,16 @@ def verdict_json(
 def claim(
     text: str, citation: int | None, *, supported: bool = True, source: str = "library"
 ) -> dict[str, Any]:
-    return {"text": text, "citation": citation, "supported": supported, "source": source}
+    excerpt = MANUSCRIPT if source == "manuscript" else ""
+    if source == "library" and citation in (1, 2):
+        excerpt = PASSAGES[citation - 1].text
+    return {
+        "text": text,
+        "citation": citation,
+        "supported": supported,
+        "source": source,
+        "excerpt": excerpt,
+    }
 
 
 def prompt_of(models: FakeModels) -> str:
@@ -464,7 +473,9 @@ def provider_timeout_ms(models: FakeModels) -> int | None:
 
 def test_proposal_returns_untrusted_excerpts_in_one_attempt() -> None:
     validator, models = validator_with(
-        json.dumps({"claims": [{"text": P2.text, "citation": 2, "excerpt": P2.text}]})
+        json.dumps(
+            {"answer": DRAFT, "claims": [{"text": P2.text, "citation": 2, "excerpt": P2.text}]}
+        )
     )
     assert validator.propose(QUESTION, Evidence(tuple(PASSAGES)), timeout=12) == (
         ProposedFinding(P2.text, 2, P2.text),
@@ -605,3 +616,32 @@ def test_s017_review_disables_sdk_resends() -> None:
     check(validator)
     options = models.requests[0]["config"].http_options
     assert options and options.retry_options and options.retry_options.attempts == 1
+
+
+def test_review_accepts_a_corrected_citation_only_with_its_exact_excerpt() -> None:
+    corrected = claim("The pilot ended in July.", 2)
+    corrected["original_citation"] = 1
+    validator, _ = validator_with(verdict_json(claims=[corrected]))
+    verdict = check(validator, draft="The pilot ended in July [1].")
+    assert verdict.passed and verdict.verified == (Finding("The pilot ended in July.", 2),)
+    corrected["excerpt"] = P1.text
+    validator, _ = validator_with(verdict_json(claims=[corrected]))
+    rejected = check(validator, draft="The pilot ended in July [1].")
+    assert not rejected.verified and not rejected.passed
+
+
+def test_source_draft_retains_text_and_search_hint() -> None:
+    validator, models = validator_with(
+        json.dumps(
+            {
+                "answer": "The pilot started in May [1].",
+                "claims": [{"text": "The start was in May.", "citation": 1, "excerpt": P1.text}],
+                "missing_evidence": "pilot end date",
+            }
+        )
+    )
+    draft = validator.draft(QUESTION, Evidence(tuple(PASSAGES)))
+    assert draft.answer.text == "The pilot started in May [1]."
+    assert draft.missing_evidence == "pilot end date"
+    assert draft.claims == (ProposedFinding("The start was in May.", 1, P1.text),)
+    assert len(models.requests) == 1
