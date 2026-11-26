@@ -101,6 +101,13 @@ class MongoIdentityRepository(IdentityRepository):
         doc = self.users.find_one({"email_key": email.value.casefold()})
         return self._to_user(doc) if doc else None
 
+    def has_identity(self, user_id: UserId, issuer: str) -> bool:
+        """Return whether the account owns an identity from this issuer."""
+        doc = self.users.find_one({"_id": str(user_id.value)}, {"identities.key": 1})
+        return any(
+            json.loads(item["key"])[0] == issuer for item in (doc or {}).get("identities", [])
+        )
+
     def find_identity(self, issuer: str, subject: str) -> User | None:
         """Load the owner of the issuer and subject pair."""
         doc = self.users.find_one({"identities.key": json.dumps([issuer, subject])})
