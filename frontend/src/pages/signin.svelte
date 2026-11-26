@@ -7,6 +7,7 @@
   let busy = $state(false), error = $state('');
   let passwordError = $state('');
   let googleEnabled = $state(false);
+  let returningGoogleUser = $state(false);
   let loadingProviders = $state(true);
   let unavailable = $state('');
   const query = new URLSearchParams(location.search);
@@ -16,17 +17,20 @@
     email: 'We could not get an email address from your provider.',
     existing: 'Sign in using your existing method or password, then link your provider from Account.',
     unavailable: 'This account is unavailable. Please contact support.',
-    timeout: 'Sign-in timed out. Please try again.',
+    timeout: 'This sign-in request expired.',
+    connection: 'Theseus could not reach Google. Please try again.',
     invalid: "We couldn't complete sign-in. Please try again.",
   };
-  function startGoogle() {
+  function startGoogle(chooseAccount = false) {
     if (!googleEnabled) {
       unavailable = 'Google sign-in is unavailable.';
       error = '';
       return;
     }
     const destination = query.get('return_to') || location.pathname;
-    location.assign('/api/auth/oauth/google/start?return_to=' + encodeURIComponent(destination));
+    const params = new URLSearchParams({ return_to: destination });
+    if (chooseAccount) params.set('choose_account', '1');
+    location.assign('/api/auth/oauth/google/start?' + params);
   }
   async function loadProviders() {
     loadingProviders = true;
@@ -34,6 +38,7 @@
     try {
       const settings = await providerSettings();
       googleEnabled = settings.providers.includes('google');
+      returningGoogleUser = settings.returning_google_user === true;
       error = settings.interrupted ? 'Sign-in wasn’t completed' : (messages[query.get('auth_error')] || '');
     } catch (e) { googleEnabled = false; error = e.message; }
     finally { loadingProviders = false; }
@@ -55,13 +60,17 @@
 </script>
 <AuthLayout title="Welcome back" subtitle="A focused space for your manuscripts.">
   <div class="provider-choices">
-    <button type="button" disabled={loadingProviders} onclick={startGoogle}>Continue with Google</button>
+    <button type="button" disabled={loadingProviders} onclick={() => startGoogle()}>Continue with Google</button>
+    <p class="registration-hint">New to Theseus? Your first Google sign-in creates your account.</p>
+    {#if returningGoogleUser && googleEnabled}
+      <button type="button" onclick={() => startGoogle(true)}>Use another Google account</button>
+    {/if}
     {#if unavailable}<p class="error" role="alert">{unavailable}</p>{/if}
   </div>
   {#if error}
     <div class="provider-notice">
       <p role="alert">{error}</p>
-      <button type="button" onclick={() => googleEnabled ? startGoogle() : loadProviders()}>Try again</button>
+      <button type="button" onclick={() => googleEnabled ? startGoogle() : loadProviders()}>{error === messages.timeout ? 'Restart Google sign-in' : 'Try again'}</button>
     </div>
   {/if}
   <form onsubmit={submit}>
@@ -76,6 +85,7 @@
 </AuthLayout>
 
 <style>
+  .registration-hint { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
   .provider-choices { display: grid; gap: 8px; margin-bottom: 16px; }
   .provider-choices button { padding: 9px 12px; border: 1px solid #cbd4ce; border-radius: 6px; background: white; color: var(--text-h); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
   .provider-choices button:hover { background: #f4f6f4; }
