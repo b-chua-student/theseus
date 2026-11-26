@@ -39,8 +39,8 @@ This feature lives in `specs/devops/dora-deployment-rework-rate/`.
 - Spec files: `requirements.md`, `design.md`, and `tasks.md`
 
 ## Definition of Done
-- [ ] Intake generated and approved
-- [ ] Gherkin generated and approved
+- [X] Intake generated and approved
+- [X] Gherkin generated and approved
 - [X] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged
