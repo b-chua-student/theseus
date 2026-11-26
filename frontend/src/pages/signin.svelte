@@ -7,6 +7,7 @@
   let busy = $state(false), error = $state('');
   let passwordError = $state('');
   let googleEnabled = $state(false);
+  let rememberedEmail = $state('');
   let returningGoogleUser = $state(false);
   let loadingProviders = $state(true);
   let unavailable = $state('');
@@ -38,6 +39,7 @@
     try {
       const settings = await providerSettings();
       googleEnabled = settings.providers.includes('google');
+      rememberedEmail = settings.remembered_google_email || '';
       returningGoogleUser = settings.returning_google_user === true;
       error = settings.interrupted ? 'Sign-in wasn’t completed' : (messages[query.get('auth_error')] || '');
     } catch (e) { googleEnabled = false; error = e.message; }
@@ -60,8 +62,7 @@
 </script>
 <AuthLayout title="Welcome back" subtitle="A focused space for your manuscripts.">
   <div class="provider-choices">
-    <button type="button" disabled={loadingProviders} onclick={() => startGoogle()}>Continue with Google</button>
-    <p class="registration-hint">New to Theseus? Your first Google sign-in creates your account.</p>
+    <button type="button" disabled={loadingProviders} onclick={() => startGoogle()}>Continue with {googleEnabled && rememberedEmail ? rememberedEmail : 'Google'}</button>
     {#if returningGoogleUser && googleEnabled}
       <button type="button" onclick={() => startGoogle(true)}>Use another Google account</button>
     {/if}
@@ -85,7 +86,6 @@
 </AuthLayout>
 
 <style>
-  .registration-hint { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
   .provider-choices { display: grid; gap: 8px; margin-bottom: 16px; }
   .provider-choices button { padding: 9px 12px; border: 1px solid #cbd4ce; border-radius: 6px; background: white; color: var(--text-h); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
   .provider-choices button:hover { background: #f4f6f4; }
