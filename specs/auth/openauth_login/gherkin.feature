@@ -324,8 +324,7 @@ Feature: User can log in through email via OAuth
     And Google sign-in is available
     When I open the sign-in page
     Then I should see "Continue with reader@example.com" and "Use another Google account"
-    When I select "Continue with reader@example.com"
-    Then Google sign-in should start for "reader@example.com"
+    And selecting "Continue with reader@example.com" should start Google sign-in for "reader@example.com"
 
   @S-037 @criterion-7
   Scenario: A browser without a remembered account offers generic Google sign-in
