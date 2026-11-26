@@ -34,6 +34,15 @@ export async function startConversation(projectId) {
 
 const NDJSON = 'application/x-ndjson';
 
+/** Normalize the terminal payload for both supported response formats. */
+function terminalAnswer({ answer, citations, unverified_draft }) {
+  const result = { answer, citations: citations ?? [] };
+  if (typeof unverified_draft === 'string' && unverified_draft.trim()) {
+    return { ...result, unverified_draft };
+  }
+  return result;
+}
+
 /** @param {string} message @param {{ code?: string, status?: number }} [details] */
 function streamError(message, details = {}) {
   return Object.assign(new Error(message), { code: details.code ?? undefined, status: details.status ?? undefined });
@@ -43,7 +52,7 @@ function streamError(message, details = {}) {
  * Read records from an NDJSON response until the terminal record arrives.
  * @param {Response} res
  * @param {(message: string) => void} [onStatus]
- * @returns {Promise<{ answer: string, citations: Array<object> }>}
+ * @returns {Promise<{ answer: string, unverified_draft?: string, citations: Array<object> }>}
  */
 async function readStream(res, onStatus) {
   const reader = res.body.getReader();
@@ -54,7 +63,7 @@ async function readStream(res, onStatus) {
     if (!line.trim()) return null;
     const record = JSON.parse(line);
     if (record.type === 'status') onStatus?.(record.message);
-    if (record.type === 'answer') return { answer: record.answer, citations: record.citations ?? [] };
+    if (record.type === 'answer') return terminalAnswer(record);
     if (record.type === 'error') throw streamError(record.error, record);
     return null;
   };
@@ -86,7 +95,7 @@ async function readStream(res, onStatus) {
  * @param {string} manuscriptText
  * @param {{ onStatus?: (message: string) => void }} [options] `onStatus` receives the server's
  *   progress message while the answer is still being checked.
- * @returns {Promise<{ answer: string, citations: Array<{ key: number, source_id: string, title: string | null, location: string }> }>}
+ * @returns {Promise<{ answer: string, unverified_draft?: string, citations: Array<{ key: number, source_id: string, title: string | null, location: string }> }>}
  */
 export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null, manuscriptText = "", options = {}) {
   const res = await apiFetch(
@@ -100,7 +109,7 @@ export async function askConversation(projectId, conversationId, query, contextS
   );
   if ((res.headers.get('Content-Type') || '').startsWith(NDJSON)) return readStream(res, options.onStatus);
   const body = await res.json();
-  return { answer: body.answer, citations: body.citations ?? [] };
+  return terminalAnswer(body);
 }
 export async function listConversations(projectId) {
   const res = await apiFetch(`/api/projects/${projectId}/conversations`, {}, 'Could not load conversations.');

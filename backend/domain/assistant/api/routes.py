@@ -130,7 +130,12 @@ def _citation_json(citation: Citation) -> dict[str, object]:
 
 
 def _answer_json(answer: Answer) -> dict[str, object]:
-    return dict(answer=answer.text, citations=[_citation_json(c) for c in answer.citations])
+    payload: dict[str, object] = dict(
+        answer=answer.text, citations=[_citation_json(c) for c in answer.citations]
+    )
+    if answer.unverified_draft:
+        payload["unverified_draft"] = answer.unverified_draft
+    return payload
 
 
 def _record(record: dict[str, object]) -> str:

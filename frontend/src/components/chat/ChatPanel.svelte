@@ -216,8 +216,8 @@
     progress = "";
     scrollDown();
     try {
-      const { answer, citations } = await ask(text);
-      messages.push({ id: nextMessageId++, role: "assistant", text: answer, citations, timestamp: Date.now() });
+      const { answer, citations, unverified_draft } = await ask(text);
+      messages.push({ id: nextMessageId++, role: "assistant", text: answer, citations, unverified_draft, draftOpen: false, timestamp: Date.now() });
       refreshHistory();
     } catch (e) {
       messages.push({
@@ -316,6 +316,16 @@
                 <div class="scholar-bubble markdown-body">{@html renderMarkdown(m.text)}</div>
               {:else}
                 <div class="scholar-bubble">{m.text}</div>
+              {/if}
+              {#if m.unverified_draft}
+                <div class="scholar-reply-actions">
+                  <button type="button" aria-expanded={m.draftOpen} onclick={() => m.draftOpen = !m.draftOpen}>
+                    {m.draftOpen ? 'Hide unverified draft' : 'View unverified draft'}
+                  </button>
+                </div>
+                {#if m.draftOpen}
+                  <div class="scholar-bubble"><strong>Unverified draft</strong><p>{m.unverified_draft}</p></div>
+                {/if}
               {/if}
               {#if m.citations?.length}
                 <ul class="scholar-citations" aria-label="Sources cited">
