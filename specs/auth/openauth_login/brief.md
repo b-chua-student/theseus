@@ -17,7 +17,7 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 
 - Let returning users sign in with their previously approved Google account without repeated consent whenever Google permits it. (from ticket, line 88)
 
-- Explain first-time account creation below the Google button, offer recovery specific to expiry or connectivity, and show the signed-in account’s Google connection status. (from ticket, lines 81–84)
+- Omit the first-time Google registration note, offer recovery specific to expiry or connectivity, and show the signed-in account’s Google connection status. (from ticket, lines 81–84)
 
 - Sign in to Theseus through Google as the sole provider for sign-in and linking. (from ticket, line 13)
 - Show the Google button on the regular sign-in page. An available provider starts sign-in. An unavailable provider shows an explanation on the same page. (from ticket, lines 76, 77)
@@ -63,9 +63,11 @@ Enable Theseus users to sign in with OpenAuth. (from ticket, line 5)
 3. `@criterion-3` A user whose OpenAuth sign-in fails remains signed out of Theseus. (from ticket, lines 18, 22)
 4. `@criterion-4` The Google button remains visible when Google is unavailable, and selecting it explains its status. (from ticket, lines 76, 77)
 
-5. `@criterion-5` Users can see how Google registration works, restart expired requests, retry a connection failure, and check whether their account is linked. (from ticket, lines 81–84)
+5. `@criterion-5` Users can access password sign-up, restart expired requests, retry a connection failure, and check whether their account is linked. (from ticket, lines 81–84)
 
 6. `@criterion-6` A returning user with reusable approval reaches Theseus without clicking Allow again. When Google requires interaction, the normal Google flow remains available. (from ticket, line 88)
+
+7. `@criterion-7` Returning users can continue with their last successful Google account by email or choose another account. The generic label applies when no account is remembered or Google is unavailable. (from ticket, line 89)
 
 ## Reference Links
 
