@@ -20,6 +20,8 @@ Help maintainers see how long it takes to restore normal production service afte
 - Summarize completed recovery durations with the median and sample count.
 - Show statuses and separate counts for unresolved failures and restored failures with missing timestamps.
 - Let maintainers record qualifying production failures before a corrective deployment exists and report those failures and recoveries that occur without a corrective deployment.
+- Let maintainers refresh a dedicated report on demand for all recorded qualifying incidents and see the report run time in UTC.
+- Identify disputed and out-of-order timeline evidence. Identify when incident records cannot be loaded.
 
 ## Non-Goals
 
@@ -57,6 +59,10 @@ Help maintainers see how long it takes to restore normal production service afte
    When there are zero qualifying failures, the report also shows no incident entries and all three counts are zero.
 5. A recorded qualifying failure appears in the report before any corrective deployment. A recovery confirmed without a corrective deployment is reported using the same timestamp and status rules.
 6. A qualifying incident with multiple corrective deployments has one report entry. If both timestamps are known, its completed recovery contributes one duration to the median and one to the completed recovery count.
+7. On demand, a maintainer can refresh the dedicated report and see all recorded qualifying incidents and the run time in UTC.
+8. A restored incident with a disputed timestamp or a restoration time earlier than degradation is reported as “Missing timestamp” with a blank duration and an incident-specific diagnostic. The latest valid maintainer confirmation that explicitly resolves a conflict supplies the corrected timeline.
+9. If incident records cannot be loaded, the report shows that evidence is incomplete.
+10. Maintainers can confirm a qualifying incident before a correction exists and associate subsequent corrective deployments with that same record.
 
 ## Reference Links
 

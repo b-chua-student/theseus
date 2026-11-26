@@ -19,7 +19,7 @@ Feature: Track failed deployment recovery time
     When a maintainer views the failed deployment recovery time report
     Then the report shows a recovery duration of 30 minutes for the failure
 
-  @S-055 @criterion-1 @criterion-6
+  @S-055 @criterion-1 @criterion-6 @criterion-10
   Scenario: Count one recovery when two hotfixes address the same incident
     Given one qualifying deployment-caused production incident starts at 10:00 UTC
     And a hotfix goes live at 10:20 UTC while production service remains degraded
@@ -44,12 +44,12 @@ Feature: Track failed deployment recovery time
     When a maintainer views the failed deployment recovery time report
     Then the report shows a median recovery duration of 30 minutes across 2 completed recoveries
 
-  @S-058 @criterion-3 @criterion-5
+  @S-058 @criterion-3 @criterion-5 @criterion-10
   Scenario: Record a qualifying failure before a corrective deployment
     Given a deployment causes production degradation that requires immediate intervention
     And no corrective deployment has gone live
     And normal service has yet to be restored
-    When a maintainer records the failure
+    When a maintainer records and confirms the qualifying failure
     Then the failed deployment recovery time report shows the failure as "Unresolved" with a blank recovery duration
 
   @S-051 @criterion-2 @edge
@@ -127,3 +127,43 @@ Feature: Track failed deployment recovery time
     Then the report shows no incident entries
     And the report shows 0 completed recoveries, 0 unresolved failures, and 0 restored failures with a missing timestamp
     And the report shows "No completed recoveries with known timestamps."
+
+  @S-059 @criterion-7
+  Scenario: Refresh the recovery report on demand
+    Given a qualifying completed recovery was recorded more than 30 days ago
+    And a qualifying unresolved incident was recorded after the previous report run
+    When a maintainer refreshes the dedicated recovery report at 12:00 UTC
+    Then the report shows both incident entries
+    And the report shows a run time of 12:00 UTC
+
+  @S-060 @criterion-8 @edge
+  Scenario Outline: Report a restored incident with unusable timeline evidence
+    Given the only qualifying incident has been restored
+    And its timeline has <problem>
+    When a maintainer views the failed deployment recovery time report
+    Then the incident is shown as "Missing timestamp" with a blank duration
+    And the report shows 1 restored failure with a missing timestamp
+    And the report shows 0 completed recoveries
+    And the report identifies the incident and the timeline problem
+
+    Examples:
+      | problem                            |
+      | conflicting restoration timestamps |
+      | restoration earlier than failure   |
+
+  @S-061 @criterion-8
+  Scenario: Use the latest confirmation that resolves conflicting evidence
+    Given a qualifying incident began at 10:00 UTC
+    And its evidence disagrees on the time normal service returned that day
+    And an earlier maintainer confirmation recorded restoration at 10:30 UTC
+    And a later valid maintainer confirmation explicitly resolves the conflict at 10:45 UTC
+    When a maintainer views the failed deployment recovery time report
+    Then the report shows a recovery duration of 45 minutes for the incident
+    And the report shows a median recovery duration of 45 minutes across 1 completed recovery
+
+  @S-062 @criterion-9 @edge
+  Scenario: Report incomplete evidence when incident records cannot be loaded
+    Given incident records cannot be loaded
+    When a maintainer refreshes the failed deployment recovery time report
+    Then the report shows that incident evidence is incomplete
+    And the report does not show the zero-incident result
