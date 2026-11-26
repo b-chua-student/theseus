@@ -355,3 +355,60 @@ def test_provider_clock_skew(client, provider, offset, lifetime, accepted) -> No
 def test_only_google_is_available_even_with_legacy_configuration(client) -> None:
     assert client.get("/api/auth/oauth/providers").json["providers"] == ["google"]
     assert client.get("/api/auth/oauth/microsoft/start").status_code == 404
+
+
+def test_s032_google_connection_failure(client, monkeypatch) -> None:
+    import requests
+
+    def unreachable(*args: object, **kwargs: object) -> None:
+        raise requests.ConnectionError()
+
+    monkeypatch.setattr(requests, "post", unreachable)
+    params = start(client)
+    response = client.get(
+        "/api/auth/oauth/google/callback", query_string={"state": params["state"], "code": "test"}
+    )
+    assert "auth_error=connection" in response.location
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_s031_expired_attempt_after_store_cleanup(client) -> None:
+    params = start(client)
+    with client.session_transaction() as session:
+        session["oauth_expires"] = 1
+        client.application.extensions["oauth_attempts"].take(session["oauth_attempt"])
+    response = client.get(
+        "/api/auth/oauth/google/callback", query_string={"state": params["state"]}
+    )
+    assert "auth_error=timeout" in response.location
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_s035_interactive_fallback_is_fresh_and_single_use(client, provider) -> None:
+    claims, authorize = provider
+    assert authorize().location == "/"
+    client.post("/api/auth/logout")
+    first = start(client)
+    assert first["prompt"] == "none"
+    assert first["login_hint"] == claims["sub"]
+    route = "/api/auth/oauth/google/callback"
+    result = client.get(route, query_string={"state": first["state"], "error": "consent_required"})
+    second = parse_qs(urlsplit(result.location).query)
+    assert "prompt" not in second
+    assert second["login_hint"] == [claims["sub"]]
+    for key in ("state", "nonce", "code_challenge"):
+        assert second[key][0] != first[key]
+    result = client.get(
+        route, query_string={"state": second["state"][0], "error": "consent_required"}
+    )
+    assert result.location.startswith("/?auth_error=")
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_s034_silent_sign_in_requires_the_same_verified_subject(client, provider) -> None:
+    claims, authorize = provider
+    assert authorize().location == "/"
+    client.post("/api/auth/logout")
+    claims["sub"] = "different-subject"
+    assert "auth_error=invalid" in authorize().location
+    assert client.get("/api/auth/me").status_code == 401
