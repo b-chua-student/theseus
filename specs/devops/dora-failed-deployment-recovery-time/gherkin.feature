@@ -3,7 +3,8 @@ Feature: Track failed deployment recovery time
 
   @S-050 @criterion-1
   Scenario: Report the time from production failure to restoration
-    Given a deployment goes live at 09:55 UTC and causes production service to degrade at 10:00 UTC, requiring immediate intervention
+    Given a deployment goes live at 09:55 UTC
+    And it causes production degradation at 10:00 UTC that requires immediate intervention
     And a corrective deployment goes live at 10:45 UTC on the same day
     And production monitoring confirms that degradation began at 10:00 UTC and normal service was restored at 10:45 UTC
     When a maintainer views the failed deployment recovery time report
@@ -12,7 +13,8 @@ Feature: Track failed deployment recovery time
   @S-054 @criterion-1 @criterion-5
   Scenario: Report a recovery confirmed without a corrective deployment
     Given a maintainer records a qualifying deployment-caused production failure
-    And the maintainer confirms that degradation began at 10:00 UTC, intervention began at 10:08 UTC, and normal service was restored at 10:30 UTC on the same day
+    And the maintainer confirms degradation at 10:00 UTC and intervention at 10:08 UTC
+    And the maintainer confirms normal service was restored at 10:30 UTC on the same day
     And service recovered without a corrective deployment
     When a maintainer views the failed deployment recovery time report
     Then the report shows a recovery duration of 30 minutes for the failure
@@ -53,8 +55,7 @@ Feature: Track failed deployment recovery time
   @S-051 @criterion-2 @edge
   Scenario Outline: Exclude failures that do not qualify
     Given one qualifying completed recovery with a verified duration of 45 minutes
-    And a separate failure with a known failure time and a known restoration time
-    And the failure occurred in <environment>
+    And a separate failure in <environment> has known failure and restoration times
     And deployment attribution is <attribution>
     And immediate intervention is <intervention>
     When a maintainer views the failed deployment recovery time report
