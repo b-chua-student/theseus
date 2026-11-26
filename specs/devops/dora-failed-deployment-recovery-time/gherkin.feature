@@ -81,23 +81,34 @@ Feature: Track failed deployment recovery time
     When a maintainer views the failed deployment recovery time report
     Then the report shows the failure as "Unresolved" with a blank recovery duration
 
-  @S-053 @criterion-3 @edge
-  Scenario Outline: Omit the completed recovery duration when one time is unknown
-    Given a deployment causes a production failure that requires immediate intervention
+  @S-053 @criterion-3 @criterion-4 @edge
+  Scenario Outline: Omit the completed recovery duration when one or both timestamps are unknown
+    Given the only qualifying failure is a deployment-caused production failure that requires immediate intervention
     And normal service has been restored
     And the failure time is <failure time>
     And the restoration time is <restoration time>
     When a maintainer views the failed deployment recovery time report
     Then the report shows the failure as "Missing timestamp" with a blank recovery duration
+    And the report shows 1 restored failure with a missing timestamp, 0 completed recoveries, and 0 unresolved failures
 
     Examples:
       | failure time | restoration time |
       | unknown      | known            |
       | known        | unknown          |
+      | unknown      | unknown          |
 
   @S-047 @criterion-4 @edge
   Scenario: Show when there are no completed recoveries with known timestamps
-    Given all qualifying failures are unresolved or missing a timestamp
+    Given there is at least one qualifying failure
+    And all qualifying failures are unresolved or missing a timestamp
     When a maintainer views the failed deployment recovery time report
     Then the report shows a completed recovery count of 0
-    And the report shows "No completed recoveries with known timestamps"
+    And the report shows "No completed recoveries with known timestamps."
+
+  @S-056 @criterion-3 @criterion-4 @edge
+  Scenario: Show an empty report when there are no qualifying failures
+    Given there are zero qualifying failures
+    When a maintainer views the failed deployment recovery time report
+    Then the report shows no incident entries
+    And the report shows 0 completed recoveries, 0 unresolved failures, and 0 restored failures with a missing timestamp
+    And the report shows "No completed recoveries with known timestamps."

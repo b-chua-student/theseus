@@ -16,7 +16,8 @@ The Theseus DevOps requirements call this metric Time to Restore. [DORA metric d
 - [ ] Show report entries only for qualifying failures. Exclude all other failures and deployment attempts from the median and from every report count.
 - [ ] Show the median of completed recovery durations and the number included. When none can be calculated, show “No completed recoveries with known timestamps.”
 - [ ] Count each qualifying production incident once, including when multiple corrective deployments respond to the same incident. A completed recovery with both timestamps contributes one duration to the median and one to the completed recovery count.
-- [ ] Show unresolved failures as “Unresolved” and restored failures missing either time as “Missing timestamp.” Leave their durations blank, exclude both groups from the median, and show their counts separately.
+- [ ] Show unresolved failures as “Unresolved” and restored failures missing one or both timestamps as “Missing timestamp.” Leave their durations blank, exclude both groups from the median, and show their counts separately.
+- [ ] When there are zero qualifying failures, show no incident entries, show zero for the completed recovery, unresolved, and missing-timestamp counts, and display “No completed recoveries with known timestamps.”
 
 ## Expected Outcomes
 - Limit the metric to production failures attributable to deployments. An unresolved failure has no completed recovery duration.

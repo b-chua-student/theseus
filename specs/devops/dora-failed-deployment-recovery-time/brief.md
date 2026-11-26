@@ -52,8 +52,9 @@ Help maintainers see how long it takes to restore normal production service afte
 1. The report shows the elapsed time from the verified start of production degradation to the verified restoration of normal service for a qualifying failure. It uses the corrective deployment's Render Live time as the restoration time when recovery at that time is confirmed.
 2. The report excludes failures outside production, failures unattributable to deployments, failures that do not require immediate intervention, and failed deployment attempts that leave production service healthy.
    These failures and deployment attempts have no report entries and contribute to neither the median nor any report count.
-3. The report shows unresolved failures as “Unresolved” and restored failures with either time unknown as “Missing timestamp.” It leaves their durations blank and shows separate counts for the two groups.
+3. The report shows unresolved failures as “Unresolved” and restored failures missing one or both timestamps as “Missing timestamp.” It leaves their durations blank and shows separate counts for the two groups.
 4. The report shows the median and count of qualifying completed recoveries with both timestamps. When the count is zero, it shows “No completed recoveries with known timestamps.”
+   When there are zero qualifying failures, the report also shows no incident entries and all three counts are zero.
 5. A recorded qualifying failure appears in the report before any corrective deployment. A recovery confirmed without a corrective deployment is reported using the same timestamp and status rules.
 6. A qualifying incident with multiple corrective deployments has one report entry. If both timestamps are known, its completed recovery contributes one duration to the median and one to the completed recovery count.
 
