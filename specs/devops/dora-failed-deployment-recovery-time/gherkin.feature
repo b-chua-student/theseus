@@ -42,6 +42,14 @@ Feature: Track failed deployment recovery time
     When a maintainer views the failed deployment recovery time report
     Then the report shows a median recovery duration of 30 minutes across 2 completed recoveries
 
+  @S-058 @criterion-3 @criterion-5
+  Scenario: Record a qualifying failure before a corrective deployment
+    Given a deployment causes production degradation that requires immediate intervention
+    And no corrective deployment has gone live
+    And normal service has yet to be restored
+    When a maintainer records the failure
+    Then the failed deployment recovery time report shows the failure as "Unresolved" with a blank recovery duration
+
   @S-051 @criterion-2 @edge
   Scenario Outline: Exclude failures that do not qualify
     Given one qualifying completed recovery with a verified duration of 45 minutes
