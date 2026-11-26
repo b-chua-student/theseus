@@ -17,6 +17,7 @@ Help maintainers see what share of production deployments are unplanned response
 
 - Let maintainers run a report on demand for the preceding 30 days in UTC.
 - Show rework and production deployment counts and the rate when the evidence is complete and the production total is positive. Report verified empty periods and gaps in evidence explicitly.
+- Add a **Deployment rework** section to the production incident template to guide maintainer confirmation.
 
 ## Non-Goals
 
@@ -51,6 +52,7 @@ Help maintainers see what share of production deployments are unplanned response
 5. When a gap could change either count, the report displays **Incomplete evidence** and omits the rate. When production history is complete, it displays the verified production total, confirmed rework count, and number awaiting review. When production history is incomplete, it marks the production total as unverified.
 
 6. A deployment with no linked incident or recorded disposition contributes to the awaiting-review count. When every deployment has a valid disposition and the rest of the evidence is complete, the report shows the rate.
+7. The production incident template includes a **Deployment rework** section that explains how a maintainer records that a specific deployment went live in production as an unplanned response to the incident.
 
 ## Reference Links
 

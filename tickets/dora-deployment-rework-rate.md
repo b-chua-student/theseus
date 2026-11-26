@@ -14,6 +14,7 @@ This metric is part of DORA’s current software delivery metrics. [DORA metric 
 - [ ] With complete evidence and a positive production deployment total, the report shows the qualifying rework count, the production deployment total, and the resulting percentage. If none qualify, show 0%.
 - [ ] When production history verifies an empty period, show zero for both counts and display **N/A — no production deployments** for the rate.
 - [ ] When missing evidence could change either count, show **Incomplete evidence** and withhold the percentage. If production history is complete, show the verified total, confirmed rework count, and number awaiting review. Otherwise mark the production total as unverified.
+- [ ] The production incident template includes a **Deployment rework** section explaining how a maintainer records that a specific deployment went live in production as an unplanned response to the incident.
 
 ## Rules / Constraints
 - Count each qualifying deployment once. Include all production deployments in the denominator for the reporting period.
@@ -38,8 +39,8 @@ This feature lives in `specs/devops/dora-deployment-rework-rate/`.
 - Spec files: `requirements.md`, `design.md`, and `tasks.md`
 
 ## Definition of Done
-- [X] Intake generated and approved
-- [X] Gherkin generated and approved
+- [ ] Intake generated and approved
+- [ ] Gherkin generated and approved
 - [X] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged

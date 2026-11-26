@@ -12,6 +12,13 @@ Feature: Track deployment rework rate
     Then the report shows 2 rework deployments and 4 production deployments
     And the rework rate is 50%
 
+  @S-054 @criterion-7
+  Scenario: Guide maintainers in confirming deployment rework
+    Given a maintainer is documenting a production incident
+    When the maintainer uses the production incident template
+    Then the template includes a "Deployment rework" section
+    And the section explains how to record that a specific deployment went live in production as an unplanned response to the incident
+
   @S-047 @edge @criterion-1 @criterion-2
   Scenario: Count a deployment linked to multiple incidents once
     Given complete evidence for two deployments that went live in production during the reporting period
