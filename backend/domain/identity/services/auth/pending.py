@@ -10,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from threading import Lock
 
+ATTEMPT_LIFETIME = timedelta(minutes=5)
+
 
 class PendingAttempts:
     """Store attempts in development memory or a shared Mongo collection."""
@@ -26,7 +28,7 @@ class PendingAttempts:
         """Save the expiring request and return its opaque identifier."""
         key = token_urlsafe(32)
         now = datetime.now(UTC)
-        attempt = dict(attempt, expires=now + timedelta(minutes=5))
+        attempt = dict(attempt, expires=now + ATTEMPT_LIFETIME)
         if self.collection is not None:
             self.collection.insert_one(dict(attempt, _id=key))
         else:
@@ -64,8 +66,8 @@ class PostgresPendingAttempts:
         key = token_urlsafe(32)
         self.connection.execute("DELETE FROM oauth_attempts WHERE expires <= now()")
         self.connection.execute(
-            "INSERT INTO oauth_attempts VALUES (%s, now() + interval '5 minutes', %s)",
-            (key, Jsonb(attempt)),
+            "INSERT INTO oauth_attempts VALUES (%s, now() + %s, %s)",
+            (key, ATTEMPT_LIFETIME, Jsonb(attempt)),
         )
         return key
 
