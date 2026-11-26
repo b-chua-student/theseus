@@ -92,6 +92,9 @@ def test_concurrent_provision(repo, same_subject) -> None:
 def test_link_conflict_and_passwordless_reload(repo) -> None:
     first, second = account("first@example.com"), account("second@example.com")
     repo.provision(first, "issuer", "first")
+    assert repo.has_identity(first.id, "issuer")
+    assert not repo.has_identity(second.id, "issuer")
+    assert not repo.has_identity(first.id, "different")
     repo.provision(second, "issuer", "second")
     with pytest.raises(IdentityConflict):
         repo.link(second, "issuer", "first")
