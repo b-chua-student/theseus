@@ -13,6 +13,7 @@ import jwt
 import requests
 from flask import Blueprint, Flask, current_app, jsonify, redirect, request, session
 from flask.typing import ResponseReturnValue
+from itsdangerous import BadData, URLSafeTimedSerializer
 
 from bootstrap.error_handlers import log_invalid_credentials
 from domain.identity.infrastructure.ports.identity_repository import (
@@ -23,11 +24,33 @@ from domain.identity.models.aggregates import User
 from domain.identity.models.errors import InvalidDisplayNameError, InvalidEmailError
 from domain.identity.models.value_objects import DisplayName, Email, UserId
 from domain.identity.services.auth.errors import InvalidCredentialsError
-from domain.identity.services.auth.pending import PendingAttempts, PostgresPendingAttempts
+from domain.identity.services.auth.pending import (
+    ATTEMPT_LIFETIME,
+    PendingAttempts,
+    PostgresPendingAttempts,
+)
 
 from .routes import establish_session, login_required
 
 oauth = Blueprint("oauth", __name__)
+
+HINT_COOKIE = "theseus_google_hint"
+HINT_MAX_AGE = 30 * 24 * 60 * 60
+
+
+def _hint_serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="google-account-hint")
+
+
+def _remembered_subject() -> str | None:
+    cookie = request.cookies.get(HINT_COOKIE)
+    if not cookie:
+        return None
+    try:
+        subject = _hint_serializer().loads(cookie, max_age=HINT_MAX_AGE)
+    except BadData:
+        return None
+    return subject if isinstance(subject, str) and subject else None
 
 
 class CallbackLogFilter(logging.Filter):
@@ -81,7 +104,17 @@ def failure(code: str, provider: str) -> ResponseReturnValue:
 @oauth.get("/oauth/providers")
 def providers() -> ResponseReturnValue:
     """Return configured providers and recovery state for this browser."""
+    google = current_app.config["OAUTH_PROVIDERS"].get("google", {})
+    user_id = session.get("user_id")
+    connected = bool(
+        user_id
+        and repository().has_identity(
+            UserId.from_str(user_id), google.get("issuer", "https://accounts.google.com")
+        )
+    )
     response = jsonify(
+        google_connected=connected,
+        returning_google_user=_remembered_subject() is not None,
         providers=list(current_app.config["OAUTH_PROVIDERS"]),
         interrupted=bool(session.get("oauth_attempt")),
         csrf=session.get("oauth_csrf"),
@@ -91,24 +124,33 @@ def providers() -> ResponseReturnValue:
     return response
 
 
-def begin(provider: str, *, link: bool = False) -> ResponseReturnValue:
+def begin(
+    provider: str,
+    *,
+    link: bool = False,
+    return_to: str | None = None,
+    login_hint: str | None = None,
+    silent: bool = False,
+    choose_account: bool = False,
+) -> ResponseReturnValue:
     """Bind one authorization attempt to this session."""
     config = current_app.config["OAUTH_PROVIDERS"].get(provider)
     if config is None:
         return jsonify(error="Unknown provider"), 404
     store = current_app.extensions["oauth_attempts"]
     store.take(session.pop("oauth_attempt", None))
-    return_to = request.args.get("return_to")
     verifier = secrets.token_urlsafe(64)
     attempt = dict(
         provider=provider,
         state=secrets.token_urlsafe(32),
         nonce=secrets.token_urlsafe(32),
         verifier=verifier,
+        silent_subject=login_hint if silent else None,
         account=session.get("user_id") if link else None,
         destination=return_to if return_to in {"/workspace", "/projects"} else "/",
     )
     session["oauth_attempt"] = store.put(attempt)
+    session["oauth_expires"] = (datetime.now(UTC) + ATTEMPT_LIFETIME).timestamp()
     digest = hashlib.sha256(verifier.encode()).digest()
     params = dict(
         response_type="code",
@@ -120,6 +162,12 @@ def begin(provider: str, *, link: bool = False) -> ResponseReturnValue:
         code_challenge_method="S256",
         code_challenge=base64.urlsafe_b64encode(digest).rstrip(b"=").decode(),
     )
+    if login_hint:
+        params["login_hint"] = login_hint
+    if silent:
+        params["prompt"] = "none"
+    elif choose_account:
+        params["prompt"] = "select_account"
     destination = config["authorization_endpoint"] + "?" + urlencode(params)
     return jsonify(location=destination) if link else redirect(destination)
 
@@ -127,7 +175,15 @@ def begin(provider: str, *, link: bool = False) -> ResponseReturnValue:
 @oauth.get("/oauth/<provider>/start")
 def start(provider: str) -> ResponseReturnValue:
     """Redirect to the selected provider for sign-in."""
-    return begin(provider)
+    choose_account = request.args.get("choose_account") == "1"
+    hint = None if choose_account else _remembered_subject()
+    return begin(
+        provider,
+        return_to=request.args.get("return_to"),
+        choose_account=choose_account,
+        login_hint=hint,
+        silent=bool(hint),
+    )
 
 
 def csrf_valid() -> bool:
@@ -210,6 +266,10 @@ def validated_claims(config: dict, attempt: dict, code: str) -> dict:
 def callback(provider: str) -> ResponseReturnValue:
     """Consume the attempt and validate the provider response."""
     attempt = current_app.extensions["oauth_attempts"].take(session.pop("oauth_attempt", None))
+    deadline = session.pop("oauth_expires", None)
+    if not attempt and deadline is not None and deadline <= datetime.now(UTC).timestamp():
+        # The store may already have deleted the expired record.
+        return failure("timeout", provider)
     if (
         not attempt
         or attempt["provider"] != provider
@@ -229,15 +289,28 @@ def callback(provider: str) -> ResponseReturnValue:
         return failure("invalid", provider)
     error = request.args.get("error")
     if error:
+        if attempt.get("silent_subject") and error in {
+            "interaction_required",
+            "login_required",
+            "account_selection_required",
+            "consent_required",
+            "immediate_failed",
+        }:
+            current_app.logger.info(
+                "Google requested interaction during returning sign-in: %s", error
+            )
+            return begin(
+                provider, return_to=attempt["destination"], login_hint=attempt["silent_subject"]
+            )
         return failure("cancelled" if error == "access_denied" else "provider", provider)
     config = current_app.config["OAUTH_PROVIDERS"].get(provider)
     if not config or not request.args.get("code"):
         return failure("invalid", provider)
     try:
         claims = validated_claims(config, attempt, request.args["code"])
-    except requests.Timeout:
-        current_app.logger.warning("OAuth token endpoint timed out")
-        return failure("timeout", provider)
+    except (requests.Timeout, requests.ConnectionError, jwt.PyJWKClientConnectionError) as exc:
+        current_app.logger.warning("OAuth provider connection failed: %s", type(exc).__name__)
+        return failure("connection", provider)
     except requests.HTTPError as exc:
         reason = "token request rejected"
         if exc.response is not None:
@@ -263,6 +336,8 @@ def callback(provider: str) -> ResponseReturnValue:
 
 def finish(attempt: dict, claims: dict, provider: str) -> ResponseReturnValue:
     """Resolve the validated subject and commit the appropriate account action."""
+    if attempt.get("silent_subject") and claims["sub"] != attempt["silent_subject"]:
+        return failure("invalid", provider)
     try:
         email = Email(claims.get("email") or "")
     except (InvalidEmailError, TypeError, AttributeError):
@@ -299,4 +374,14 @@ def finish(attempt: dict, claims: dict, provider: str) -> ResponseReturnValue:
     if user.status == "suspended":
         return failure("unavailable", provider)
     establish_session(str(user.id.value))
-    return redirect(attempt["destination"])
+    response = redirect(attempt["destination"])
+    response.set_cookie(
+        HINT_COOKIE,
+        _hint_serializer().dumps(claims["sub"]),
+        max_age=HINT_MAX_AGE,
+        path="/api/auth/oauth",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        httponly=True,
+        samesite="Lax",
+    )
+    return response
