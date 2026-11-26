@@ -306,7 +306,7 @@ class GeminiAnswerValidator(AnswerValidator, AnswerProposer):
                 model=self._model, contents=prompt, config=config
             )
         except genai_errors.APIError as exc:
-            if exc.code == 504 and exc.status == "DEADLINE_EXCEEDED":
+            if exc.code == 504:
                 raise ValidationBudgetExceeded("Gemini validation deadline expired.") from exc
             if exc.code == 429:
                 raise ChatModelRateLimitedError(

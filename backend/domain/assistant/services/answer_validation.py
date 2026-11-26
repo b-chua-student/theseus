@@ -14,9 +14,11 @@ from domain.assistant.models.value_objects import (
     ProjectId,
     ProposedFinding,
     Query,
+    SourceDraft,
     Verdict,
 )
 from domain.assistant.services.evidence_retriever import EvidenceRetriever
+from domain.assistant.services.reviewed_answer_cache import Recovery, evidence_key
 from domain.assistant.services.revise_draft import ReviseDraft
 
 if TYPE_CHECKING:
@@ -128,6 +130,69 @@ class ValidateAnswer:
         self._deadline_seconds = deadline_seconds
         self._max_retries = max_retries
         self._slots = threading.BoundedSemaphore(max_outstanding_calls)
+
+    def review_draft(  # noqa: PLR0913
+        self,
+        question: Query,
+        draft: SourceDraft,
+        evidence: Evidence,
+        project_id: ProjectId,
+        source_ids: list[str] | None,
+        manuscript_text: str,
+        recovery: list[Recovery],
+        on_draft_ready: Callable[[], None] | None,
+    ) -> tuple[Answer, bool]:
+        """Recover evidence and review once; only a complete success is reusable."""
+        deadline = self._clock() + self._deadline_seconds
+        if on_draft_ready is not None:
+            on_draft_ready()
+        validator = self._validator
+        if validator is None:
+            raise AnswerValidationError(INTERRUPTED_MESSAGE)
+        progress = _Progress(answer=draft.answer, evidence=evidence)
+        for claim in draft.claims:
+            if (
+                1 <= claim.citation <= len(evidence.passages)
+                and claim.excerpt.strip()
+                and claim.excerpt in evidence.passages[claim.citation - 1].text
+            ):
+                progress.pending_claims[claim.text] = claim.text
+        executor = ThreadPoolExecutor(max_workers=1)
+        try:
+            hint = draft.missing_evidence
+            if hint and len(recovery) < self._max_retries:
+                keep = frozenset(progress.cited_keys())
+                progress.evidence = self._call(
+                    executor,
+                    deadline,
+                    lambda _: self._retriever.find_more(
+                        project_id, question, evidence, hint, source_ids, keep=keep
+                    ),
+                )
+                recovery.append(Recovery(hint, keep, evidence_key(progress.evidence)))
+            verdict = self._call(
+                executor,
+                deadline,
+                lambda remaining: validator.check(
+                    question=question.text,
+                    answer=draft.answer,
+                    passages=list(progress.evidence.passages),
+                    manuscript_text=manuscript_text,
+                    timeout=remaining,
+                ),
+            )
+            progress.record(verdict)
+            progress.pending_claims.clear()
+            if self._clock() >= deadline:
+                return self._at_deadline(progress), False
+            complete = verdict.passed and bool(verdict.verified) and not verdict.gaps
+            return self._exhausted(progress), complete
+        except _DeadlineReached:
+            return self._at_deadline(progress), False
+        except _ServiceFailure as exc:
+            raise AnswerValidationError(INTERRUPTED_MESSAGE) from exc.__cause__
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
     def execute(
         self,

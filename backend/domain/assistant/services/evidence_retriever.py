@@ -41,6 +41,32 @@ class EvidenceRetriever:
         self._source_ids = source_ids
         self._top_k = top_k
 
+    def searchable_scope(
+        self, project_id: ProjectId, source_ids: list[str] | None
+    ) -> tuple[str, ...]:
+        """Resolve the currently authorized indexed sources for reviewed-answer reuse."""
+        if (
+            self._embedding_generator is None
+            or self._vector_store is None
+            or self._document_repository is None
+            or self._source_ids is None
+        ):
+            raise RetrievalError("Source Library retrieval is unavailable.")
+        try:
+            allowed = set(self._source_ids(project_id))
+            selected = set(source_ids) if source_ids is not None else None
+            return tuple(
+                sorted(
+                    str(d.doc_ref_id.value)
+                    for d in self._document_repository.list_by_project(project_id)
+                    if d.is_searchable
+                    and d.doc_ref_id in allowed
+                    and (selected is None or str(d.doc_ref_id.value) in selected)
+                )
+            )
+        except Exception as exc:
+            raise RetrievalError("Resolving searchable sources failed.") from exc
+
     def search(
         self,
         project_id: ProjectId,
@@ -61,16 +87,14 @@ class EvidenceRetriever:
             or self._source_ids is None
         ):
             return []
+        return self.search_scope(text, self.searchable_scope(project_id, source_ids))
+
+    def search_scope(self, text: str, scope: tuple[str, ...]) -> list[RetrievedChunk]:
+        """Run a search against the same scope snapshot included in the cache key."""
+        if self._embedding_generator is None or self._vector_store is None:
+            raise RetrievalError("Source Library retrieval is unavailable.")
         try:
-            allowed = set(self._source_ids(project_id))
-            if source_ids is not None:
-                selected = set(source_ids)
-                allowed = {ref for ref in allowed if str(ref.value) in selected}
-            doc_ref_ids = [
-                d.doc_ref_id
-                for d in self._document_repository.list_by_project(project_id)
-                if d.is_searchable and d.doc_ref_id in allowed
-            ]
+            doc_ref_ids = [DocumentRefId.from_str(value) for value in scope]
             if not doc_ref_ids:
                 return []
             # The generator embeds chunks, so wrap the text as a throwaway chunk.

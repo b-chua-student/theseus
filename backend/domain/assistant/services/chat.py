@@ -29,6 +29,13 @@ from domain.assistant.models.value_objects import (
 )
 from domain.assistant.services.answer_validation import INTERRUPTED_MESSAGE, ValidateAnswer
 from domain.assistant.services.evidence_retriever import EvidenceRetriever
+from domain.assistant.services.reviewed_answer_cache import (
+    Recovery,
+    ReviewedAnswer,
+    ReviewedAnswerCache,
+    evidence_key,
+    fingerprint,
+)
 from domain.assistant.services.source_answer_candidates import SourceAnswerCandidates
 
 logger = logging.getLogger(__name__)
@@ -59,6 +66,7 @@ class ChatService:
 
         ``clock`` is a monotonic time source and defaults to ``time.monotonic``.
         """
+        self._reviewed_cache = ReviewedAnswerCache()
         self._repository = repository
         self._model = model
         self._retriever = EvidenceRetriever(
@@ -127,12 +135,13 @@ class ChatService:
         history = conversation.history
         exchange = conversation.ask(query)
 
+        cache_write: tuple[str, ReviewedAnswer] | None = None
         try:
             if context_scope == "source_library" and self._validate_answer is None:
                 raise AnswerValidationError(INTERRUPTED_MESSAGE)
             context = (
                 self._retriever.search(conversation.project_id, query.text, source_ids)
-                if context_scope == "source_library"
+                if context_scope == "source_library" and self._candidates is None
                 else []
             )
             model_query = query
@@ -144,21 +153,27 @@ class ChatService:
                     f"\n\nQuestion: {query.text}"
                 )
             if context_scope == "source_library" and self._candidates is not None:
-                answer = Answer("\n".join(p.text for p in context) or "No retrieved passages.")
+                answer, cache_write = self._source_answer(
+                    conversation,
+                    query,
+                    text,
+                    source_ids,
+                    manuscript_text,
+                    on_draft_ready,
+                )
             else:
                 answer = self._model.reply(history, model_query, context)
-            if context_scope == "source_library" and self._validate_answer is not None:
-                if on_draft_ready is not None:
-                    on_draft_ready()
-                answer = self._validate_answer.execute(
-                    question=query,
-                    draft=answer,
-                    candidates=self._candidates,
-                    evidence=Evidence(tuple(context)),
-                    project_id=conversation.project_id,
-                    source_ids=source_ids,
-                    manuscript_text=manuscript_text,
-                )
+                if context_scope == "source_library" and self._validate_answer is not None:
+                    if on_draft_ready is not None:
+                        on_draft_ready()
+                    answer = self._validate_answer.execute(
+                        question=query,
+                        draft=answer,
+                        evidence=Evidence(tuple(context)),
+                        project_id=conversation.project_id,
+                        source_ids=source_ids,
+                        manuscript_text=manuscript_text,
+                    )
         except ChatModelError:
             # Don't leave the exchange pending, or every later question would be rejected.
             conversation.discard_pending()
@@ -178,4 +193,61 @@ class ChatService:
         conversation.answer(exchange.id, answer)
 
         self._repository.save(conversation)
+        if cache_write is not None:
+            self._reviewed_cache.put(*cache_write)
         return answer
+
+    def _source_answer(  # noqa: PLR0913
+        self,
+        conversation: Conversation,
+        query: Query,
+        exact_question: str,
+        source_ids: builtins.list[str] | None,
+        manuscript_text: str,
+        on_draft_ready: Callable[[], None] | None,
+    ) -> tuple[Answer, tuple[str, ReviewedAnswer] | None]:
+        scope = self._retriever.searchable_scope(conversation.project_id, source_ids)
+        evidence = Evidence(tuple(self._retriever.search_scope(query.text, scope)))
+        if not evidence.passages:
+            return Answer("The search found insufficient evidence in your selected sources."), None
+        key = fingerprint(
+            str(conversation.project_id.value),
+            str(conversation.id.value),
+            exact_question,
+            sorted(set(source_ids)) if source_ids is not None else None,
+            scope,
+            evidence_key(evidence),
+            manuscript_text,
+        )
+        cached = self._reviewed_cache.get(key)
+        recovery: list[Recovery] = []
+        if cached is not None:
+            for step in cached.recovery:
+                evidence = self._retriever.find_more(
+                    conversation.project_id, query, evidence, step.query, source_ids, keep=step.keep
+                )
+                current = evidence_key(evidence)
+                recovery.append(Recovery(step.query, step.keep, current))
+                if current != step.evidence_key:
+                    break
+            else:
+                return cached.answer, None
+
+        proposer = self._candidates.proposer if self._candidates else None
+        if proposer is None or self._validate_answer is None:
+            raise AnswerValidationError(INTERRUPTED_MESSAGE)
+        try:
+            draft = proposer.draft(query.text, evidence, manuscript_text)
+        except ChatModelError as exc:
+            raise AnswerValidationError(INTERRUPTED_MESSAGE) from exc
+        answer, complete = self._validate_answer.review_draft(
+            query,
+            draft,
+            evidence,
+            conversation.project_id,
+            source_ids,
+            manuscript_text,
+            recovery,
+            on_draft_ready,
+        )
+        return answer, (key, ReviewedAnswer(answer, tuple(recovery))) if complete else None
