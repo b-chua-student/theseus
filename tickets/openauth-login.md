@@ -10,7 +10,7 @@ This ticket covers the sign-in experience for Theseus users.
 
 ## Scope
 
-- Sign in to Theseus with OpenAuth through Google or Microsoft.
+- Sign in to Theseus with OpenAuth through Google as the sole OAuth provider for sign-in and account linking.
 
 ## Expected Outcomes
 
@@ -52,7 +52,7 @@ This release has no specified performance target and no additional availability,
 
 ## Session, auditing, and provider data
 
-- OpenAuth users can end their Theseus session through the existing Theseus sign-out flow. Signing out of Google or Microsoft is outside this feature's scope.
+- OpenAuth users can end their Theseus session through the existing Theseus sign-out flow. Signing out of Google is outside this feature's scope.
 - Use the same sign-in audit events as other Theseus sign-in methods if those events already exist. Defer new event types and retention rules.
 - Retain only the provider's stable identity identifier for future sign-ins and the email, email verification status, and display name needed for the Theseus account.
 - Use provider tokens only during authentication and discard them afterward. Do not store raw provider profiles or unused fields.
@@ -73,5 +73,5 @@ This release has no specified performance target and no additional availability,
 
 ## Provider buttons on the regular sign-in page
 
-- Show “Continue with Google” and “Continue with Microsoft” on the regular sign-in page even when a provider is unavailable.
+- Show “Continue with Google” on the regular sign-in page even when Google is unavailable.
 - Selecting an available provider starts its sign-in flow. Selecting an unavailable provider explains that sign-in with that provider is unavailable and leaves the user on the sign-in page.
