@@ -5,7 +5,7 @@ Feature: User can log in through email via OAuth
   So that I can access the application without managing a separate password
 
   Background:
-    Given the OAuth providers "Google" and "Microsoft" are enabled
+    Given Google is the only enabled OAuth provider
     And I am not logged in
     And I am on the login page
 
@@ -17,7 +17,7 @@ Feature: User can log in through email via OAuth
   @S-001 @criterion-1
   Scenario: Login page shows OAuth provider options
     Then I should see a "Continue with Google" button
-    And I should see a "Continue with Microsoft" button
+    And Google should be the only OAuth choice
 
   @S-002 @criterion-1
   Scenario Outline: User continues to the selected provider to authorize sign-in
@@ -27,19 +27,17 @@ Feature: User can log in through email via OAuth
     Examples:
       | provider  |
       | Google    |
-      | Microsoft |
 
   @edge @S-029 @criterion-4
-  Scenario Outline: Provider buttons remain visible when sign-in becomes unavailable
+  Scenario Outline: The Google button remains visible when sign-in becomes unavailable
     Given sign-in with <provider> has become unavailable
     When I reopen the regular sign-in page and select "Continue with <provider>"
     Then I should see that sign-in with <provider> is unavailable
-    And I should remain signed out on the sign-in page with both provider buttons visible
+    And I should remain signed out on the sign-in page with the Google button visible
 
     Examples:
       | provider  |
       | Google    |
-      | Microsoft |
 
   # ---------------------------------------------------------------
   # Successful login
@@ -147,7 +145,6 @@ Feature: User can log in through email via OAuth
     Examples:
       | provider  |
       | Google    |
-      | Microsoft |
 
   @S-013 @criterion-3
   Scenario: Login is rejected when the provider returns no email
@@ -181,7 +178,7 @@ Feature: User can log in through email via OAuth
     Given I started Google sign-in
     When Google takes too long to complete sign-in
     Then I should remain signed out and return to the login page
-    And I should see a retry message and the enabled Microsoft option
+    And I should see a retry message and the password sign-in option
 
   @S-017 @criterion-3
   Scenario: User reopens Theseus after an interrupted provider redirect
@@ -189,7 +186,7 @@ Feature: User can log in through email via OAuth
     When I return to Theseus without completing sign-in
     Then I should remain signed out
     And I should see the message "Sign-in wasn’t completed"
-    And I should be able to restart Google sign-in or choose "Continue with Microsoft"
+    And I should be able to restart Google sign-in or use my password
 
   @S-018 @criterion-3
   Scenario: Suspended account cannot sign in
