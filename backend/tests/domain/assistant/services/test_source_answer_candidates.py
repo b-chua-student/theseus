@@ -1,11 +1,23 @@
 """Offline component checks for local selection, assisted verification and recovery."""
 
 from unittest.mock import Mock
+from uuid import uuid4
+
+import pytest
 
 from domain.assistant.infrastructure.ports.answer_validator import AnswerProposer
-from domain.assistant.models.value_objects import Evidence, ProposedFinding, Query
+from domain.assistant.models.errors import ValidationBudgetExceeded
+from domain.assistant.models.value_objects import (
+    Answer,
+    Evidence,
+    ProjectId,
+    ProposedFinding,
+    Query,
+)
+from domain.assistant.services.answer_validation import ValidateAnswer
+from domain.assistant.services.evidence_retriever import EvidenceRetriever
 from domain.assistant.services.source_answer_candidates import SourceAnswerCandidates
-from tests.domain.assistant.validation_support import QUESTION, passage
+from tests.domain.assistant.validation_support import QUESTION, FakeClock, passage
 
 P1 = passage("P1", "The pilot started in May.")
 P2 = passage("P2", "The pilot ended in July.")
@@ -91,3 +103,36 @@ def test_an_explicit_attribute_can_be_answered_without_generation() -> None:
         Query("What was the budget of the study?"), evidence
     )
     assert verdict.passed and "$300 [1]" in answer.text
+
+
+def test_s018_deadline_between_claim_checks_offers_only_pending_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = Mock(spec=AnswerProposer)
+    provider.propose.return_value = (
+        ProposedFinding("The pilot started on July 12.", 1, P1.text),
+        ProposedFinding(P2.text, 2, P2.text),
+    )
+    # Competing events keep the initial local pass inconclusive for both dates.
+    evidence = Evidence((P1, P2, P3, passage("P4", "Follow-up started in April.")))
+
+    def expire_during_precision_check(value: str, detail: str) -> bool:
+        assert value == "july"
+        raise ValidationBudgetExceeded("Deadline during the second claim check")
+
+    monkeypatch.setattr(
+        "domain.assistant.services.local_evidence._sufficient", expire_during_precision_check
+    )
+    answer = ValidateAnswer(None, EvidenceRetriever(), FakeClock().now).execute(
+        question=Query(QUESTION),
+        draft=Answer("Waiting for evidence checks."),
+        evidence=evidence,
+        project_id=ProjectId.from_str(str(uuid4())),
+        candidates=SourceAnswerCandidates(provider),
+    )
+    provider.propose.assert_called_once()
+    assert not answer.citations
+    assert P2.text not in answer.text and "July 12" not in answer.text
+    draft = getattr(answer, "unverified_draft", None)
+    assert draft and P2.text in draft
+    assert "July 12" not in draft
