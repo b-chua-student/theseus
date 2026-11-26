@@ -38,12 +38,15 @@ Feature: Track failed deployment recovery time
 
   @S-051 @criterion-2 @edge
   Scenario Outline: Exclude failures that do not qualify
-    Given a failure with a known failure time and a known restoration time
+    Given one qualifying completed recovery with a verified duration of 45 minutes
+    And a separate failure with a known failure time and a known restoration time
     And the failure occurred in <environment>
     And deployment attribution is <attribution>
     And immediate intervention is <intervention>
     When a maintainer views the failed deployment recovery time report
-    Then the failure is excluded from the metric
+    Then the nonqualifying failure has no report entry
+    And the report shows a median recovery duration of 45 minutes across 1 completed recovery
+    And the report shows separate counts of 0 unresolved failures and 0 restored failures with a missing timestamp
 
     Examples:
       | environment | attribution | intervention |
@@ -53,10 +56,13 @@ Feature: Track failed deployment recovery time
 
   @S-048 @criterion-2 @edge
   Scenario: Exclude a failed deployment attempt that leaves production healthy
-    Given a production deployment attempt fails during startup
+    Given one qualifying completed recovery with a verified duration of 45 minutes
+    And a separate production deployment attempt fails during startup
     And the previous release continues to serve users normally
     When a maintainer views the failed deployment recovery time report
-    Then the failed deployment attempt is excluded from the metric
+    Then the failed deployment attempt has no report entry
+    And the report shows a median recovery duration of 45 minutes across 1 completed recovery
+    And the report shows separate counts of 0 unresolved failures and 0 restored failures with a missing timestamp
 
   @S-049 @criterion-1 @edge
   Scenario: Use verified restoration after the corrective deployment goes live
