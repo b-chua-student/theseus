@@ -273,3 +273,46 @@ Feature: User can log in through email via OAuth
     Given Theseus has received provider tokens during my sign-in attempt
     When authentication ends in failure
     Then Theseus should retain no provider tokens from that attempt
+
+  @S-030 @criterion-5
+  Scenario: A new user sees how to create an account
+    Then guidance below "Continue with Google" should explain that a first Google sign-in creates a Theseus account for a new user
+    And password sign-up should be available
+
+  @S-031 @criterion-5
+  Scenario: Restart an expired Google sign-in
+    Given my Google sign-in request expired
+    And I see "This sign-in request expired"
+    When I select "Restart Google sign-in"
+    Then I should reach Google authorization for a fresh attempt
+
+  @S-032 @criterion-5
+  Scenario: Retry when Theseus cannot reach Google
+    Given Theseus cannot reach Google during sign-in
+    When I return to the sign-in page
+    Then I should see a message explaining that Theseus could not reach Google
+    And I should remain signed out with a "Try again" action
+
+  @S-033 @criterion-5
+  Scenario: Reopen Account after linking Google
+    Given I signed in with my password and my account has no Google identity
+    And I selected "Link Google" in Account and completed linking
+    When I reopen Account
+    Then I should see "Google connected"
+    And the "Link Google" action should be absent
+
+  @S-034 @criterion-6
+  Scenario: Returning Google user signs in with existing approval
+    Given I previously clicked Allow and successfully signed in to Theseus with Google
+    And I signed out of Theseus
+    And Google can authenticate the same account using its existing approval
+    When I continue with Google using that account
+    Then I should be signed in to my original Theseus account without clicking Allow again
+
+  @S-035 @criterion-6
+  Scenario: Google requires interaction for a returning user
+    Given I previously signed in to Theseus with Google and then signed out
+    And Google requires interaction before it can authenticate me again
+    When I continue with Google
+    Then I should be able to complete Google's normal sign-in flow
+    And I should receive a Theseus session only after Google authenticates me
