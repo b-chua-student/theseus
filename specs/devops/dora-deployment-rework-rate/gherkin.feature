@@ -6,7 +6,7 @@ Feature: Track deployment rework rate
     Given complete evidence for four deployments that went live in production during the reporting period
     And a maintainer confirmed that two were unplanned responses to the same production incident
     And the incident was caused by an infrastructure outage
-    And the other two deployments were planned
+    And a maintainer recorded the other two deployments as reviewed with no qualifying rework
     And a separate confirmed incident response never went live in production
     When a maintainer runs the report on demand
     Then the report shows 2 rework deployments and 4 production deployments
@@ -16,7 +16,7 @@ Feature: Track deployment rework rate
   Scenario: Count a deployment linked to multiple incidents once
     Given complete evidence for two deployments that went live in production during the reporting period
     And a maintainer confirmed the same deployment as an unplanned response on two incident records
-    And the other deployment was planned
+    And a maintainer recorded the other deployment as reviewed with no qualifying rework
     When a maintainer runs the report on demand
     Then the report shows 1 rework deployment and 2 production deployments
     And the rework rate is 50%
@@ -27,7 +27,7 @@ Feature: Track deployment rework rate
       | Production live time UTC | Rework status                       |
       | 2026-10-27T11:59:59Z      | Confirmed unplanned response        |
       | 2026-10-27T12:00:00Z      | Confirmed unplanned response        |
-      | 2026-11-26T11:59:59Z      | Planned deployment                  |
+      | 2026-11-26T11:59:59Z      | Reviewed with no qualifying rework   |
       | 2026-11-26T12:00:00Z      | Confirmed unplanned response        |
       | 2026-11-26T12:00:01Z      | Confirmed unplanned response        |
     And the incident addressed by the deployment at the window start began before the window
@@ -41,9 +41,11 @@ Feature: Track deployment rework rate
     Then the report shows 0 rework deployments and 0 production deployments
     And the rate is displayed as "N/A — no production deployments"
 
-  @S-050 @edge @criterion-4
+  @S-050 @edge @criterion-4 @criterion-6
   Scenario: Report zero rework when deployments were planned
-    Given complete evidence for two planned deployments that went live in production during the reporting period
+    Given verified production history shows two deployments went live during the reporting period
+    And a maintainer recorded a reviewed disposition of no qualifying rework for each deployment
+    And the remaining evidence is complete
     When a maintainer runs the report on demand
     Then the report shows 0 rework deployments and 2 production deployments
     And the rework rate is 0%
@@ -52,7 +54,7 @@ Feature: Track deployment rework rate
   Scenario: Withhold the rate while a potential rework deployment awaits confirmation
     Given verified production history shows three deployments went live during the reporting period
     And one deployment was a maintainer-confirmed unplanned response to a production incident
-    And one deployment was planned
+    And a maintainer recorded one deployment as reviewed with no qualifying rework
     And one deployment was flagged as a hotfix and awaits maintainer confirmation
     When a maintainer runs the report on demand
     Then the report shows "Incomplete evidence" and omits the percentage
@@ -64,3 +66,12 @@ Feature: Track deployment rework rate
     When a maintainer runs the report on demand
     Then the report shows "Incomplete evidence" and omits the percentage
     And it marks the production deployment total as unverified
+
+  @S-053 @edge @criterion-5 @criterion-6
+  Scenario: Treat a deployment without an incident or disposition as awaiting review
+    Given verified production history shows two deployments went live during the reporting period
+    And one deployment was a maintainer-confirmed unplanned response to a production incident
+    And the other deployment has no linked incident and no maintainer disposition
+    When a maintainer runs the report on demand
+    Then the report shows "Incomplete evidence" and omits the percentage
+    And it shows 2 verified production deployments, 1 confirmed rework deployment, and 1 awaiting review

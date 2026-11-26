@@ -28,6 +28,7 @@ Help maintainers see what share of production deployments are unplanned response
 - Include all production deployments in the reporting period in the denominator.
 - Use each deployment's production live time to assign it to the period. Include the window start and exclude the report start, regardless of when the incident began.
 - Count rework when production history confirms the deployment went live and a maintainer confirms on the incident record that the specific deployment was an unplanned response. Incidents of any cause qualify.
+- A maintainer reviews each production deployment by ID. Accept either valid incident confirmation or an explicit reviewed disposition of no qualifying rework. Deployments without either disposition remain awaiting review, including those without linked incidents.
 
 ## Known Touchpoints
 
@@ -48,6 +49,8 @@ Help maintainers see what share of production deployments are unplanned response
 3. A maintainer can run the report on demand. It includes deployments that went live exactly 30 days before the run in UTC and excludes deployments that went live at or after the run start.
 4. A verified empty period shows both counts as zero and **N/A — no production deployments**. A period with production deployments and complete evidence of zero rework shows **0%**.
 5. When a gap could change either count, the report displays **Incomplete evidence** and omits the rate. When production history is complete, it displays the verified production total, confirmed rework count, and number awaiting review. When production history is incomplete, it marks the production total as unverified.
+
+6. A deployment with no linked incident or recorded disposition contributes to the awaiting-review count. When every deployment has a valid disposition and the rest of the evidence is complete, the report shows the rate.
 
 ## Reference Links
 

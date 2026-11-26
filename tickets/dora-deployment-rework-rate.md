@@ -19,6 +19,7 @@ This metric is part of DORA’s current software delivery metrics. [DORA metric 
 - Count each qualifying deployment once. Include all production deployments in the denominator for the reporting period.
 - Count a deployment as rework when production history confirms it went live and a maintainer confirms on the incident record that the specific deployment was an unplanned response to a production incident. Hotfix labels and rollback records can identify candidates for review. The incident can have any cause.
 - Assign deployments to the period by their production live time. Include the window start and exclude the report start, regardless of when the incident began.
+- Review each production deployment by its deployment ID. A maintainer can explicitly classify a deployment as reviewed with no qualifying rework. A deployment with neither that disposition nor a valid rework confirmation remains awaiting review, even when it has no linked incident.
 
 ## Non-Functional Requirements
 No additional non-functional requirements specified.
