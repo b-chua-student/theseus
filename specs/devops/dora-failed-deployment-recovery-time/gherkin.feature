@@ -36,6 +36,12 @@ Feature: Track failed deployment recovery time
     Then the report shows a median recovery duration of 45 minutes across 3 completed recoveries
     And the report shows separate counts of 2 unresolved failures and 1 restored failure with a missing timestamp
 
+  @S-057 @criterion-4
+  Scenario: Report the median for an even number of completed recoveries
+    Given two qualifying production failures with verified recovery durations of 15 and 45 minutes
+    When a maintainer views the failed deployment recovery time report
+    Then the report shows a median recovery duration of 30 minutes across 2 completed recoveries
+
   @S-051 @criterion-2 @edge
   Scenario Outline: Exclude failures that do not qualify
     Given one qualifying completed recovery with a verified duration of 45 minutes
