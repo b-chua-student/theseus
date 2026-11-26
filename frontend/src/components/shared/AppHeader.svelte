@@ -4,6 +4,7 @@
   let { user, inEditor = false, documentTitle = '', manuscriptCount = 0, onworkspace, onsignout } = $props();
   let profileOpen = $state(false);
   let googleEnabled = $state(false);
+  let googleConnected = $state(false);
   let name = $state('');
   let feedback = $state('');
   let csrf = '';
@@ -11,10 +12,13 @@
     profileOpen = !profileOpen;
     if (!profileOpen) return;
     name = user.display_name;
+    googleConnected = false;
+    googleEnabled = false;
     feedback = '';
     try {
       const settings = await providerSettings();
       googleEnabled = settings.providers.includes('google');
+      googleConnected = settings.google_connected;
       csrf = settings.csrf;
     } catch (e) { feedback = e.message; }
   }
@@ -53,7 +57,9 @@
     {#if profileOpen}<div id="account-menu" class="account-menu"><form onsubmit={event => { event.preventDefault(); save(); }}>
       <label>Display name<input bind:value={name} required maxlength="50" /></label><button>Save</button>
       </form>
-      {#if googleEnabled}
+      {#if googleConnected}
+        <p>Google connected</p>
+      {:else if googleEnabled}
         <button onclick={linkGoogle}>Link Google</button>
       {/if}
       {#if feedback}<p role="status">{feedback}</p>{/if}<button type="button" onclick={() => { profileOpen = false; onworkspace?.(); }}>Workspace</button>
