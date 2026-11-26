@@ -2,7 +2,7 @@
 
 ## Intent
 
-Check each draft answer to a source-backed question before showing it to the user.
+Check each draft answer to a source-backed question before presenting it as a verified answer.
 
 ## Context
 
@@ -22,7 +22,7 @@ The Assistant retrieves passages from the Source Library to answer questions. Th
 
 ## Rules / Constraints
 
-- Validate source-backed answers before showing them to the user.
+- Validate claims before presenting them as findings. Only the deadline fallback may offer unchecked text as an explicitly labeled draft.
 - Allow two retries after the initial validation. Each retry can revise the draft, retrieve more evidence, or do both. Checking the resulting draft is part of that retry.
 - If validation is still running after five seconds, show “Checking the answer against your sources…” and keep draft text hidden.
 - If every draft is off-topic and retries are exhausted, say “I couldn’t produce a verified answer to your question.” Describe a source gap only when checked passages establish one.
@@ -31,10 +31,10 @@ The Assistant retrieves passages from the Source Library to answer questions. Th
 ## Non-Functional Requirements
 
 - Allow 30 seconds for validation and all retries combined, starting when the first draft is ready to check.
-- At the 30-second deadline, including when a service error occurs at that instant, return only verified findings with their citations and identify what could not be checked in time. If nothing was verified, say “I couldn’t verify an answer within 30 seconds. Please try again.”
+- At the 30-second deadline, including a simultaneous service error, show verified findings with citations and identify unfinished checks. If nothing was verified and Gemini returned a draft before the deadline, offer “View unverified draft” only for claims still awaiting a check. Hide the draft until selected, label it unverified when opened, and exclude claims already found unsupported or off-topic. If no eligible text remains, say “I couldn’t verify an answer within 30 seconds. Please try again.”
 - Across one source-backed question, allow at most one Gemini generation request in total, including drafting, validation, revision and retries. A failed or timed-out generation attempt consumes the allowance. Count embedding requests separately.
 - Use zero generation requests when the requested fact and its level of detail can be established locally from the retrieved evidence. Otherwise, the optional generation request may propose an answer with exact supporting excerpts and passage references.
-- Before display, check locally that the answer addresses the requested fact and that each displayed claim is supported by the excerpt from its cited passage. If support cannot be established, return only verified partial findings or explain what could not be verified. A retrieved excerpt alone does not establish an inference.
+- Before displaying verified findings, check locally that the answer addresses the requested fact and that each displayed claim is supported by the excerpt from its cited passage. If support cannot be established, return verified partial findings or explain what could not be verified, with the deadline exception above. A retrieved excerpt alone does not establish an inference.
 
 ## Out of Scope
 

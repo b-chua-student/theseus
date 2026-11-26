@@ -68,14 +68,17 @@ Feature: Validate source-backed answers before display
   Scenario: Return verified partial findings at the deadline
     Given the Assistant has verified the May start against P1
     And the checked passages leave the end date unresolved
+    And an unchecked generated draft is available
     And a retry is still waiting for evidence when the request deadline cuts it short
     When 30 seconds have elapsed since the first draft was ready to check
     Then validation stops for this request
     And the user sees the verified May start citing P1 and an explanation of the missing end date
+    And no unverified draft is offered
 
   @S-009 @criterion-7 @edge
   Scenario: Reach the deadline before any validation completes
     Given the first draft is waiting for its initial check to finish
+    And no generated draft has arrived
     When 30 seconds have elapsed since that draft was ready to check
     Then the user sees “I couldn’t verify an answer within 30 seconds. Please try again.”
     And the unchecked draft stays hidden
@@ -107,7 +110,8 @@ Feature: Validate source-backed answers before display
 
   @S-013 @criterion-7 @edge
   Scenario Outline: Apply the deadline response when validation fails at exactly 30 seconds
-    Given the findings verified so far are <findings>
+    Given no eligible unchecked draft text is available
+    And the findings verified so far are <findings>
     When a validation service error occurs exactly 30 seconds after the first draft was ready
     Then the user sees only <deadline response>
     And the unchecked draft stays hidden
@@ -151,3 +155,23 @@ Feature: Validate source-backed answers before display
     Then the writer sees the validation interruption message
     And no unchecked draft is displayed
     And the entire request made one Gemini generation call
+
+  @S-018 @criterion-7 @edge
+  Scenario: Offer pending claims on request when validation runs out of time
+    Given Gemini returned a draft before the validation deadline
+    And no finding is verified and one draft claim still awaits a check
+    And another claim about July 12 was already found unsupported
+    When the 30-second validation window ends
+    Then the writer sees “View unverified draft” with the draft text hidden
+    When the writer chooses “View unverified draft”
+    Then the pending claim is shown with an unverified label
+    And the July 12 claim is absent
+    And the entire exchange made one Gemini generation call
+
+  @S-019 @criterion-7 @edge
+  Scenario: Withhold a draft with no eligible claims
+    Given Gemini returned a draft whose claims were all found unsupported or off-topic
+    And no finding is verified
+    When the validation deadline cuts a retry short
+    Then the writer sees “I couldn’t verify an answer within 30 seconds. Please try again.”
+    And no unverified draft is offered
