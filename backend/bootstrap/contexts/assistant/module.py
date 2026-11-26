@@ -10,7 +10,7 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
 from domain.assistant.infrastructure.adapters.in_process_index_job_queue import (
     InProcessIndexJobQueue,
 )
-from domain.assistant.infrastructure.ports.answer_validator import AnswerProposer, AnswerValidator
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.document_chunker import DocumentChunker
@@ -30,7 +30,6 @@ from domain.assistant.services.handlers.on_source_added import OnSourceAdded
 from domain.assistant.services.handlers.on_source_removed import OnSourceRemoved
 from domain.assistant.services.handlers.on_source_updated import OnSourceUpdated
 from domain.assistant.services.ingestion_worker import IngestionWorker
-from domain.assistant.services.source_answer_candidates import SourceAnswerCandidates
 from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
 from domain.src_lib.models.events import SourceAdded, SourceRemoved, SourceUpdated
@@ -52,7 +51,6 @@ class AssistantModule:
     chat: ChatService | None = None
     answer_validator: AnswerValidator | None = None
     indexing_status: GetIndexingStatusService | None = None
-    source_answer_candidates: SourceAnswerCandidates = SourceAnswerCandidates(None)
 
 
 def build_assistant_module(
@@ -126,9 +124,6 @@ def build_assistant_module(
     # injected (tests, or environments without a configured chat provider), chat
     # stays None and the conversation routes return a server error if called.
     chat: ChatService | None = None
-    candidates = SourceAnswerCandidates(
-        answer_validator if isinstance(answer_validator, AnswerProposer) else None
-    )
     if chat_model is not None:
         chat = ChatService(
             source_ids=source_ids,
@@ -138,7 +133,7 @@ def build_assistant_module(
             vector_store=vector_store,
             document_repository=indexed_document_repo,
             validator=answer_validator,
-            candidates=candidates,
+            require_source_review=True,
         )
 
     return AssistantModule(
@@ -150,6 +145,5 @@ def build_assistant_module(
         vector_store=vector_store,
         chat=chat,
         answer_validator=answer_validator,
-        source_answer_candidates=candidates,
         indexing_status=GetIndexingStatusService(repository=indexed_document_repo),
     )

@@ -477,7 +477,7 @@ def test_proposal_returns_untrusted_excerpts_in_one_attempt() -> None:
             {"answer": DRAFT, "claims": [{"text": P2.text, "citation": 2, "excerpt": P2.text}]}
         )
     )
-    assert validator.propose(QUESTION, Evidence(tuple(PASSAGES)), timeout=12) == (
+    assert validator.draft(QUESTION, Evidence(tuple(PASSAGES)), timeout=12).claims == (
         ProposedFinding(P2.text, 2, P2.text),
     )
     [request] = models.requests

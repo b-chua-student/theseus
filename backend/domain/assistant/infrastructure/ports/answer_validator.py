@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from domain.assistant.models.value_objects import (
     Answer,
     Evidence,
-    ProposedFinding,
     RetrievedChunk,
     SourceDraft,
     Verdict,
@@ -22,16 +21,6 @@ class AnswerProposer(ABC):
         timeout: float | None = None,
     ) -> SourceDraft:
         """Return answer text, candidate claims and any missing evidence before review."""
-
-    @abstractmethod
-    def propose(
-        self,
-        question: str,
-        evidence: Evidence,
-        manuscript_text: str = "",
-        timeout: float | None = None,
-    ) -> tuple[ProposedFinding, ...]:
-        """Make one provider attempt to select findings and their source excerpts."""
 
 
 class AnswerValidator(ABC):

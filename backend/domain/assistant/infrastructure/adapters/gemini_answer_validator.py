@@ -119,16 +119,6 @@ class GeminiAnswerValidator(AnswerValidator, AnswerProposer):
         self._model = model
         self._timeout_ms = timeout_ms
 
-    def propose(
-        self,
-        question: str,
-        evidence: Evidence,
-        manuscript_text: str = "",
-        timeout: float | None = None,
-    ) -> tuple[ProposedFinding, ...]:
-        """Return just the claims for existing candidate-selection callers."""
-        return self.draft(question, evidence, manuscript_text, timeout).claims
-
     def draft(
         self,
         question: str,

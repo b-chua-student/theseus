@@ -2,12 +2,10 @@
 
 import threading
 import time
-from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
 
-from domain.assistant.infrastructure.ports.answer_validator import AnswerProposer
 from domain.assistant.models.errors import AnswerValidationError, ValidationBudgetExceeded
 from domain.assistant.models.value_objects import (
     Answer,
@@ -16,11 +14,11 @@ from domain.assistant.models.value_objects import (
     ProjectId,
     ProposedFinding,
     Query,
+    SourceDraft,
     Verdict,
 )
 from domain.assistant.services.answer_validation import TIMEOUT_MESSAGE, ValidateAnswer
 from domain.assistant.services.evidence_retriever import EvidenceRetriever
-from domain.assistant.services.source_answer_candidates import SourceAnswerCandidates
 from tests.domain.assistant.validation_support import (
     QUESTION,
     AcceptingValidator,
@@ -128,22 +126,27 @@ def test_abandoned_calls_are_bounded_and_new_work_is_rejected_until_they_finish(
 
 
 @pytest.mark.parametrize("arrival", [30.0, 31.0])
-def test_s009_proposal_arriving_at_or_after_cutoff_is_never_offered(arrival: float) -> None:
+def test_s009_late_review_cannot_verify_or_release_unanchored_claims(arrival: float) -> None:
     clock = FakeClock(0.0)
-    provider = Mock(spec=AnswerProposer)
-
-    def propose(*_: object) -> tuple[ProposedFinding, ...]:
-        clock.set(arrival)
-        return (ProposedFinding(P1.text, 1, P1.text),)
-
-    provider.propose.side_effect = propose
-    answer = ValidateAnswer(None, EvidenceRetriever(), clock.now).execute(
-        question=Query(QUESTION),
-        draft=Answer("Waiting for evidence checks."),
-        evidence=Evidence((P1, passage("P2", "Follow-up started in June."))),
-        project_id=ProjectId.from_str(str(uuid4())),
-        candidates=SourceAnswerCandidates(provider),
+    validator = ScriptedValidator(
+        [CheckStep(Verdict(verified=(Finding("Late finding", 1),)), at=arrival)], [], clock
     )
-    provider.propose.assert_called_once()
-    assert answer == Answer(TIMEOUT_MESSAGE)
-    assert not getattr(answer, "unverified_draft", None)
+    draft = SourceDraft(
+        Answer("Draft"),
+        (ProposedFinding(P1.text, 1, P1.text), ProposedFinding("Unanchored", 1, "absent")),
+    )
+    answer, reusable = ValidateAnswer(validator, EvidenceRetriever(), clock.now).review_draft(
+        Query(QUESTION),
+        draft,
+        Evidence((P1,)),
+        ProjectId.from_str(str(uuid4())),
+        None,
+        "",
+        [],
+        None,
+    )
+    assert not reusable
+    assert not answer.citations
+    assert "Late finding" not in answer.text
+    assert answer.unverified_draft and P1.text in answer.unverified_draft
+    assert "Unanchored" not in answer.unverified_draft

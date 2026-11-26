@@ -36,7 +36,6 @@ from domain.assistant.services.reviewed_answer_cache import (
     evidence_key,
     fingerprint,
 )
-from domain.assistant.services.source_answer_candidates import SourceAnswerCandidates
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,8 @@ class ChatService:
         source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
         validator: AnswerValidator | None = None,
         clock: Callable[[], float] | None = None,
-        candidates: SourceAnswerCandidates | None = None,
+        *,
+        require_source_review: bool = False,
     ) -> None:
         """Configure conversation storage, the chat model, retrieval and answer validation.
 
@@ -76,12 +76,11 @@ class ChatService:
             source_ids=source_ids,
             top_k=top_k,
         )
-        self._candidates = candidates
-        if candidates is None and isinstance(validator, AnswerProposer):
-            self._candidates = SourceAnswerCandidates(validator)
+        self._proposer = validator if isinstance(validator, AnswerProposer) else None
+        self._review_sources = require_source_review or self._proposer is not None
         self._validate_answer = (
             ValidateAnswer(validator, self._retriever, clock or time.monotonic)
-            if validator is not None or self._candidates is not None
+            if validator is not None or self._review_sources
             else None
         )
 
@@ -141,7 +140,7 @@ class ChatService:
                 raise AnswerValidationError(INTERRUPTED_MESSAGE)
             context = (
                 self._retriever.search(conversation.project_id, query.text, source_ids)
-                if context_scope == "source_library" and self._candidates is None
+                if context_scope == "source_library" and not self._review_sources
                 else []
             )
             model_query = query
@@ -152,7 +151,7 @@ class ChatService:
                     f"Current manuscript:\n{manuscript_text.strip() or '(empty manuscript)'}"
                     f"\n\nQuestion: {query.text}"
                 )
-            if context_scope == "source_library" and self._candidates is not None:
+            if context_scope == "source_library" and self._review_sources:
                 answer, cache_write = self._source_answer(
                     conversation,
                     query,
@@ -233,7 +232,7 @@ class ChatService:
             else:
                 return cached.answer, None
 
-        proposer = self._candidates.proposer if self._candidates else None
+        proposer = self._proposer
         if proposer is None or self._validate_answer is None:
             raise AnswerValidationError(INTERRUPTED_MESSAGE)
         try:
