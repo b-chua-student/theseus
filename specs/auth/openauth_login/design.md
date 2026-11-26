@@ -13,6 +13,9 @@
 | D-007 | Restore the requested local view or home. Map failures to a sign-in message and retry action, including existing-method guidance on collision. On return from an unfinished attempt show the interruption message and restart and alternate-method controls. | Sign-in page, SPA navigation, pending request store | R-005, R-011, R-012, R-013 |
 | D-008 | End the Theseus session through existing logout. Reuse the ordinary sign-in audit hook if present. Allowlist account claims on persistence, discard tokens on every exit and redact them from logs and browser responses. | Session routes, provider client, identity adapters, sign-in audit integration | R-014, R-015, R-016, R-017 |
 | D-009 | Render only the Google choice above the password form. Use server settings to start configured providers and report unavailable choices inline. | Sign-in page | R-018 |
+| D-010 | Add registration guidance under the Google control and map expired attempts and provider connection failures to distinct notices and actions. | Sign-in page, OAuth callback | R-019, R-020 |
+| D-011 | Read the current account’s persisted identity for the Google issuer when Account opens and return its connection status. | Identity repository adapters, provider settings endpoint, account menu | R-021 |
+| D-012 | Remember the last verified Google subject as a browser account hint across Theseus logout. On explicit sign-in request silent authorization for that subject, with a fresh interactive attempt if Google requires it. Allow switching accounts. Verify every callback before creating a session. | OAuth routes, sign-in page, browser session | R-022 |
 
 ## Components and Flow
 
