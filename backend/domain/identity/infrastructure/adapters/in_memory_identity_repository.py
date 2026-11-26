@@ -78,6 +78,13 @@ class InMemoryIdentityRepository(IdentityRepository):
                 return user
         return None
 
+    def has_identity(self, user_id: UserId, issuer: str) -> bool:
+        """Return whether the account owns an identity from this issuer."""
+        with self.lock:
+            return any(
+                key[0] == issuer and owner.id == user_id for key, owner in self.identities.items()
+            )
+
     def find_identity(self, issuer: str, subject: str) -> User | None:
         """Load the owner of the issuer and subject pair."""
         with self.lock:
