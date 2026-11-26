@@ -25,10 +25,9 @@ Feature: Track failed deployment recovery time
     And a hotfix goes live at 10:20 UTC while production service remains degraded
     And a second hotfix goes live at 10:35 UTC on the same day
     And production monitoring confirms that degradation began at 10:00 UTC and normal service was restored at 10:35 UTC
-    When a maintainer associates both hotfixes with the existing incident record
+    When a maintainer links both hotfixes to the existing incident record and views the recovery report
     Then the existing incident record shows both corrective deployments
-    When the maintainer views the failed deployment recovery time report
-    Then the report shows one entry for the incident with a recovery duration of 35 minutes
+    And the report shows one entry for the incident with a recovery duration of 35 minutes
     And the report shows a median recovery duration of 35 minutes across 1 completed recovery
 
   @S-046 @criterion-3 @criterion-4
