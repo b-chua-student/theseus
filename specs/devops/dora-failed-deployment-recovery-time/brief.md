@@ -31,6 +31,7 @@ Help maintainers see how long it takes to restore normal production service afte
 - Only production failures attributable to a deployment that require immediate intervention qualify.
 - Failed deployment attempts that leave production service healthy are excluded.
 - An unresolved failure has no completed recovery duration.
+- The report counts each qualifying production incident once, including incidents addressed by multiple corrective deployments.
 
 ## Known Touchpoints
 
@@ -53,6 +54,7 @@ Help maintainers see how long it takes to restore normal production service afte
 3. The report shows unresolved failures as “Unresolved” and restored failures with either time unknown as “Missing timestamp.” It leaves their durations blank and shows separate counts for the two groups.
 4. The report shows the median and count of qualifying completed recoveries with both timestamps. When the count is zero, it shows “No completed recoveries with known timestamps.”
 5. A recorded qualifying failure appears in the report before any corrective deployment. A recovery confirmed without a corrective deployment is reported using the same timestamp and status rules.
+6. A qualifying incident with multiple corrective deployments has one report entry. If both timestamps are known, its completed recovery contributes one duration to the median and one to the completed recovery count.
 
 ## Reference Links
 

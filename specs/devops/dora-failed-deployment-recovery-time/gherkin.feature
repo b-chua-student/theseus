@@ -17,6 +17,16 @@ Feature: Track failed deployment recovery time
     When a maintainer views the failed deployment recovery time report
     Then the report shows a recovery duration of 30 minutes for the failure
 
+  @S-055 @criterion-1 @criterion-6
+  Scenario: Count one recovery when two hotfixes address the same incident
+    Given one qualifying deployment-caused production incident starts at 10:00 UTC
+    And a hotfix goes live at 10:20 UTC while production service remains degraded
+    And a second hotfix for the same incident goes live at 10:35 UTC on the same day
+    And production monitoring confirms that degradation began at 10:00 UTC and normal service was restored at 10:35 UTC
+    When a maintainer views the failed deployment recovery time report
+    Then the report shows one entry for the incident with a recovery duration of 35 minutes
+    And the report shows a median recovery duration of 35 minutes across 1 completed recovery
+
   @S-046 @criterion-3 @criterion-4
   Scenario: Summarize completed recoveries with known timestamps
     Given three qualifying production failures with verified recovery durations of 15, 45, and 120 minutes

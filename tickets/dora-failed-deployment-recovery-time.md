@@ -14,6 +14,7 @@ The Theseus DevOps requirements call this metric Time to Restore. [DORA metric d
 - [ ] Maintainers can record a qualifying production failure and see it in the recovery report before any corrective deployment. Record whether normal service has been restored separately from its restoration time. Include recoveries confirmed by monitoring or a maintainer-confirmed timeline when service is restored without a corrective deployment.
 - [ ] Exclude failed deployment attempts that leave production service healthy.
 - [ ] Show the median of completed recovery durations and the number included. When none can be calculated, show “No completed recoveries with known timestamps.”
+- [ ] Count each qualifying production incident once, including when multiple corrective deployments respond to the same incident. A completed recovery with both timestamps contributes one duration to the median and one to the completed recovery count.
 - [ ] Show unresolved failures as “Unresolved” and restored failures missing either time as “Missing timestamp.” Leave their durations blank, exclude both groups from the median, and show their counts separately.
 
 ## Expected Outcomes
