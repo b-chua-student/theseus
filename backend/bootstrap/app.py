@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from flask import Flask, Response, abort, send_from_directory
 
 from domain.assistant.api.routes import conversation_bp, indexing_bp
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.identity.api.auth.routes import auth_bp
 from domain.manuscript.api.routes import manuscript_bp
@@ -27,6 +28,17 @@ def _build_chat_model() -> ChatModel | None:
     from domain.assistant.infrastructure.adapters.gemini_chat_model import GeminiChatModel
 
     return GeminiChatModel()
+
+
+def _build_answer_validator() -> AnswerValidator | None:
+    if not os.getenv("GEMINI_API_KEY"):
+        return None
+
+    from domain.assistant.infrastructure.adapters.gemini_answer_validator import (
+        GeminiAnswerValidator,
+    )
+
+    return GeminiAnswerValidator()
 
 
 def create_app(
@@ -50,14 +62,18 @@ def create_app(
 
     if container is None:
         chat_model = None if app.testing else _build_chat_model()
+        answer_validator = None if app.testing else _build_answer_validator()
         if not app.testing and (uri := app.config["MONGODB_URI"]):
             if not app.secret_key:
                 raise RuntimeError("Set SECRET_KEY when running with MongoDB.")
             container = build_mongo_container(
-                uri=uri, db_name=app.config["MONGODB_DB"], chat_model=chat_model
+                uri=uri,
+                db_name=app.config["MONGODB_DB"],
+                chat_model=chat_model,
+                answer_validator=answer_validator,
             )
         else:
-            container = build_container(chat_model=chat_model)
+            container = build_container(chat_model=chat_model, answer_validator=answer_validator)
 
     if not app.secret_key:
         app.secret_key = token_hex(32)

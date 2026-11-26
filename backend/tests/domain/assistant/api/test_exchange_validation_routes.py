@@ -20,6 +20,7 @@ from flask.testing import FlaskClient
 
 from bootstrap.error_handlers import register_error_handlers
 from domain.assistant.api.routes import conversation_bp
+from domain.assistant.models.value_objects import Finding, Verdict
 from tests.domain.assistant.validation_support import (
     DEADLINE,
     INTERRUPTED_MESSAGE,
@@ -28,9 +29,7 @@ from tests.domain.assistant.validation_support import (
     TIMEOUT_MESSAGE,
     CheckStep,
     Env,
-    Finding,
     QueryStep,
-    Verdict,
     build,
     passage,
 )

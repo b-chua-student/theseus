@@ -10,6 +10,7 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
 from domain.assistant.infrastructure.adapters.in_process_index_job_queue import (
     InProcessIndexJobQueue,
 )
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.document_chunker import DocumentChunker
@@ -48,6 +49,7 @@ class AssistantModule:
     embedding_generator: EmbeddingGenerator | None = None
     vector_store: VectorStore | None = None
     chat: ChatService | None = None
+    answer_validator: AnswerValidator | None = None
     indexing_status: GetIndexingStatusService | None = None
 
 
@@ -62,13 +64,15 @@ def build_assistant_module(
     vector_store: VectorStore | None = None,
     conversation_repo: ConversationRepository | None = None,
     chat_model: ChatModel | None = None,
+    answer_validator: AnswerValidator | None = None,
     source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
 ) -> AssistantModule:
     """Build the assistant module and subscribe its handlers to ``event_bus``.
 
     In-memory defaults are used for repositories and the job queue when not given. The
     ingestion worker is wired only if every indexing port is supplied, and chat only if
-    ``chat_model`` is supplied.
+    ``chat_model`` is supplied. ``answer_validator`` is kept on the module for the chat service to
+    check source-backed answers with.
     """
     indexed_document_repo = indexed_document_repo or InMemoryIndexedDocumentRepository()
     index_job_queue = index_job_queue or InProcessIndexJobQueue()
@@ -138,5 +142,6 @@ def build_assistant_module(
         embedding_generator=embedding_generator,
         vector_store=vector_store,
         chat=chat,
+        answer_validator=answer_validator,
         indexing_status=GetIndexingStatusService(repository=indexed_document_repo),
     )

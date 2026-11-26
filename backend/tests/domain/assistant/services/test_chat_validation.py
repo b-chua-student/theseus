@@ -6,7 +6,7 @@ The validation contract these tests assume is documented in ``validation_support
 import pytest
 
 from domain.assistant.models.errors import ChatModelError
-from domain.assistant.models.value_objects import Answer
+from domain.assistant.models.value_objects import Answer, Finding, Verdict
 from tests.domain.assistant.validation_support import (
     DEADLINE,
     INTERRUPTED_MESSAGE,
@@ -16,9 +16,7 @@ from tests.domain.assistant.validation_support import (
     TIMEOUT_MESSAGE,
     CheckStep,
     Env,
-    Finding,
     QueryStep,
-    Verdict,
     build,
     passage,
 )

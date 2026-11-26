@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal
 from uuid import UUID, uuid4
 
 from .errors import (
@@ -224,3 +225,39 @@ class Answer:
         if not stripped:
             raise EmptyAnswerError("Answer must not be blank.")
         object.__setattr__(self, "text", stripped)
+
+
+@dataclass(frozen=True)
+class Finding:
+    """A claim that was checked and found supported.
+
+    A ``library`` finding carries ``citation``, the 1-based position of the passage in the list
+    supplied for the draft. A ``manuscript`` finding is supported by the user's manuscript text
+    and has no library citation.
+    """
+
+    claim: str
+    citation: int | None
+    source: Literal["library", "manuscript"] = "library"
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """The result of checking one draft answer against its passages.
+
+    ``verified`` holds supported claims, ``unresolved`` the claims that failed, ``gaps`` the gaps
+    that the checked passages establish, and ``missing_evidence`` what a new search should look
+    for. A draft passes when it is relevant, nothing is unresolved and no further evidence is
+    requested.
+    """
+
+    relevant: bool = True
+    verified: tuple[Finding, ...] = ()
+    unresolved: tuple[str, ...] = ()
+    gaps: tuple[str, ...] = ()
+    missing_evidence: str | None = None
+
+    @property
+    def passed(self) -> bool:
+        """Whether the draft is relevant, fully supported and needs no further search."""
+        return self.relevant and not self.unresolved and self.missing_evidence is None

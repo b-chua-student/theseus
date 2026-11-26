@@ -26,6 +26,7 @@ from domain.assistant.infrastructure.adapters.in_memory_conversation_repository 
 from domain.assistant.infrastructure.adapters.in_memory_indexed_document_repository import (
     InMemoryIndexedDocumentRepository,
 )
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
@@ -41,6 +42,7 @@ from domain.assistant.models.value_objects import (
     ProjectId,
     Query,
     RetrievedChunk,
+    Verdict,
 )
 from domain.assistant.services.chat import ChatService
 
@@ -64,25 +66,6 @@ def passage(location: str, text: str) -> RetrievedChunk:
         location=location,
         score=1.0,
     )
-
-
-@dataclass(frozen=True)
-class Finding:
-    """A claim the validator verified against the passage with the given key."""
-
-    claim: str
-    citation: int
-
-
-@dataclass(frozen=True)
-class Verdict:
-    """The validator's result for one draft."""
-
-    relevant: bool = True
-    verified: tuple[Finding, ...] = ()
-    unresolved: tuple[str, ...] = ()
-    gaps: tuple[str, ...] = ()
-    missing_evidence: str | None = None
 
 
 class FakeClock:
@@ -157,7 +140,7 @@ class ScriptedChatModel(ChatModel):
         return Answer(self._drafts.pop(0))
 
 
-class ScriptedValidator:
+class ScriptedValidator(AnswerValidator):
     """Validator that returns scripted verdicts and revisions and records its calls."""
 
     def __init__(self, checks: list[CheckStep], revisions: list[str], clock: FakeClock) -> None:

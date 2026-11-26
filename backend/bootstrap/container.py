@@ -25,6 +25,7 @@ from domain.assistant.infrastructure.adapters.manuscript_content_provider import
 from domain.assistant.infrastructure.adapters.source_library_content_provider import (
     SourceLibraryContentProvider,
 )
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.document_chunker import DocumentChunker
@@ -102,6 +103,7 @@ def build_container(
     vector_store: VectorStore | None = None,
     conversation_repo: ConversationRepository | None = None,
     chat_model: ChatModel | None = None,
+    answer_validator: AnswerValidator | None = None,
     revision_history_repo: RevisionHistoryRepository | None = None,
 ) -> Container:
     """Build a Container, defaulting any unspecified dependency to an in-memory implementation."""
@@ -142,6 +144,7 @@ def build_container(
         vector_store=vector_store,
         conversation_repo=conversation_repo,
         chat_model=chat_model,
+        answer_validator=answer_validator,
         source_ids=lambda project_id: [
             DocumentRefId(source.id.value)
             for source in source_repo.list_active()
