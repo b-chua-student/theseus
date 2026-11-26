@@ -116,3 +116,38 @@ Feature: Validate source-backed answers before display
       | findings              | deadline response                                                                         |
       | the May start from P1 | the May start citing P1 and an explanation that the end date could not be checked in time |
       | no verified findings  | “I couldn’t verify an answer within 30 seconds. Please try again.”                        |
+
+  @S-014 @criterion-10
+  Scenario: Answer a directly supported question without generation
+    Given the first search also retrieves P2 stating "The pilot ended in July."
+    And the start and end months can both be established locally
+    When the Assistant answers the question
+    Then the displayed answer gives May citing P1 and July citing P2
+    And the request made zero Gemini generation calls
+
+  @S-015 @criterion-11
+  Scenario: Verify an assisted answer against the exact excerpts it cites
+    Given local selection cannot distinguish a pilot end date from a follow-up end date
+    And P2 states "The pilot ended in July." and P3 states "Follow-up ended in August."
+    When the single Gemini generation call proposes May citing P1 and July citing P2 with their exact supporting excerpts
+    Then the Assistant locally verifies both claims against the question and their respective passages
+    And the displayed answer gives May citing P1 and July citing P2
+    And the entire request made one Gemini generation call
+
+  @S-016 @criterion-11 @criterion-12 @edge
+  Scenario: Withhold an unsupported year even when the quote is genuine
+    Given the user also asks for the year the pilot ended
+    And the only end-date excerpt is "The pilot ended in July."
+    And one generation call proposes an end year citing that exact excerpt
+    When local validation and a repeat search find no support for the proposed year
+    Then the answer explains that the end year could not be verified
+    And the proposed year is never displayed as a finding
+    And the entire request made one Gemini generation call
+
+  @S-017 @criterion-9 @criterion-12 @edge
+  Scenario: A failed generation attempt consumes the request allowance
+    Given local evidence selection is inconclusive
+    When the only generation attempt fails before the deadline and prevents validation
+    Then the writer sees the validation interruption message
+    And no unchecked draft is displayed
+    And the entire request made one Gemini generation call

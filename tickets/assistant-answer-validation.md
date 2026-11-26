@@ -32,6 +32,9 @@ The Assistant retrieves passages from the Source Library to answer questions. Th
 
 - Allow 30 seconds for validation and all retries combined, starting when the first draft is ready to check.
 - At the 30-second deadline, including when a service error occurs at that instant, return only verified findings with their citations and identify what could not be checked in time. If nothing was verified, say “I couldn’t verify an answer within 30 seconds. Please try again.”
+- Across one source-backed question, allow at most one Gemini generation request in total, including drafting, validation, revision and retries. A failed or timed-out generation attempt consumes the allowance. Count embedding requests separately.
+- Use zero generation requests when the requested fact and its level of detail can be established locally from the retrieved evidence. Otherwise, the optional generation request may propose an answer with exact supporting excerpts and passage references.
+- Before display, check locally that the answer addresses the requested fact and that each displayed claim is supported by the excerpt from its cited passage. If support cannot be established, return only verified partial findings or explain what could not be verified. A retrieved excerpt alone does not establish an inference.
 
 ## Out of Scope
 
