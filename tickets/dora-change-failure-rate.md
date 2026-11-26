@@ -29,7 +29,7 @@ Theseus deploys to production on Render, where maintainers can review production
 - An intervention qualifies if it starts within 24 hours of the original deployment going live, including exactly 24 hours. Attribute it to the original deployment's reporting period.
 - Pending attribution makes the rate unavailable if confirming the incident could add an original deployment to the intervention count under the 24-hour rule. Identify that pending incident as missing evidence. If pending attribution cannot change the count, publish the rate when there is at least one eligible deployment and the rest of the evidence is complete.
 - Count each qualifying original deployment once, even if it requires several interventions.
-- Automatic issue creation records the corrective deployment. A maintainer confirms which original deployment caused the incident.
+- Both newly created incident issues and updates to linked incidents record the corrective deployment. A maintainer confirms which original deployment caused the incident.
 - Apply `production-hotfix` to the original hotfix pull request, whether it targets `staging` or `main`. For a hotfix merged into `staging`, recognize it when it reaches production through an unlabeled promotion pull request into `main`.
 - If an incident issue already exists, link it from the original hotfix pull request.
 
