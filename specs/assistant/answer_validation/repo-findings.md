@@ -2,7 +2,7 @@
 
 Codebase facts for implementing `tickets/assistant-answer-validation.md`. Verified against the working tree at base SHA `1dab3f5`. The older root `repo-findings.md` is stale (it claims the implementation was removed). Use this file for this feature.
 
-Spec inputs: `specs/assistant/answer_validation/brief.md` and `gherkin.feature` (S-001 to S-006).
+Spec inputs: `specs/assistant/answer_validation/brief.md` and `gherkin.feature` (S-001 to S-013).
 
 ## 1. Where the feature plugs in
 
@@ -39,9 +39,12 @@ Validation, revision and retries belong between steps 4 and 7. Only the final an
 ### Gaps against the gherkin
 | Need | Current state |
 |---|---|
-| Citation as data (S-001, S-004, S-005, S-006) | None. Citations exist only as text the model writes. The model sees passages as `[i] (location) text`. |
+| Citation as data (S-001, S-004, S-005, S-006, S-012) | None. Citations exist only as text the model writes. The model sees passages as `[i] (location) text`. |
 | Relevance, claim and citation checks | Not present. |
-| Retry counter and limit | Not present. Retry count is an open product decision. |
+| Retry counter and limit (S-006, S-010) | Not present. The ticket requires two retries after the initial validation, shared by revision and retrieval (ticket lines 26). |
+| Deadline (S-008, S-009, S-013) | Not present. The ticket requires 30 seconds for validation and all retries, starting when the first draft is ready to check (ticket lines 33-34). |
+| Progress message (S-007) | Not present. The ticket requires "Checking the answer against your sources…" after five seconds, with draft text hidden (ticket line 27). The exchange request currently returns one JSON response. |
+| Service-error outcome (S-011) | Not present. Today any model failure discards the pending exchange and raises `ChatModelError`. The ticket requires a specific message for a validation error before the deadline (ticket line 29). |
 | Revision of a draft | Not present. |
 | Re-search with a new query (S-005) | Not present, see section 1. |
 | "No sources established" explanation (S-006) | Not present. `reply()` just answers. |
@@ -61,7 +64,7 @@ Existing ports (`ABC`, in `infrastructure/ports/`): `ChatModel`, `ConversationRe
 - Maps `APIError` 429 to `ChatModelRateLimitedError`, other errors to `ChatModelError`, and empty or blocked responses to `ChatModelError`.
 - `_with_context()` formats context as `[i] (location) text` and prefixes "Use the following excerpts from the user's sources when relevant."
 
-Each validation step adds model calls. Latency and cost grow with the retry limit (still undecided). The client timeout is per call.
+Each validation step adds model calls. The ticket fixes the budget at two retries and 30 seconds in total. The current client timeout is 30 s per call and is not tied to a request deadline, so a single call can outlast the remaining time. Adapter timeouts must be capped at the remaining time, and a blocking call cannot be cancelled, so late results must be ignored.
 
 Retrieval adapters: `InMemoryVectorStore` (cosine similarity, dict-backed), `ChromaVectorStore`, `InMemoryEmbeddingGenerator`, `InMemoryIndexedDocumentRepository`. The in-memory ones are what tests use.
 
@@ -77,7 +80,7 @@ Retrieval adapters: `InMemoryVectorStore` (cosine similarity, dict-backed), `Chr
 - `POST /<project_id>/conversations/<conversation_id>/exchanges` (blueprint `conversation_bp`) calls `_chat().ask(...)` and returns `201 {answer: <text>}`. Paths are mounted by `bootstrap/app.py`; confirm the prefix there before documenting.
 - `AskRequest` (Pydantic): `context_scope`, `source_ids` (max 1000), `manuscript_text` (max 500 000), `query` (1 to 4000, non-blank).
 - Response is `answer.text` only. If citations become structured, the response shape changes. That is an API decision for `design.md`, and the frontend would need to follow.
-- The request is synchronous. Multiple model calls plus retries increase response time. Wait time and intermediate status are open questions in the ticket.
+- The request is synchronous and returns one JSON response today. Validation and retries add model calls, bounded by the ticket's 30-second deadline. The ticket requires a progress message after five seconds, so the response mechanism for progress is a design matter (D-006).
 - Routes are guarded by `login_required` and project-membership checks. Rate limiting uses Flask-Limiter.
 
 The frontend chat client was not inspected for this document.
@@ -98,6 +101,13 @@ Scenario to test mapping (the gherkin uses fixed passages P1 to P3). Each needs 
 - S-004: citation check fails, corrected citation (P2) is checked and returned.
 - S-005: insufficient evidence, second search adds P2, the final answer cites P1 and P2.
 - S-006: retry budget used up, no further retry, final answer cites P1 and states the end date is not established.
+- S-007: service test is not needed. Route and chat-panel tests with a controllable clock assert no progress message through five seconds, then the progress message while validation is still pending, and no draft text at any point.
+- S-008: controllable clock reaches 30 seconds while a retry waits for evidence. The answer has the verified May start citing P1 and explains the missing end date.
+- S-009: clock reaches 30 seconds before the first check completes. The answer is the timeout message and the draft is hidden.
+- S-010: three off-topic drafts with start and end dates established by checked passages. The answer is the relevance message, with no source-gap claim and no further retry.
+- S-011: validator raises before the deadline. The pending exchange is discarded, the error message is returned and the draft is hidden.
+- S-012: manuscript text says July 12, the report gives July only. The answer attributes July 12 to the manuscript and says the report leaves the day unverified.
+- S-013: validator error at exactly 30 seconds, with and without verified findings. The deadline response is returned, not the service-error message.
 
 ## 7. Conventions and constraints
 
@@ -111,12 +121,14 @@ Scenario to test mapping (the gherkin uses fixed passages P1 to P3). Each needs 
 
 ## 8. Open items affecting implementation
 
-From the ticket and brief (not decided, do not hard-code):
-- Retry limit and acceptable wait time.
-- Whether to show intermediate status, and the mechanism.
-- What the user sees when a draft fails relevance and no retries remain.
-- Whether validation applies to the `none` and `manuscript` scopes. The brief covers source-backed answers only. The existing code path to gate is `context_scope == "source_library"` with retrieved passages.
+Decided by the ticket (`tickets/assistant-answer-validation.md`, "Open Questions" says none remain):
+- Two retries after the initial validation, shared by revision and retrieval (line 26).
+- 30-second deadline from the first draft being ready, and the deadline outcomes (lines 33-34).
+- Progress message after five seconds with the draft hidden (line 27).
+- Off-topic exhaustion message (line 28) and service-error message (line 29).
 
+Not in the ticket:
+- Whether validation applies to the `none` and `manuscript` scopes. The ticket covers source-backed answers only. The existing code path to gate is `context_scope == "source_library"`. This stays a suggestion in `requirements.md` Open Questions.
 Technical decisions for `design.md`:
 - Citation representation: structured data or parsed from the model text.
 - One validator port or separate ports (relevance, claims, citations, reviser).
