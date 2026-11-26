@@ -18,7 +18,6 @@
 | R-010 | When a production rollback or qualifying hotfix goes live, create a GitHub incident issue or update the explicitly linked incident issue. Record the corrective action link and mark original deployment attribution pending maintainer confirmation. Use the original hotfix pull request's issue link when present. | from ticket | 14, 23, 32, 34 | S-037, S-038 |
 | R-011 | Recognize a hotfix by the `production-hotfix` label on its original pull request into main or staging. Recognize a staging hotfix when it reaches production through an unlabeled promotion into main. | from ticket | 14, 33 | S-037, S-038 |
 | R-012 | Record each qualifying corrective deployment on one incident issue. Reprocessing creates neither a second issue nor a duplicate entry. | from ticket | 23, 24 | S-039 |
-
 | R-013 | Exclude confirmed attribution unless production history verifies the corrective action and its recorded incident entry matches. Identify missing corrective evidence when it could change the count. | from ticket | 41 | S-042 |
 | R-014 | Record independently verified corrections after unresolved hotfix provenance. Identify unresolved provenance when it could affect the count. | from ticket | 42 | S-043, S-044 |
 | R-015 | Verify the reviewed release with the production workflow permissions, including history and its starting point, rollback evidence, applicable promotion mappings, both report triggers, issue writes, attribution, and replay. | from ticket | 43 | S-045 |
