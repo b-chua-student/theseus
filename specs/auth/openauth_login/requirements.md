@@ -24,10 +24,11 @@
 | R-016 | Retain only the stable provider identifier and the email, email verification status and display name needed for the account. | from ticket | 57, 58 | S-027 |
 | R-017 | Use provider tokens only during authentication and discard them afterward. Omit raw profiles and unused fields from storage. | from ticket | 58 | S-020, S-023, S-027, S-028 |
 | R-018 | Show the Google button on the regular sign-in page. Start available providers and explain unavailable choices on the same page. | from ticket | 76, 77 | S-002, S-029 |
-| R-019 | Explain first-time account creation under the Google button and retain password sign-up. | from ticket | 81 | S-030 |
+| R-019 | Omit the first-time Google registration note and retain password sign-up. | from ticket | 81 | S-030 |
 | R-020 | Distinguish an expired request from an unreachable provider and offer the corresponding restart or retry. | from ticket | 82, 83 | S-031, S-032 |
 | R-021 | Show whether the current account is linked to Google each time Account opens. | from ticket | 84 | S-033 |
 | R-022 | Reuse Google approval for a returning account when Google allows it and offer normal sign-in when interaction is required. | from ticket | 88 | S-034, S-035 |
+| R-023 | Show the last successful Google email on the available primary sign-in button, retain account switching, and use the generic label otherwise. | from ticket | 89 | S-036, S-037 |
 
 ## Open Questions
 
