@@ -26,3 +26,15 @@ If squash or rebase removes the Git ancestry of the original staging PRs, commit
 ```json
 {"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": [123, 125]}
 ```
+
+## Verify the reviewed release
+
+Record the release commit and workflow run links with the verification results for S-045.
+
+- [ ] Confirm the release includes both workflows, the report and reconciliation script, and the passing scenario tests.
+- [ ] Use the configured production credentials and workflow permissions. Compare the verified first deploy ID against the earliest Render history entry, including failed attempts.
+- [ ] Verify that the same successful rollback is identified while live and after deactivation. Compare the deploy ID, trigger, and live time in Render.
+- [ ] For each required staging mapping, confirm that the mapped original hotfix PRs shipped in the deployed revision.
+- [ ] Capture the job summaries for a manual dispatch and a merge into main. Check the displayed bounds and counts.
+- [ ] Verify a new incident and an update to an explicitly linked incident. Check the corrective links and pending attribution, then confirm attribution as a maintainer and check that the report accepts the matching evidence.
+- [ ] Replay reconciliation and verify that each corrective deploy ID still has one entry on one issue.
