@@ -6,37 +6,36 @@
   let email = $state(''), password = $state('');
   let busy = $state(false), error = $state('');
   let passwordError = $state('');
-  const names = { google: 'Google', microsoft: 'Microsoft' };
-  let providers = $state([]);
+  let googleEnabled = $state(false);
   let loadingProviders = $state(true);
   let unavailable = $state('');
   const query = new URLSearchParams(location.search);
   const messages = {
     cancelled: 'Sign-in was cancelled. Please try again.',
-    provider: "We couldn't sign you in with " + (names[query.get('provider')] || 'your provider') + '. Please try again.',
+    provider: "We couldn't sign you in with Google. Please try again.",
     email: 'We could not get an email address from your provider.',
     existing: 'Sign in using your existing method or password, then link your provider from Account.',
     unavailable: 'This account is unavailable. Please contact support.',
     timeout: 'Sign-in timed out. Please try again.',
     invalid: "We couldn't complete sign-in. Please try again.",
   };
-  function start(provider) {
-    if (!providers.includes(provider)) {
-      unavailable = names[provider] + ' sign-in is unavailable.';
+  function startGoogle() {
+    if (!googleEnabled) {
+      unavailable = 'Google sign-in is unavailable.';
       error = '';
       return;
     }
     const destination = query.get('return_to') || location.pathname;
-    location.assign('/api/auth/oauth/' + provider + '/start?return_to=' + encodeURIComponent(destination));
+    location.assign('/api/auth/oauth/google/start?return_to=' + encodeURIComponent(destination));
   }
   async function loadProviders() {
     loadingProviders = true;
     unavailable = '';
     try {
       const settings = await providerSettings();
-      providers = settings.providers.filter(id => Object.hasOwn(names, id));
+      googleEnabled = settings.providers.includes('google');
       error = settings.interrupted ? 'Sign-in wasn’t completed' : (messages[query.get('auth_error')] || '');
-    } catch (e) { providers = []; error = e.message; }
+    } catch (e) { googleEnabled = false; error = e.message; }
     finally { loadingProviders = false; }
   }
   onMount(() => {
@@ -56,15 +55,13 @@
 </script>
 <AuthLayout title="Welcome back" subtitle="A focused space for your manuscripts.">
   <div class="provider-choices">
-    {#each Object.entries(names) as [provider, label]}
-      <button type="button" disabled={loadingProviders} onclick={() => start(provider)}>Continue with {label}</button>
-    {/each}
+    <button type="button" disabled={loadingProviders} onclick={startGoogle}>Continue with Google</button>
     {#if unavailable}<p class="error" role="alert">{unavailable}</p>{/if}
   </div>
   {#if error}
     <div class="provider-notice">
       <p role="alert">{error}</p>
-      <button type="button" onclick={() => providers.length ? start(providers.includes(query.get('provider')) ? query.get('provider') : providers[0]) : loadProviders()}>Try again</button>
+      <button type="button" onclick={() => googleEnabled ? startGoogle() : loadProviders()}>Try again</button>
     </div>
   {/if}
   <form onsubmit={submit}>
