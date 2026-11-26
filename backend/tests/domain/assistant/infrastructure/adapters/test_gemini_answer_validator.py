@@ -598,3 +598,10 @@ def test_a_factual_draft_without_checked_claims_is_still_rejected() -> None:
 
     with pytest.raises(ChatModelError):
         check(validator)
+
+
+def test_s017_review_disables_sdk_resends() -> None:
+    validator, models = validator_with(verdict_json(claims=[claim("The pilot started in May.", 1)]))
+    check(validator)
+    options = models.requests[0]["config"].http_options
+    assert options and options.retry_options and options.retry_options.attempts == 1

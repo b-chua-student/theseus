@@ -27,7 +27,7 @@ from tests.domain.assistant.generation_support import (
     START,
     BudgetExchange,
     exchange,
-    proposal,
+    reviewed_months,
 )
 from tests.domain.assistant.validation_support import (
     DEADLINE,
@@ -140,18 +140,20 @@ def test_deadline_route_separates_optional_draft_from_answer(
 
 
 @formats
-@pytest.mark.parametrize("assisted", [False, True], ids=["s014-local", "s015-assisted"])
+@pytest.mark.parametrize("reuse", [False, True], ids=["fresh", "s014-repeat"])
 def test_checked_answer_and_citations_across_generation_paths(
     fmt: str,
-    assisted: bool,  # noqa: FBT001
+    reuse: bool,  # noqa: FBT001
 ) -> None:
-    passages = [START, END, FOLLOW_UP] if assisted else [START, END]
-    with exchange([passages], proposal(END, END), int(assisted)) as env:
+    passages = [START, END]
+    searches = [passages, passages] if reuse else [passages]
+    with exchange(searches, reviewed_months(), 2) as env:
+        if reuse:
+            env.service.ask(env.conversation_id, QUESTION)
+            assert env.provider.calls == 2
         result = outcome(env, fmt)
-
     assert result.kind == "answer"
     assert "May" in result.message and "July" in result.message
-    assert "August" not in result.message
     assert result.citations == [(1, "P1"), (2, "P2")]
 
 

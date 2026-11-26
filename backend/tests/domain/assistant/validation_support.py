@@ -232,19 +232,20 @@ class RecordingEmbedder(EmbeddingGenerator):
 
 
 class CountingGenerationProvider:
-    """Script the first SDK response and record every outbound generation attempt."""
+    """Return one scripted SDK outcome per attempt, including failed attempts."""
 
-    def __init__(self, first: str | Exception) -> None:
-        self.first = first
+    def __init__(self, responses: str | Exception | list[str | Exception]) -> None:
+        self.responses = list(responses) if isinstance(responses, list) else [responses]
         self.calls = 0
 
     def generate_content(self, **_request: object) -> SimpleNamespace:
         self.calls += 1
-        if self.calls > 1:
-            raise AssertionError("A second Gemini generation call was attempted")
-        if isinstance(self.first, Exception):
-            raise self.first
-        return SimpleNamespace(text=self.first)
+        if self.calls > len(self.responses):
+            raise AssertionError("Unexpected Gemini generation attempt")
+        response = self.responses[self.calls - 1]
+        if isinstance(response, Exception):
+            raise response
+        return SimpleNamespace(text=response)
 
 
 def searchable_document(project_id: ProjectId) -> IndexedDocument:

@@ -39,11 +39,15 @@ class BudgetExchange:
     conversation_id: str
     project_id: str
     embedder: RecordingEmbedder
+    provider: CountingGenerationProvider
+    document_id: str
 
 
 @contextmanager
 def exchange(
-    searches: list[list[str]], response: str | Exception, expected_calls: int
+    searches: list[list[str]],
+    response: str | Exception | list[str | Exception],
+    expected_calls: int,
 ) -> Iterator[BudgetExchange]:
     project = ProjectId.from_str(str(uuid4()))
     document = searchable_document(project)
@@ -72,12 +76,32 @@ def exchange(
             document_repository=documents,
             source_ids=lambda _: [document.doc_ref_id],
         )
-        try:
-            yield BudgetExchange(
-                service, str(service.start(str(project.value)).value), str(project.value), embedder
-            )
-        finally:
-            assert provider.calls == expected_calls, "generation attempts across the whole exchange"
+        yield BudgetExchange(
+            service,
+            str(service.start(str(project.value)).value),
+            str(project.value),
+            embedder,
+            provider,
+            str(document.doc_ref_id.value),
+        )
+        assert provider.calls == expected_calls, "generation attempts across the whole exchange"
+
+
+def reviewed(*claims: tuple[str, int, str]) -> str:
+    """A relevant review with corrected claims and their supporting passages."""
+    return json.dumps(
+        {
+            "relevant": True,
+            "claims": [
+                {"text": text, "citation": key, "excerpt": excerpt, "supported": True}
+                for text, key, excerpt in claims
+            ],
+        }
+    )
+
+
+def reviewed_months() -> list[str | Exception]:
+    return [proposal(END, END), reviewed((START, 1, START), (END, 2, END))]
 
 
 def proposal(end_claim: str, excerpt: str) -> str:
