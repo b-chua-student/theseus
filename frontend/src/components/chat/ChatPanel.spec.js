@@ -127,8 +127,8 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByLabelText('Sources cited')).not.toBeInTheDocument();
   });
   it('S-004: a reopened conversation lists the sources each answer cited', async () => {
-    listConversations.mockResolvedValue([{ id: 'c9', title: 'Earlier chat' }]);
-    getConversation.mockResolvedValue({
+    vi.mocked(listConversations).mockResolvedValue([{ id: 'c9', title: 'Earlier chat' }]);
+    vi.mocked(getConversation).mockResolvedValue({
       context_scope: 'source_library',
       source_ids: null,
       exchanges: [
