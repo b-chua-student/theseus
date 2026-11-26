@@ -27,6 +27,10 @@ class IdentityRepository(ABC):
         """Return the user with the given email, or None if not found."""
         pass
 
+    def has_identity(self, user_id: UserId, issuer: str) -> bool:
+        """Return whether the account owns an identity from this issuer."""
+        raise NotImplementedError
+
     def find_identity(self, issuer: str, subject: str) -> User | None:
         """Load the account owning the external identity."""
         raise NotImplementedError
