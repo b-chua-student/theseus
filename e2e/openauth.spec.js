@@ -9,10 +9,10 @@ const test = base.extend({
   },
 })
 
-test('S-001 shows both enabled provider choices', async ({ signedOutPage }) => {
-  for (const name of ['Continue with Google', 'Continue with Microsoft']) {
-    await expect(signedOutPage.getByRole('button', { name, exact: true })).toBeVisible()
-  }
+test('S-001 shows only Google alongside password sign-in', async ({ signedOutPage }) => {
+  await expect(signedOutPage.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+  await expect(signedOutPage.getByRole('button', { name: 'Continue with Microsoft' })).toHaveCount(0)
+  await expect(signedOutPage.getByLabel('Password')).toBeVisible()
 })
 
 test('S-002 navigates to the selected provider start', async ({ signedOutPage }) => {
