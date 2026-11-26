@@ -30,6 +30,19 @@ Feature: Track failed deployment recovery time
     And the report shows one entry for the incident with a recovery duration of 35 minutes
     And the report shows a median recovery duration of 35 minutes across 1 completed recovery
 
+  @S-063 @criterion-6 @criterion-10
+  Scenario: Link a separately recorded correction to the original incident
+    Given a maintainer confirmed a qualifying production incident before any corrective deployment
+    And the original incident record has a confirmed timeline from degradation at 10:00 UTC to restoration at 10:35 UTC on the same day
+    And a corrective deployment was recorded separately before it was linked to the incident
+    When a maintainer links the corrective deployment to the original incident record and refreshes the recovery report
+    Then the original record still shows the incident confirmation and timeline
+    And the original record shows the linked corrective deployment
+    And the separately recorded deployment evidence remains available
+    And the original record is the only recovery record for the incident
+    And the report shows one entry for the original record with a recovery duration of 35 minutes
+    And the report shows a median recovery duration of 35 minutes across 1 completed recovery
+
   @S-046 @criterion-3 @criterion-4
   Scenario: Summarize completed recoveries with known timestamps
     Given three qualifying production failures with verified recovery durations of 15, 45, and 120 minutes

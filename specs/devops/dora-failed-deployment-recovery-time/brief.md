@@ -62,7 +62,7 @@ Help maintainers see how long it takes to restore normal production service afte
 7. On demand, a maintainer can refresh the dedicated report and see all recorded qualifying incidents and the run time in UTC.
 8. A restored incident with a disputed timestamp or a restoration time earlier than degradation is reported as “Missing timestamp” with a blank duration and an incident-specific diagnostic. The latest valid maintainer confirmation that explicitly resolves a conflict supplies the corrected timeline.
 9. If incident records cannot be loaded, the report shows that evidence is incomplete.
-10. Maintainers can confirm a qualifying incident before a correction exists and associate subsequent corrective deployments with that same record.
+10. Maintainers can confirm a qualifying incident before a correction exists and link later corrective deployments to the original record, even if the deployments were recorded separately. The original record retains the incident confirmation and timeline, shows the linked deployments, and is the only recovery record for that incident. The separately recorded deployment evidence remains available.
 
 ## Reference Links
 

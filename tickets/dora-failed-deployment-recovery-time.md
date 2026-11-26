@@ -21,7 +21,7 @@ The Theseus DevOps requirements call this metric Time to Restore. [DORA metric d
 - [ ] Let maintainers refresh a dedicated recovery report on demand. Show the report run time in UTC and include all recorded qualifying incidents.
 - [ ] Use the latest valid maintainer confirmation that explicitly resolves conflicting evidence. Until resolved, treat a disputed timestamp as unknown. For a restoration time earlier than degradation, treat the restoration timestamp as unknown until corrected. For restored incidents, apply the missing-timestamp rules and identify the incident and evidence problem.
 - [ ] If incident records cannot be loaded, show that evidence is incomplete in place of the empty-report result.
-- [ ] Keep a single record for each incident. Let maintainers confirm the incident independently of any corrective deployment and associate subsequent corrective deployments with the same record.
+- [ ] Keep the original record as the single recovery record for each incident. Let maintainers confirm the incident independently of any corrective deployment and associate subsequent corrective deployments with the original record, even if those deployments were recorded separately before being linked. Keep the incident confirmation and timeline on the original record and preserve the separately recorded deployment evidence.
 
 ## Expected Outcomes
 - Limit the metric to production failures attributable to deployments. An unresolved failure has no completed recovery duration.
