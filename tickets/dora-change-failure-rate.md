@@ -39,6 +39,8 @@ No additional non-functional requirements specified.
 ## Production Readiness
 
 - [ ] If a maintainer-confirmed incident references a corrective deployment that cannot be verified as live in production, or its action does not match the recorded incident entry, exclude that attribution from the confirmed count. If it could change the count, identify the incident and missing evidence and mark the rate unavailable.
+- [ ] If an earlier deployment has unresolved hotfix provenance, still record a later rollback or hotfix whose corrective action can be verified independently. Identify unresolved provenance in the report when it could affect the count.
+- [ ] Include both workflows, their implementation, and their tests in the reviewed release. Verify production access, the deployment history and its starting point, rollback evidence before and after deactivation, and any required staging promotion mappings. Verify both report triggers and incident creation, linked updates, maintainer attribution, and replay with the permissions used in production.
 
 ## Out of Scope
 - Changes to deployment operations and reporting for other metrics.

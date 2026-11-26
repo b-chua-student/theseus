@@ -83,6 +83,32 @@ Feature: Track DORA change failure rate
       | production history cannot verify that the referenced rollback went live |
       | the referenced hotfix went live but does not match the incident entry    |
 
+  @S-043 @criterion-14 @edge
+  Scenario: Record an independently verified rollback after an unresolved hotfix
+    Given an older production deployment has unresolved hotfix provenance
+    And a later production rollback went live and can be verified independently
+    When corrective production deployments are processed
+    Then the rollback is recorded once with pending attribution
+
+  @S-044 @criterion-14 @edge
+  Scenario: Identify unresolved hotfix provenance that could affect the rate
+    Given an unresolved hotfix could add an eligible production deployment to the intervention count
+    When a maintainer reviews the change failure rate report
+    Then the report identifies the deployment with unresolved hotfix provenance
+    And the rate is unavailable
+
+  @S-045 @criterion-15 @edge
+  Scenario: Verify the workflows before production rollout
+    Given the reviewed release includes both workflows, their implementation, and their tests
+    And the verification uses the permissions configured for production
+    When a maintainer reviews the production verification results
+    Then the results confirm access to production history and its verified starting point
+    And the results confirm rollback evidence both while live and after deactivation
+    And the results confirm any required staging promotion mappings against deployed hotfixes
+    And the results show reports from both on-demand and main-merge triggers
+    And the results show incident creation, updates to linked issues, and maintainer attribution
+    And replay shows one incident entry per corrective deployment
+
   @S-033 @criterion-5 @edge
   Scenario: Attribute an intervention at the 24-hour boundary to the original period
     Given a production deployment went live near the end of a reporting period

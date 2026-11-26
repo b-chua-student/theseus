@@ -66,6 +66,8 @@ Show Theseus maintainers how often production deployments require immediate inte
 11. A labeled hotfix merged into staging is recorded when it goes live in production after an unlabeled promotion into main. A labeled hotfix merged directly into main is also recorded when it goes live in production.
 12. When a pending incident could add a deployment to the intervention count, the report identifies the incident and marks the rate unavailable. When pending attribution cannot change the count and the remaining evidence is complete, the report shows the rate if there is at least one eligible deployment.
 13. The report excludes attribution that lacks a verified production correction or matches no recorded corrective action on the incident. When that attribution could change the count, the report identifies the incident and missing evidence, labels the counts as confirmed so far, and marks the rate unavailable.
+14. An older unresolved hotfix does not block recording a newer correction that can be verified independently. The report identifies unresolved provenance when it could affect the count.
+15. The reviewed release includes both workflows, their implementation, and tests. Production verification covers access and the deployment history starting point, rollback evidence before and after deactivation, any required staging promotion mappings, both report triggers, and incident creation, linked updates, maintainer attribution, and replay with production permissions.
 
 ## Reference Links
 
