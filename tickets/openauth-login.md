@@ -47,7 +47,7 @@ This release has no specified performance target and no additional availability,
 ## Sign-in destinations and recovery
 
 - After sign-in, return the user to the Theseus page they tried to open. Use the home page if they started directly from sign-in or the original page is unavailable.
-- On a sign-in error, keep the user signed out and return them to the sign-in page with a clear message and a “Try again” action. If they need their existing sign-in method, explain how to continue with it.
+- On a sign-in error, keep the user signed out and return them to the sign-in page with a clear message and a retry action (“Try again” unless a more specific action is specified below). If they need their existing sign-in method, explain how to continue with it.
 - When a user returns to Theseus after an interrupted sign-in, show “Sign-in wasn’t completed” and let them restart or choose another sign-in method.
 
 ## Session, auditing, and provider data
@@ -75,3 +75,14 @@ This release has no specified performance target and no additional availability,
 
 - Show “Continue with Google” on the regular sign-in page even when Google is unavailable.
 - Selecting an available provider starts its sign-in flow. Selecting an unavailable provider explains that sign-in with that provider is unavailable and leaves the user on the sign-in page.
+
+## Google sign-in guidance and connection status
+
+- Under “Continue with Google”, explain that a first Google sign-in creates a Theseus account for a new user. Keep password sign-up available.
+- For an expired request, show “This sign-in request expired” and offer “Restart Google sign-in” to start a fresh attempt.
+- When Theseus cannot reach Google, explain the connection failure and offer a retry. Keep token-validation details in server logs.
+- In Account, offer “Link Google” for an unlinked account when Google is available. Show “Google connected” instead once the account has a Google identity, including after reopening Account.
+
+## Returning Google users
+
+- After the user approves Theseus and successfully signs in, signing out and selecting the same Google account again should complete without another Allow click when Google can reuse the existing approval. If Google requires interaction, let the user complete its normal sign-in flow.
