@@ -11,6 +11,9 @@
 | D-005 | Reconcile paginated Render production history on a schedule independently of report runs. Identify rollbacks from successful deploys with `trigger: rollback`. For other successful deploys, use Git ancestry and explicit promotion mappings to identify newly shipped original PRs labeled `production-hotfix`, whether merged directly into main or shipped through an unlabeled staging promotion. | Scheduled GitHub Actions workflow, Render production history, Git history, GitHub pull requests, promotion resolver | R-010, R-011 |
 | D-006 | Key corrective entries by production service and corrective Render deploy ID. Serialize incident writes for the production service and look up a durable entry marker before writing. When creating an issue, include the marker and pending entry in the creation request so a retry can find the record after a lost response. Preserve existing maintainer attribution on repeat processing. | Incident writer workflow, GitHub issues | R-010, R-012 |
 
+| D-007 | Match confirmed attribution against a verified corrective deployment and its unique issue entry. Report unresolved attribution and provenance when they could add an original deployment to the count. Continue reconciliation for independently verified corrections. | Change failure rate calculator, Render and GitHub evidence readers, incident writer | R-013, R-014 |
+| D-008 | Record production verification evidence for the reviewed release using the permissions in both deployed workflows. | GitHub Actions, Render, operations checklist | R-015 |
+
 ## Components and Flow
 
 A report run captures its start time, computes the cutoff 24 hours earlier and the start 30 days before the cutoff, then reads Render arrivals and GitHub incident evidence. The calculator filters by live time and joins confirmed records to the original deployments. It considers intervention evidence through the original deployment's full 24-hour interval, including intervention starts after the reporting cutoff.
@@ -41,3 +44,4 @@ The reporting workflow reads deployment and issue evidence. The trusted incident
 - S-028 through S-034 cover the report counts, both triggers, deduplication of original deployments, the inclusive 24-hour boundary, and the empty result.
 - S-035, S-036, S-040, and S-041 cover missing history, identification of the specific pending incident, the reporting bounds, and publication when pending attribution cannot affect the count.
 - S-037 through S-039 cover creation for rollback and direct hotfix, linked issue updates for a staging hotfix, and replay without duplicate entries.
+- S-042 through S-044 exercise corrective evidence matching and reconciliation across unresolved provenance. S-045 requires production workflow evidence recorded using the operations checklist.
