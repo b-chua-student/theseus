@@ -26,7 +26,13 @@ from domain.assistant.models.errors import (
     ChatModelRateLimitedError,
     ValidationBudgetExceeded,
 )
-from domain.assistant.models.value_objects import Answer, Finding, Verdict
+from domain.assistant.models.value_objects import (
+    Answer,
+    Evidence,
+    Finding,
+    ProposedFinding,
+    Verdict,
+)
 from tests.domain.assistant.validation_support import QUESTION, passage
 
 P1 = passage("P1", "The pilot started in May.")
@@ -454,6 +460,18 @@ def test_s011_revise_failures_raise_chat_model_errors(
 def provider_timeout_ms(models: FakeModels) -> int | None:
     http_options = models.requests[0]["config"].http_options
     return None if http_options is None else http_options.timeout
+
+
+def test_proposal_returns_untrusted_excerpts_in_one_attempt() -> None:
+    validator, models = validator_with(
+        json.dumps({"claims": [{"text": P2.text, "citation": 2, "excerpt": P2.text}]})
+    )
+    assert validator.propose(QUESTION, Evidence(tuple(PASSAGES)), timeout=12) == (
+        ProposedFinding(P2.text, 2, P2.text),
+    )
+    [request] = models.requests
+    assert request["config"].http_options.retry_options.attempts == 1
+    assert provider_timeout_ms(models) == 12_000
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,26 @@
 from abc import ABC, abstractmethod
 
-from domain.assistant.models.value_objects import Answer, RetrievedChunk, Verdict
+from domain.assistant.models.value_objects import (
+    Answer,
+    Evidence,
+    ProposedFinding,
+    RetrievedChunk,
+    Verdict,
+)
+
+
+class AnswerProposer(ABC):
+    """Optional generation port. Its proposed findings require local verification."""
+
+    @abstractmethod
+    def propose(
+        self,
+        question: str,
+        evidence: Evidence,
+        manuscript_text: str = "",
+        timeout: float | None = None,
+    ) -> tuple[ProposedFinding, ...]:
+        """Make one provider attempt to select findings and their source excerpts."""
 
 
 class AnswerValidator(ABC):

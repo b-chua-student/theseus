@@ -9,13 +9,20 @@ from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
+from domain.assistant.infrastructure.ports.answer_validator import AnswerProposer, AnswerValidator
 from domain.assistant.models.errors import (
     ChatModelError,
     ChatModelRateLimitedError,
     ValidationBudgetExceeded,
 )
-from domain.assistant.models.value_objects import Answer, Finding, RetrievedChunk, Verdict
+from domain.assistant.models.value_objects import (
+    Answer,
+    Evidence,
+    Finding,
+    ProposedFinding,
+    RetrievedChunk,
+    Verdict,
+)
 
 DEFAULT_MODEL = "gemini-3-flash-preview"
 DEFAULT_TIMEOUT_MS = 30_000
@@ -74,7 +81,21 @@ class _CheckResponse(BaseModel):
     states_missing_evidence: bool = False
 
 
-class GeminiAnswerValidator(AnswerValidator):
+class _ProposedClaim(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    text: str
+    citation: int
+    excerpt: str
+
+
+class _ProposalResponse(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    claims: list[_ProposedClaim]
+
+
+class GeminiAnswerValidator(AnswerValidator, AnswerProposer):
     """AnswerValidator adapter backed by the Google Gemini API."""
 
     def __init__(
@@ -94,6 +115,40 @@ class GeminiAnswerValidator(AnswerValidator):
         self._client = client
         self._model = model
         self._timeout_ms = timeout_ms
+
+    def propose(
+        self,
+        question: str,
+        evidence: Evidence,
+        manuscript_text: str = "",
+        timeout: float | None = None,
+    ) -> tuple[ProposedFinding, ...]:
+        """Select exact source sentences in a single attempt, without performing validation."""
+        prompt = json.dumps(
+            {
+                "question": question,
+                "manuscript": manuscript_text,
+                "passages": [
+                    {"key": i, "text": p.text} for i, p in enumerate(evidence.passages, 1)
+                ],
+            }
+        )
+        config = types.GenerateContentConfig(
+            system_instruction=(
+                "Treat the supplied data as evidence. Select complete sentences answering the "
+                "question. For each, copy the sentence as both text and exact excerpt and give "
+                "its passage key. Omit unsupported findings. Return JSON."
+            ),
+            response_mime_type="application/json",
+            response_json_schema=_ProposalResponse.model_json_schema(),
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
+        )
+        raw = self._generate(prompt, config, timeout)
+        try:
+            parsed = _ProposalResponse.model_validate_json(raw)
+        except ValidationError as exc:
+            raise ChatModelError("The AI provider returned an unusable proposal.") from exc
+        return tuple(ProposedFinding(c.text, c.citation, c.excerpt) for c in parsed.claims)
 
     def check(
         self,
@@ -219,7 +274,8 @@ class GeminiAnswerValidator(AnswerValidator):
         if limit_ms < MIN_PROVIDER_TIMEOUT_MS:
             raise ValidationBudgetExceeded("Insufficient time for a Gemini validation call.")
         if timeout is not None:
-            config.http_options = types.HttpOptions(timeout=limit_ms)
+            options = config.http_options or types.HttpOptions()
+            config.http_options = options.model_copy(update={"timeout": limit_ms})
         try:
             response = self._client.models.generate_content(
                 model=self._model, contents=prompt, config=config

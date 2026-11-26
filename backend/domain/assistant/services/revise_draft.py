@@ -2,6 +2,31 @@ from dataclasses import replace
 
 from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.models.value_objects import Answer, Evidence, Query, Verdict
+from domain.assistant.services.local_evidence import check_evidence
+
+
+def revise_from_evidence(
+    question: Query,
+    evidence: Evidence,
+    manuscript_text: str = "",
+) -> tuple[Answer, Verdict]:
+    """Rebuild a candidate from current passages without a generation or validation call."""
+    verdict = check_evidence(question.text, evidence, manuscript_text=manuscript_text)
+    return render_checked(verdict, evidence), verdict
+
+
+def render_checked(verdict: Verdict, evidence: Evidence) -> Answer:
+    """Render only locally established statements and server-resolved citation keys."""
+    lines = []
+    for finding in verdict.verified:
+        if finding.source == "manuscript":
+            lines.append(f"The manuscript states: {finding.claim}")
+        else:
+            lines.append(f"{finding.claim.rstrip('.')} [{finding.citation}].")
+    if verdict.unresolved:
+        lines.append("Could not verify: " + "; ".join(verdict.unresolved) + ".")
+    text = " ".join(lines) or "I couldn’t verify an answer from the retrieved passages."
+    return Answer(text, evidence.citations_for(text))
 
 
 class ReviseDraft:

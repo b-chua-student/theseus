@@ -244,6 +244,15 @@ class Answer:
 
 
 @dataclass(frozen=True)
+class ProposedFinding:
+    """Untrusted statement paired with a numbered passage and its exact excerpt."""
+
+    text: str
+    citation: int
+    excerpt: str
+
+
+@dataclass(frozen=True)
 class Finding:
     """A claim that was checked and found supported.
 
