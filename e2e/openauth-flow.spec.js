@@ -24,9 +24,9 @@ test('S-008 S-020 S-021 S-022 S-025 restore the workspace and session securely',
   await login(page, address)
   const original = await me(page)
   await logout(page)
-  await expect(button(page, 'Continue with Google')).toBeVisible()
+  await expect(button(page, 'Continue with ' + address)).toBeVisible()
   await page.goto('/workspace')
-  await button(page, 'Continue with Google').click()
+  await button(page, 'Continue with ' + address).click()
   await expect(page.getByRole('heading', { name: 'Research Workspace' })).toBeVisible()
   await page.reload()
   expect((await me(page)).id).toBe(original.id)
@@ -44,10 +44,10 @@ test('S-008 S-020 S-021 S-022 S-025 restore the workspace and session securely',
   await button(page, 'Account').click()
   await expect(page.getByLabel('Display name')).toHaveValue('Alex')
   await button(page, 'Sign Out').click()
-  await expect(button(page, 'Continue with Google')).toBeVisible()
+  await expect(button(page, 'Continue with ' + address)).toBeVisible()
   expect((await page.request.get('/api/auth/me')).status()).toBe(401)
   await page.goto('/workspace')
-  await expect(button(page, 'Continue with Google')).toBeVisible()
+  await expect(button(page, 'Continue with ' + address)).toBeVisible()
 })
 
 for (const destination of ['https://example.org/profile', '//example.org/profile', '/removed']) {
@@ -100,14 +100,15 @@ test('S-024 S-033 explicitly link Google after password authentication', async (
 for (const reachedServer of [true, false]) {
   test('S-022 ambiguous logout, reached server ' + reachedServer, async ({ page }) => {
     await page.goto('/')
-    await login(page, email())
+    const address = email()
+    await login(page, address)
     await page.route('**/api/auth/logout', async route => {
       if (reachedServer) await page.request.post('/api/auth/logout')
       await route.abort()
     })
     await logout(page)
     if (reachedServer) {
-      await expect(button(page, 'Continue with Google')).toBeVisible()
+      await expect(button(page, 'Continue with ' + address)).toBeVisible()
     } else {
       await expect(page.getByRole('alert')).toContainText('Could not confirm sign-out')
       expect((await page.request.get('/api/auth/me')).status()).toBe(200)
@@ -135,7 +136,8 @@ test('Two independent callbacks resolve to one account', async ({ browser }) => 
 
 test('S-022 unknown session after a failed logout can be retried', async ({ page }) => {
   await page.goto('/')
-  await login(page, email())
+  const address = email()
+  await login(page, address)
   await expect(button(page, 'Account')).toBeVisible()
   await page.route('**/api/auth/logout', route => route.abort())
   await page.route('**/api/auth/me', route => route.abort())
@@ -144,7 +146,7 @@ test('S-022 unknown session after a failed logout can be retried', async ({ page
   await page.unroute('**/api/auth/logout')
   await page.unroute('**/api/auth/me')
   await button(page, 'Try again').click()
-  await expect(button(page, 'Continue with Google')).toBeVisible()
+  await expect(button(page, 'Continue with ' + address)).toBeVisible()
 })
 
 for (const [code, message] of Object.entries({
@@ -166,7 +168,7 @@ for (const [code, message] of Object.entries({
 
 test('S-030 S-031 expired request starts a fresh Google flow', async ({ page }) => {
   await page.goto('/?auth_error=timeout&provider=google')
-  await expect(page.getByText('New to Theseus? Your first Google sign-in creates your account.')).toBeVisible()
+  await expect(page.getByText('New to Theseus? Your first Google sign-in creates your account.')).toHaveCount(0)
   await expect(button(page, 'Sign Up')).toBeVisible()
   await button(page, 'Restart Google sign-in').click()
   await consent(page, email())
@@ -174,14 +176,14 @@ test('S-030 S-031 expired request starts a fresh Google flow', async ({ page }) 
 })
 
 for (const reusable of [true, false]) {
-  test('S-034 S-035 returning Google sign-in, reusable approval ' + reusable, async ({ page, context }) => {
+  test('S-034 S-035 S-036 S-037 returning Google sign-in, reusable approval ' + reusable, async ({ page, context }) => {
     const address = email()
     await page.goto('/')
     await login(page, address)
     await expect(button(page, 'Account')).toBeVisible()
     const original = await me(page)
     await logout(page)
-    await expect(button(page, 'Continue with Google')).toBeVisible()
+    await expect(button(page, 'Continue with ' + address)).toBeVisible()
     expect((await page.request.get('/api/auth/me')).status()).toBe(401)
     if (!reusable) await context.clearCookies({ name: 'fixture_grant' })
 
@@ -191,7 +193,7 @@ for (const reusable of [true, false]) {
       if (url.pathname === '/authorize' && req.method() === 'GET') prompts.push(url.searchParams.get('prompt'))
     })
     await page.goto('/workspace')
-    await button(page, 'Continue with Google').click()
+    await button(page, 'Continue with ' + address).click()
     if (!reusable) {
       await expect(page.getByRole('heading', { name: 'Authorize Theseus' })).toBeVisible()
       expect((await page.request.get('/api/auth/me')).status()).toBe(401)
@@ -211,7 +213,10 @@ test('Returning users can explicitly choose a different Google account', async (
   await logout(page)
   await button(page, 'Use another Google account').click()
   await expect(page).toHaveURL(/prompt=select_account/)
-  await consent(page, email())
+  const nextAddress = email()
+  await consent(page, nextAddress)
   await expect(button(page, 'Account')).toBeVisible()
   expect((await me(page)).id).not.toBe(original.id)
+  await logout(page)
+  await expect(button(page, 'Continue with ' + nextAddress)).toBeVisible()
 })
