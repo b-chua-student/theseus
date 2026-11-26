@@ -42,15 +42,19 @@ def _hint_serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="google-account-hint")
 
 
-def _remembered_subject() -> str | None:
+def _remembered_account() -> tuple[str | None, str | None]:
     cookie = request.cookies.get(HINT_COOKIE)
     if not cookie:
-        return None
+        return None, None
     try:
-        subject = _hint_serializer().loads(cookie, max_age=HINT_MAX_AGE)
+        hint = _hint_serializer().loads(cookie, max_age=HINT_MAX_AGE)
     except BadData:
-        return None
-    return subject if isinstance(subject, str) and subject else None
+        return None, None
+    if isinstance(hint, str) and hint:  # Legacy cookies contain only the subject.
+        return hint, None
+    if isinstance(hint, dict) and isinstance(hint.get("sub"), str) and hint["sub"]:
+        return hint["sub"], hint.get("email")
+    return None, None
 
 
 class CallbackLogFilter(logging.Filter):
@@ -112,9 +116,11 @@ def providers() -> ResponseReturnValue:
             UserId.from_str(user_id), google.get("issuer", "https://accounts.google.com")
         )
     )
+    subject, email = _remembered_account()
     response = jsonify(
         google_connected=connected,
-        returning_google_user=_remembered_subject() is not None,
+        returning_google_user=subject is not None,
+        remembered_google_email=email if google else None,
         providers=list(current_app.config["OAUTH_PROVIDERS"]),
         interrupted=bool(session.get("oauth_attempt")),
         csrf=session.get("oauth_csrf"),
@@ -176,7 +182,7 @@ def begin(
 def start(provider: str) -> ResponseReturnValue:
     """Redirect to the selected provider for sign-in."""
     choose_account = request.args.get("choose_account") == "1"
-    hint = None if choose_account else _remembered_subject()
+    hint = None if choose_account else _remembered_account()[0]
     return begin(
         provider,
         return_to=request.args.get("return_to"),
@@ -377,7 +383,7 @@ def finish(attempt: dict, claims: dict, provider: str) -> ResponseReturnValue:
     response = redirect(attempt["destination"])
     response.set_cookie(
         HINT_COOKIE,
-        _hint_serializer().dumps(claims["sub"]),
+        _hint_serializer().dumps({"sub": claims["sub"], "email": email.value}),
         max_age=HINT_MAX_AGE,
         path="/api/auth/oauth",
         secure=current_app.config["SESSION_COOKIE_SECURE"],
