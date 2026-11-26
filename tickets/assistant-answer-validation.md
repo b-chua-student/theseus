@@ -11,30 +11,31 @@ The Assistant retrieves passages from the Source Library to answer questions. Th
 ## Scope
 
 - Check that the draft addresses the question and that its claims and citations are supported by the retrieved passages.
-- When the draft overstates the evidence, revise it and check it again. When the retrieved passages are insufficient, look for better evidence and check the resulting draft.
+- Gather additional evidence when needed and use the review to correct or withhold unsupported findings.
 - Limit retries and explain any evidence gaps that remain.
 
 ## Expected Outcomes
 
 - [ ] A draft that answers the question and uses supporting evidence can be shown to the user.
-- [ ] When a draft contains an unsupported claim or cites a passage that does not support it, the Assistant revises the draft or retrieves more evidence and checks the answer again before showing it.
+- [ ] Each displayed finding and any corrected citation are supported by the review.
 - [ ] When the retry limit is reached, the Assistant explains what the available sources support and where the evidence falls short.
 
 ## Rules / Constraints
 
 - Validate claims before presenting them as findings. Only the deadline fallback may offer unchecked text as an explicitly labeled draft.
-- Allow two retries after the initial validation. Each retry can revise the draft, retrieve more evidence, or do both. Checking the resulting draft is part of that retry.
+- Allow up to two evidence-recovery steps within the validation window. Retrieve missing evidence before review when needed. The review may narrow a claim or correct its citation against the available passages. After review, show only supported findings and explain outstanding gaps; never dispatch another generation attempt.
 - If validation is still running after five seconds, show “Checking the answer against your sources…” and keep draft text hidden.
-- If every draft is off-topic and retries are exhausted, say “I couldn’t produce a verified answer to your question.” Describe a source gap only when checked passages establish one.
+- If the review finds the entire draft off-topic, say “I couldn’t produce a verified answer to your question.” Describe a source gap only when checked passages establish one.
 - If a service error prevents validation before the deadline, withhold the unchecked draft and say “I couldn’t finish checking this answer. Please try again.”
 
 ## Non-Functional Requirements
 
 - Allow 30 seconds for validation and all retries combined, starting when the first draft is ready to check.
 - At the 30-second deadline, including a simultaneous service error, show verified findings with citations and identify unfinished checks. If nothing was verified and Gemini returned a draft before the deadline, offer “View unverified draft” only for claims still awaiting a check. Hide the draft until selected, label it unverified when opened, and exclude claims already found unsupported or off-topic. If no eligible text remains, say “I couldn’t verify an answer within 30 seconds. Please try again.”
-- Across one source-backed question, allow at most one Gemini generation request in total, including drafting, validation, revision and retries. A failed or timed-out generation attempt consumes the allowance. Count embedding requests separately.
-- Use zero generation requests when the requested fact and its level of detail can be established locally from the retrieved evidence. Otherwise, the optional generation request may propose an answer with exact supporting excerpts and passage references.
-- Before displaying verified findings, check locally that the answer addresses the requested fact and that each displayed claim is supported by the excerpt from its cited passage. If support cannot be established, return verified partial findings or explain what could not be verified, with the deadline exception above. A retrieved excerpt alone does not establish an inference.
+- Allow at most two Gemini generation attempts per Source Library exchange: one to draft and one to review. Failures and timeouts consume their attempt. Do not automatically resend either call. Count search embeddings separately.
+- Reuse a fully reviewed successful answer and its citations with zero generation attempts only for the exact same question in the same authorized project and conversation, with identical selected sources, retrieved evidence, citation details, relevant conversation inputs and review configuration. Partial answers, errors, timeouts and unverified drafts are ineligible.
+- When a successful search returns no passages, explain that the search found insufficient evidence and use zero generation attempts. If retrieval fails, report the interruption instead.
+- For a new question with evidence, Gemini drafts once and separately reviews relevance and factual support against the original question and cited passages. Confirm citation identities before display. A genuine excerpt containing a number does not establish which group it describes.
 
 ## Out of Scope
 

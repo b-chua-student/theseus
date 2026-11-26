@@ -2,12 +2,12 @@ Feature: Validate source-backed answers before display
   Users see answers checked against Source Library evidence before they are displayed.
 
   Background:
-    Given the user asks when a pilot started and ended
-    And the first search retrieves P1 from the selected pilot report, giving May as the start
+    Given the user can access the selected Source Library report
 
   @S-001 @criterion-1
   Scenario: Display a supported answer
-    Given the first search also retrieves P2 giving July as the end
+    Given the writer asks when the pilot started and ended
+    And passages P1 and P2 give May as the start and July as the end
     When the Assistant drafts an answer that gives May citing P1 and July citing P2
     Then the user sees that answer
     And the answer was checked for relevance, claims, and citations before it was displayed
@@ -18,7 +18,7 @@ Feature: Validate source-backed answers before display
     And a retry is available
     When the Assistant drafts an answer claiming the pilot ended on July 12 citing P2
     Then the Assistant removes the unsupported day
-    And the revised answer is checked before it is displayed
+    And the review confirms the narrower claim before display
     And the displayed answer states July as the end month without a day
 
   @S-004 @criterion-1 @criterion-3
@@ -27,12 +27,12 @@ Feature: Validate source-backed answers before display
     And a retry is available
     When the Assistant drafts an answer that cites P1 for the July end date
     Then the Assistant corrects the citation to P2
-    And the corrected answer is checked before it is displayed
+    And the review confirms that P2 supports the corrected finding
     And the displayed answer cites P2 for July
 
   @S-005 @criterion-4
   Scenario: Retrieve missing evidence
-    Given the initial passages omit the end date and a retry is available
+    Given P1 gives the May start and the draft needs additional evidence for the end date before review
     When the Assistant detects the missing evidence
     Then the next search retrieves P2 giving July as the end
     And the resulting answer is checked against P1 and P2 before it is displayed
@@ -40,21 +40,17 @@ Feature: Validate source-backed answers before display
 
   @S-002 @criterion-2 @edge
   Scenario: Withhold an answer to a different question
-    Given passage P3 in the Source Library names the pilot sponsor
+    Given the writer asks for the pilot dates and P3 names the sponsor
     When the Assistant drafts an answer that only names the sponsor citing P3
     Then the relevance check fails
     And the user never sees that draft as the answer
 
   @S-006 @criterion-5 @edge
-  Scenario: Explain a remaining gap at the retry limit
-    Given the initial draft failed validation
-    And the first retry revised and rechecked the draft
-    And the second retry retrieved more evidence, revised the draft, and rechecked it
-    And no passage in the Source Library establishes the end date
-    When the Assistant completes the request
-    Then the Assistant makes no further retry
-    And the displayed answer cites P1 for the May start
-    And the displayed answer explains that the available passages do not establish an end date
+  Scenario: Explain a remaining gap after evidence recovery
+    Given P1 gives the May start and two further searches find no end date
+    When the review confirms the start and the gap in the retrieved evidence
+    Then the answer cites P1 for May and explains that the passages do not establish the end date
+    And the request ends after one draft attempt and one review attempt
 
   @S-007 @criterion-6
   Scenario: Show progress only when validation exceeds five seconds
@@ -78,19 +74,18 @@ Feature: Validate source-backed answers before display
   @S-009 @criterion-7 @edge
   Scenario: Reach the deadline before any validation completes
     Given the first draft is waiting for its initial check to finish
-    And no generated draft has arrived
+    And no eligible draft text remains to offer
     When 30 seconds have elapsed since that draft was ready to check
     Then the user sees “I couldn’t verify an answer within 30 seconds. Please try again.”
     And the unchecked draft stays hidden
 
   @S-010 @criterion-8 @edge
-  Scenario: Exhaust both retries with off-topic drafts
-    Given the initial draft and both retried drafts answer only who sponsored the pilot
-    And the checked passages establish both the start and end dates
-    When the last draft fails the relevance check
-    Then the user sees “I couldn’t produce a verified answer to your question.”
-    And no sponsor-only draft or claim of missing source evidence is displayed
-    And the Assistant makes no further retry
+  Scenario: Withhold an entirely off-topic draft after review
+    Given the writer asks for dates and the draft only identifies the sponsor
+    When the review finds the draft off-topic
+    Then the writer sees “I couldn’t produce a verified answer to your question.”
+    And no sponsor claim or evidence gap is displayed
+    And no further generation is attempted
 
   @S-011 @criterion-9 @edge
   Scenario: Explain an interrupted validation
@@ -122,39 +117,43 @@ Feature: Validate source-backed answers before display
       | no verified findings  | “I couldn’t verify an answer within 30 seconds. Please try again.”                        |
 
   @S-014 @criterion-10
-  Scenario: Answer a directly supported question without generation
-    Given the first search also retrieves P2 stating "The pilot ended in July."
-    And the start and end months can both be established locally
-    When the Assistant answers the question
-    Then the displayed answer gives May citing P1 and July citing P2
-    And the request made zero Gemini generation calls
+  Scenario: Reuse an exact fully reviewed answer
+    Given a fully reviewed answer with citations is available in this authorized conversation
+    And the selected sources, evidence, citation details, context used and review configuration are unchanged
+    When the writer repeats the exact question
+    Then the writer receives the reviewed answer with the same citations
+    And the request uses zero Gemini generation attempts
 
   @S-015 @criterion-11
-  Scenario: Verify an assisted answer against the exact excerpts it cites
-    Given local selection cannot distinguish a pilot end date from a follow-up end date
-    And P2 states "The pilot ended in July." and P3 states "Follow-up ended in August."
-    When the single Gemini generation call proposes May citing P1 and July citing P2 with their exact supporting excerpts
-    Then the Assistant locally verifies both claims against the question and their respective passages
-    And the displayed answer gives May citing P1 and July citing P2
-    And the entire request made one Gemini generation call
+  Scenario: Review which group a number describes
+    Given the writer asks how many schools enrolled in total
+    And P1 reports 75 schools overall and 25 schools per group
+    And a new draft incorrectly answers 25 citing P1
+    When the review checks the question and P1
+    Then the displayed finding gives the reviewed total of 75 citing P1
+    And the request uses one draft attempt and one review attempt
 
   @S-016 @criterion-11 @criterion-12 @edge
   Scenario: Withhold an unsupported year even when the quote is genuine
     Given the user also asks for the year the pilot ended
     And the only end-date excerpt is "The pilot ended in July."
-    And one generation call proposes an end year citing that exact excerpt
-    When local validation and a repeat search find no support for the proposed year
+    And the draft proposes an end year citing that exact excerpt
+    When a repeat search and the review find no support for the proposed year
     Then the answer explains that the end year could not be verified
     And the proposed year is never displayed as a finding
-    And the entire request made one Gemini generation call
+    And the request uses one draft attempt and one review attempt
 
   @S-017 @criterion-9 @criterion-12 @edge
-  Scenario: A failed generation attempt consumes the request allowance
-    Given local evidence selection is inconclusive
-    When the only generation attempt fails before the deadline and prevents validation
+  Scenario Outline: Count failed attempts without automatic retries
+    Given a new question with retrieved passages
+    When the <stage> fails before the deadline
     Then the writer sees the validation interruption message
-    And no unchecked draft is displayed
-    And the entire request made one Gemini generation call
+    And the request ends after <count> generation attempts with no draft displayed
+
+    Examples:
+      | stage  | count |
+      | draft  | 1     |
+      | review | 2     |
 
   @S-018 @criterion-7 @edge
   Scenario: Offer pending claims on request when validation runs out of time
@@ -174,3 +173,49 @@ Feature: Validate source-backed answers before display
     When the validation deadline cuts a retry short
     Then the writer sees “I couldn’t verify an answer within 30 seconds. Please try again.”
     And no unverified draft is offered
+
+  @S-020 @criterion-10 @edge
+  Scenario Outline: Require fresh review when reuse conditions change
+    Given a fully reviewed answer is available for an earlier question
+    And the current authorized search finds evidence
+    When the writer asks again with a different <input>
+    Then the Assistant drafts and reviews a fresh answer
+
+    Examples:
+      | input                  |
+      | question wording       |
+      | selected source        |
+      | retrieved passage text |
+      | citation location      |
+      | conversation context   |
+      | authorized conversation |
+      | review configuration   |
+
+  @S-021 @criterion-10 @edge
+  Scenario Outline: Retry an exchange that had no fully reviewed success
+    Given the previous exchange ended with <outcome>
+    When the writer retries the question and the search finds evidence
+    Then the previous result is withheld from reuse
+    And a fresh draft and review are attempted
+
+    Examples:
+      | outcome          |
+      | a partial answer |
+      | an interruption  |
+      | a timeout        |
+      | an unverified draft |
+
+  @S-022 @criterion-13
+  Scenario: Explain an empty search without generation
+    Given the selected report previously supported an answer
+    When the current search succeeds and returns no passages
+    Then the writer learns that the search found insufficient evidence
+    And the request uses zero Gemini generation attempts
+
+  @S-023 @criterion-9 @criterion-13 @edge
+  Scenario: Distinguish a failed search from an empty search
+    Given the writer asks about a selected report
+    When the initial search fails
+    Then the writer sees the interruption message
+    And no source gap is claimed
+    And the request uses zero Gemini generation attempts
