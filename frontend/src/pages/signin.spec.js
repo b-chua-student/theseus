@@ -7,7 +7,7 @@ vi.mock('../lib/api/auth.js', () => ({ providerSettings: vi.fn(), signIn: vi.fn(
 
 test('S-029 explains unavailable Google on the sign-in page', async () => {
   const name = 'Google'
-  providerSettings.mockResolvedValue({ providers: [] })
+  vi.mocked(providerSettings).mockResolvedValue({ providers: [] })
   render(SignIn)
   const choice = await screen.findByRole('button', { name: 'Continue with ' + name })
   await fireEvent.click(choice)
