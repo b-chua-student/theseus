@@ -23,10 +23,10 @@ The Theseus DevOps requirements call this metric Time to Restore. [DORA metric d
 - Limit the metric to production failures attributable to deployments. An unresolved failure has no completed recovery duration.
 
 ## Rules / Constraints
-No additional non-functional requirements specified.
+- None beyond the scope above.
 
 ## Non-Functional Requirements
-- Changes to deployment operations and reporting for other metrics.
+- None specified.
 
 ## Out of Scope
 - Changes to deployment operations or reporting for other metrics.
