@@ -82,3 +82,24 @@ Feature: Track deployment rework rate
     When a maintainer runs the report on demand
     Then the report shows "Incomplete evidence" and omits the percentage
     And it shows 2 verified production deployments, 1 confirmed rework, and 1 awaiting review
+
+  @S-055 @edge @criterion-5 @criterion-8
+  Scenario: Treat a recorded no-rework decision as awaiting review when incident evidence is unavailable
+    Given verified production history shows three deployments went live during the reporting period
+    And a maintainer confirmed one deployment as an unplanned response to a production incident
+    And a maintainer recorded no qualifying rework for the other two deployments
+    And unavailable incident evidence could establish rework for only one of those two deployments
+    When a maintainer runs the report on demand
+    Then the report shows "Incomplete evidence" and omits the percentage
+    And it shows 3 verified production deployments, 1 confirmed rework deployment, and 1 awaiting review
+
+  @S-056 @edge @criterion-5 @criterion-8
+  Scenario: Count all potentially affected deployments when unavailable evidence cannot be tied to deployment IDs
+    Given verified production history shows four deployments went live during the reporting period
+    And a maintainer confirmed one deployment as an unplanned response to a production incident
+    And a maintainer recorded no qualifying rework for two deployments
+    And the remaining deployment already awaits review because it has no maintainer disposition
+    And unavailable incident evidence could establish rework but cannot be tied to specific deployment IDs
+    When a maintainer runs the report on demand
+    Then the report shows "Incomplete evidence" and omits the percentage
+    And it shows 4 verified production deployments, 1 confirmed rework deployment, and 3 awaiting review

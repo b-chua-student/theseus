@@ -30,6 +30,7 @@ Help maintainers see what share of production deployments are unplanned response
 - Use each deployment's production live time to assign it to the period. Include the window start and exclude the report start, regardless of when the incident began.
 - Count rework when production history confirms the deployment went live and a maintainer confirms on the incident record that the specific deployment was an unplanned response. Incidents of any cause qualify.
 - A maintainer reviews each production deployment by ID. Accept either valid incident confirmation or an explicit reviewed disposition of no qualifying rework. Deployments without either disposition remain awaiting review, including those without linked incidents.
+- Unavailable incident evidence puts a deployment into awaiting review if it could change whether the deployment qualifies as rework, even when a no-rework decision is already recorded. Count each affected deployment once. If the affected deployment IDs are unknown, include every deployment whose classification could still change. Keep valid rework confirmations that the evidence gap cannot change.
 
 ## Known Touchpoints
 
@@ -53,6 +54,7 @@ Help maintainers see what share of production deployments are unplanned response
 
 6. A deployment with no linked incident or recorded disposition contributes to the awaiting-review count. When every deployment has a valid disposition and the rest of the evidence is complete, the report shows the rate.
 7. The production incident template includes a **Deployment rework** section that explains how a maintainer records that a specific deployment went live in production as an unplanned response to the incident.
+8. When production history is complete but unavailable incident evidence could change a recorded classification, the report shows the verified production total, confirmed rework count, number of affected deployments awaiting review, and **Incomplete evidence**. It omits the percentage. If the affected IDs are unknown, the awaiting-review count includes every deployment whose classification could still change.
 
 ## Reference Links
 
