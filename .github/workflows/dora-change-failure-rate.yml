@@ -1,0 +1,37 @@
+name: DORA change failure rate
+
+on:
+  workflow_dispatch:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  report:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Capture report start
+        run: date -u '+DORA_REPORT_STARTED_AT=%Y-%m-%dT%H:%M:%SZ' >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          # This job runs with secrets, so always use the base repository's main branch.
+          ref: refs/heads/main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Publish change failure rate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DORA_RENDER_SERVICE_ID: ${{ vars.DORA_RENDER_SERVICE_ID }}
+          DORA_RENDER_FIRST_DEPLOY_ID: ${{ vars.DORA_RENDER_FIRST_DEPLOY_ID }}
+        run: python scripts/dora_change_failure_rate.py report
