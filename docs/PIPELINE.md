@@ -2,7 +2,7 @@
 
 ## Continuous integration
 
-[CI](.github/workflows/ci.yml) runs on pushes and pull requests. Its two jobs run independently on GitHub-hosted Ubuntu runners.
+[CI](../.github/workflows/ci.yml) runs on pushes and pull requests. Its two jobs run independently on GitHub-hosted Ubuntu runners.
 
 | Job | Runtime | Checks |
 | --- | --- | --- |
@@ -22,7 +22,17 @@ Open the pull request’s **Checks** tab or the workflow run under **Actions** t
 
 ## Deployment and recovery
 
-The [Dockerfile](Dockerfile) builds the Svelte frontend and packages it with the Flask backend. The current workflows run CI checks. Deployment and recovery work is planned.
+The [Dockerfile](../Dockerfile) builds the Svelte frontend and packages it with the Flask backend. The [Docker image workflow](../.github/workflows/docker.yml) builds the image on pushes, pull requests, and manual dispatch.
+
+### Failed deployment recovery time
+
+Run [DORA failed deployment recovery time](../.github/workflows/dora-failed-deployment-recovery-time.yml) from **Actions → Run workflow**. Open the run’s job summary for the UTC run time, per-incident durations or statuses, median completed recovery time, and counts of completed, unresolved, and restored incidents with a missing timestamp.
+
+The workflow reads open and closed issues labelled `dora-recovery-incident` across all recorded dates. Use the [production incident template](../.github/ISSUE_TEMPLATE/production-incident.md) to record maintainer confirmation, degradation and restoration evidence, and any corrective deployment links. Add recovery evidence to the original incident issue when a correction is already recorded elsewhere.
+
+The report uses the workflow’s GitHub token and repository identifier. For Render Live evidence, it reads the maintainer-confirmed timestamp from the incident. If label lookup or incident loading fails, the summary marks the evidence as incomplete. A successful run with no completed durations displays “No completed recoveries with known timestamps.”
+
+### Planned deployment and recovery work
 
 - Build and start the container in CI, then smoke-test `/api/health`, `/`, and the frontend assets.
 - Choose and document the production host, configure secrets, and deploy the tested image after CI passes on `main`.
