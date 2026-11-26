@@ -331,11 +331,10 @@ def test_s024_linked_identity_stays_with_owner(client, provider) -> None:
     assert client.get("/api/auth/me").json == original
 
 
-@pytest.mark.parametrize("provider_id", ["google", "microsoft"])
-def test_s012_unverified_email(client, provider, provider_id) -> None:
+def test_s012_unverified_email(client, provider) -> None:
     claims, authorize = provider
     assert claims["email_verified"] is False
-    assert authorize(provider_id=provider_id).location == "/"
+    assert authorize().location == "/"
     assert client.get("/api/auth/me").json["email"] == claims["email"]
 
 
@@ -351,3 +350,8 @@ def test_provider_clock_skew(client, provider, offset, lifetime, accepted) -> No
     result = authorize()
     assert (result.location == "/") is accepted
     assert client.get("/api/auth/me").status_code == (200 if accepted else 401)
+
+
+def test_only_google_is_available_even_with_legacy_configuration(client) -> None:
+    assert client.get("/api/auth/oauth/providers").json["providers"] == ["google"]
+    assert client.get("/api/auth/oauth/microsoft/start").status_code == 404
