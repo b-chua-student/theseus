@@ -14,17 +14,17 @@ from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.errors import (
     ChatModelError,
     ConversationNotFoundError,
+    RetrievalError,
 )
 from domain.assistant.models.value_objects import (
     Answer,
-    Chunk,
-    ChunkId,
     ConversationId,
     DocumentRefId,
     ProjectId,
     Query,
     RetrievedChunk,
 )
+from domain.assistant.services.evidence_retriever import EvidenceRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +49,13 @@ class ChatService:
         """Configure conversation storage, the chat model, and optional retrieval."""
         self._repository = repository
         self._model = model
-        self._embedding_generator = embedding_generator
-        self._vector_store = vector_store
-        self._document_repository = document_repository
-        self._top_k = top_k
-        self._source_ids = source_ids
+        self._retriever = EvidenceRetriever(
+            embedding_generator=embedding_generator,
+            vector_store=vector_store,
+            document_repository=document_repository,
+            source_ids=source_ids,
+            top_k=top_k,
+        )
 
     def start(self, project_id: str) -> ConversationId:
         """Start a conversation in the given project and return its id."""
@@ -135,34 +137,9 @@ class ChatService:
         self, project_id: ProjectId, query: Query, source_ids: builtins.list[str] | None = None
     ) -> builtins.list[RetrievedChunk]:
         """Top-k chunks from the project's searchable documents; [] if unavailable."""
-        if (
-            self._embedding_generator is None
-            or self._vector_store is None
-            or self._document_repository is None
-            or self._source_ids is None
-        ):
-            return []
         try:
-            allowed = set(self._source_ids(project_id))
-            if source_ids is not None:
-                selected = set(source_ids)
-                allowed = {ref for ref in allowed if str(ref.value) in selected}
-            doc_ref_ids = [
-                d.doc_ref_id
-                for d in self._document_repository.list_by_project(project_id)
-                if d.is_searchable and d.doc_ref_id in allowed
-            ]
-            if not doc_ref_ids:
-                return []
-            # The generator embeds chunks, so wrap the question as a throwaway chunk.
-            probe = Chunk(
-                id=ChunkId.new(), text=query.text, position="", location="", content_hash=""
-            )
-            [embedding] = self._embedding_generator.generate([probe])
-            return self._vector_store.query(
-                embedding.vector, k=self._top_k, doc_ref_ids=doc_ref_ids
-            )
-        except Exception:
+            return self._retriever.search(project_id, query.text, source_ids)
+        except RetrievalError:
             # Retrieval is best-effort: a vector store outage shouldn't block chat.
             logger.exception("ChatService: retrieval failed; answering without context")
             return []

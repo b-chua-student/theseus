@@ -117,3 +117,9 @@ class ChatUnavailableError(AssistantError):
     """No chat provider is configured, so the assistant cannot answer."""
 
     code = "assistant.unavailable"
+
+
+class RetrievalError(AssistantError):
+    """Looking up source passages failed, as opposed to finding none."""
+
+    code = "assistant.retrieval_failed"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
@@ -214,10 +216,24 @@ class Query:
 
 
 @dataclass(frozen=True)
+class Citation:
+    """A passage that an answer cites, identified by its key in the answer's evidence."""
+
+    key: int
+    chunk_id: ChunkId
+    doc_ref_id: DocumentRefId
+    location: str
+
+
+@dataclass(frozen=True)
 class Answer:
-    """The assistant's reply; text is stripped and must not be blank."""
+    """The assistant's reply; text is stripped and must not be blank.
+
+    ``citations`` lists the passages that the text cites inline as ``[1]``, ``[2]``.
+    """
 
     text: str
+    citations: tuple[Citation, ...] = ()
 
     def __post_init__(self) -> None:
         """Strip whitespace and reject empty text."""
@@ -261,3 +277,66 @@ class Verdict:
     def passed(self) -> bool:
         """Whether the draft is relevant, fully supported and needs no further search."""
         return self.relevant and not self.unresolved and self.missing_evidence is None
+
+
+@dataclass(frozen=True)
+class Evidence:
+    """The passages admitted for a draft answer.
+
+    A passage's key is its 1-based position. Merging keeps retained passages in place, so the
+    keys that a draft already cites stay valid when more evidence is added.
+    """
+
+    passages: tuple[RetrievedChunk, ...] = ()
+
+    def merge(
+        self,
+        found: Sequence[RetrievedChunk],
+        limit: int,
+        keep: Collection[int] | None = None,
+    ) -> Evidence:
+        """Add passages not already present, by chunk identity, up to ``limit`` passages.
+
+        When the evidence is full and ``keep`` is given, a passage whose key is not in ``keep``
+        gives up its place to a new passage, lowest-ranked first. The new passage takes over
+        that key, so every other key still names the same passage. Without ``keep``, nothing
+        is given up.
+        """
+        merged = list(self.passages[:limit])
+        known = {passage.chunk_id for passage in merged}
+        added: set[int] = set()
+        for passage in found:
+            if passage.chunk_id in known:
+                continue
+            if len(merged) < limit:
+                merged.append(passage)
+                added.add(len(merged))
+            elif keep is not None:
+                free = [
+                    key for key in range(len(merged), 0, -1) if key not in keep and key not in added
+                ]
+                if not free:
+                    break
+                known.discard(merged[free[0] - 1].chunk_id)
+                merged[free[0] - 1] = passage
+                added.add(free[0])
+            else:
+                break
+            known.add(passage.chunk_id)
+        return Evidence(tuple(merged))
+
+    def citations_for(self, text: str) -> tuple[Citation, ...]:
+        """Resolve the ``[n]`` keys in ``text`` to admitted passages, in order of appearance.
+
+        Keys that name no admitted passage are dropped.
+        """
+        citations: list[Citation] = []
+        seen: set[int] = set()
+        for match in re.finditer(r"\[(\d+)\]", text):
+            key = int(match.group(1))
+            if key in seen or not 1 <= key <= len(self.passages):
+                continue
+            seen.add(key)
+            passage = self.passages[key - 1]
+            citations.append(Citation(key, passage.chunk_id, passage.doc_ref_id, passage.location))
+        return tuple(citations)
