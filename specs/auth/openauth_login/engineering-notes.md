@@ -2,7 +2,7 @@
 
 ## S-001–002
 
-The Gherkin configures Google and Microsoft as fixtures. The Flask auth blueprint in `backend/domain/identity/api/auth/routes.py` defines login, registration, current-user and logout routes. The proposed provider flow also needs authorization and callback handling.
+The Gherkin configures Google as the provider fixture. The Flask auth blueprint in `backend/domain/identity/api/auth/routes.py` defines login, registration, current-user and logout routes. The proposed provider flow also needs authorization and callback handling.
 
 ## S-003–007
 
