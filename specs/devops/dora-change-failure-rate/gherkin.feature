@@ -99,8 +99,7 @@ Feature: Track DORA change failure rate
 
   @S-045 @criterion-15 @edge
   Scenario: Verify the workflows before production rollout
-    Given the reviewed release includes both workflows, their implementation, and their tests
-    And the verification uses the permissions configured for production
+    Given both workflows, their code, and tests are in the reviewed release being verified with production permissions
     When a maintainer reviews the production verification results
     Then the results confirm access to production history and its verified starting point
     And the results confirm rollback evidence both while live and after deactivation
