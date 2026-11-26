@@ -118,6 +118,28 @@ formats = pytest.mark.parametrize("fmt", ["json", "stream"])
 
 
 @formats
+@pytest.mark.parametrize("draft", [END, None], ids=["s018-eligible", "s019-ineligible"])
+def test_deadline_route_separates_optional_draft_from_answer(
+    fmt: str, draft: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = build(drafts=[], searches=[], checks=[])
+    # Isolate delivery from the per-claim deadline rules covered by the service tests.
+    result = SimpleNamespace(text=TIMEOUT_MESSAGE, citations=(), unverified_draft=draft)
+    monkeypatch.setattr(env.service, "ask", lambda *args, **kwargs: result)
+    response = make_client(env).post(**exchange_request(env, fmt))
+    if fmt == "json":
+        assert response.status_code == 201
+        terminal = response.get_json()
+    else:
+        assert response.content_type.startswith(NDJSON)
+        [terminal] = [json.loads(line) for line in response.get_data().splitlines()]
+        assert terminal["type"] == "answer"
+    assert terminal["answer"] == TIMEOUT_MESSAGE
+    assert terminal["citations"] == []
+    assert terminal.get("unverified_draft") == draft
+
+
+@formats
 @pytest.mark.parametrize("assisted", [False, True], ids=["s014-local", "s015-assisted"])
 def test_checked_answer_and_citations_across_generation_paths(
     fmt: str,

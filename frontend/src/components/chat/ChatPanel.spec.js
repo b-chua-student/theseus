@@ -86,8 +86,31 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByText(/ended on July 12/)).not.toBeInTheDocument();
   });
 
+  it('S-018: reveals pending text with an unverified label only when selected', async () => {
+    const text = 'The pilot ended in July.';
+    const offer = { name: 'View unverified draft' };
+    const options = await sendQuestion();
+    options.onStatus(PROGRESS);
+    await screen.findByText(PROGRESS);
+    expect(screen.queryByRole('button', offer)).not.toBeInTheDocument();
+    expect(screen.queryByText(text)).not.toBeInTheDocument();
+
+    pending.resolve({ answer: TIMEOUT, citations: [], unverified_draft: text });
+    const reveal = await screen.findByRole('button', offer);
+    expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
+    const collapsed = screen.queryByText(text);
+    if (collapsed) expect(collapsed).not.toBeVisible();
+
+    await fireEvent.click(reveal);
+    expect(await screen.findByText(text)).toBeVisible();
+    expect(screen.getByText(/^unverified draft$/i)).toBeVisible();
+    expect(screen.queryByLabelText('Sources cited')).not.toBeInTheDocument();
+    expect(askConversation).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['S-008', PARTIAL, /could not be checked in time/],
+    ['S-019', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
     ['S-009', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
     ['S-013', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
   ])('%s: shows the deadline response as the answer and clears progress', async (_id, text, pattern) => {
@@ -98,6 +121,7 @@ describe('ChatPanel answer validation', () => {
     pending.resolve({ answer: text, citations: [] });
 
     expect(await screen.findByText(pattern)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View unverified draft' })).not.toBeInTheDocument();
     expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
   });
 

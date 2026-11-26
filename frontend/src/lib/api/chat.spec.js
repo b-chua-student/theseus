@@ -86,6 +86,18 @@ describe('askConversation', () => {
     expect(result).toEqual({ answer: CORRECTED, citations: CITATIONS });
   });
 
+  it.each(['json', 'stream'])('S-018: preserves the optional draft separately in %s', async (format) => {
+    const payload = { answer: 'Checking timed out.', citations: [], unverified_draft: 'The pilot ended in July.' };
+    const onStatus = vi.fn();
+    const response = format === 'stream'
+      ? ndjson(line({ type: 'status', message: PROGRESS }), line({ type: 'answer', ...payload }))
+      : new Response(JSON.stringify(payload), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    fetchMock.mockResolvedValue(response);
+
+    expect(await ask({ onStatus })).toEqual(payload);
+    expect(onStatus.mock.calls).toEqual(format === 'stream' ? [[PROGRESS]] : []);
+  });
+
   it('S-011: rejects with the server message when the stream ends in an error record', async () => {
     const message = 'I couldn’t finish checking this answer. Please try again.';
     fetchMock.mockResolvedValue(ndjson(line({ type: 'error', error: message })));
