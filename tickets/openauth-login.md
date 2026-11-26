@@ -78,7 +78,7 @@ This release has no specified performance target and no additional availability,
 
 ## Google sign-in guidance and connection status
 
-- Under “Continue with Google”, explain that a first Google sign-in creates a Theseus account for a new user. Keep password sign-up available.
+- Keep password sign-up available and omit the first-time Google registration note.
 - For an expired request, show “This sign-in request expired” and offer “Restart Google sign-in” to start a fresh attempt.
 - When Theseus cannot reach Google, explain the connection failure and offer a retry. Keep token-validation details in server logs.
 - In Account, offer “Link Google” for an unlinked account when Google is available. Show “Google connected” instead once the account has a Google identity, including after reopening Account.
@@ -86,3 +86,4 @@ This release has no specified performance target and no additional availability,
 ## Returning Google users
 
 - After the user approves Theseus and successfully signs in, signing out and selecting the same Google account again should complete without another Allow click when Google can reuse the existing approval. If Google requires interaction, let the user complete its normal sign-in flow.
+- When Google sign-in is available and this browser remembers a successful Google sign-in, label the primary button “Continue with <email>” using the last Google account used successfully in this browser. Selecting it starts sign-in with that account. Keep “Use another Google account” available. Otherwise show “Continue with Google”.
