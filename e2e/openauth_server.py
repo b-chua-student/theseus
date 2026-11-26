@@ -6,15 +6,19 @@ import io
 import logging
 import os
 import secrets
+import ssl
 import sys
 import time
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import Thread
 from urllib.parse import urlencode
 
 import jwt
+import trustme
 from cryptography.hazmat.primitives.asymmetric import rsa
 from flask import Flask, jsonify, redirect, render_template_string, request, send_from_directory
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.serving import make_server
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,8 +27,17 @@ from bootstrap.app import create_app
 
 APP_PORT = int(os.environ.get("THESEUS_PREVIEW_PORT", "5173"))
 APP = f"https://127.0.0.1:{APP_PORT}"
-ISSUER = "http://127.0.0.1:5119"
+CALLBACK = f"{APP}/api/auth/oauth/google/callback"
+ISSUER = "https://127.0.0.1:5119"
 provider = Flask("controlled_provider")
+provider.config.update(
+    SECRET_KEY=secrets.token_bytes(32),
+    SESSION_COOKIE_NAME="fixture_session",
+    SESSION_COOKIE_PATH="/authorize",
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
+csrf = CSRFProtect(provider)
 key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 codes = {}
 grants = {}
@@ -36,38 +49,40 @@ logging.getLogger().setLevel(logging.INFO)
 
 @provider.route("/authorize", methods=["GET", "POST"])
 def authorize():
+    if request.args.get("redirect_uri") != CALLBACK:
+        return jsonify(error="invalid_request"), 400
     silent = request.args.get("prompt") == "none"
     if silent:
         address = grants.get(request.cookies.get("fixture_grant"))
         if not address or address != request.args.get("login_hint"):
             return redirect(
-                request.args["redirect_uri"]
+                CALLBACK
                 + "?"
                 + urlencode({"error": "interaction_required", "state": request.args["state"]})
             )
     elif request.method == "GET":
         return render_template_string("""
           <h1>Authorize Theseus</h1><form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <label>Email<input name="email" required></label>
           <button>Continue</button></form>""")
     else:
         address = request.form["email"]
     code = secrets.token_urlsafe()
     codes[code] = dict(email=address, **request.args)
-    response = redirect(
-        request.args["redirect_uri"]
-        + "?"
-        + urlencode({"code": code, "state": request.args["state"]})
-    )
+    response = redirect(CALLBACK + "?" + urlencode({"code": code, "state": request.args["state"]}))
 
     if not silent:
         grant = secrets.token_urlsafe()
         grants[grant] = address
-        response.set_cookie("fixture_grant", grant, httponly=True)
+        response.set_cookie(
+            "fixture_grant", grant, secure=True, httponly=True, samesite="Lax", path="/authorize"
+        )
     return response
 
 
 @provider.post("/token")
+@csrf.exempt  # Server-to-server code exchange authenticated with PKCE.
 def token():
     auth = codes.pop(request.form["code"], None)
     if not auth:
@@ -112,7 +127,7 @@ configs = {
         jwks_uri=ISSUER + "/keys",
         client_id="theseus",
         client_secret="fixture",
-        redirect_uri=f"{APP}/api/auth/oauth/google/callback",
+        redirect_uri=CALLBACK,
     )
 }
 app = create_app({"TESTING": True, "OAUTH_PROVIDERS": configs, "SESSION_COOKIE_SECURE": True})
@@ -128,12 +143,21 @@ app.view_functions["frontend_fallback"] = lambda path: (
 
 
 @provider.post("/check-exposure")
+@csrf.exempt  # Read-only assertion endpoint without browser credentials.
 def check_exposure():
     evidence = request.get_data(as_text=True) + log.getvalue()
     return jsonify(issued=bool(tokens), exposed=any(t in evidence for t in tokens))
 
 
 if __name__ == "__main__":
-    server = make_server("127.0.0.1", 5119, provider, threaded=True)
-    Thread(target=server.serve_forever, daemon=True).start()
-    app.run(host="127.0.0.1", port=APP_PORT, ssl_context="adhoc", threaded=True)
+    ca = trustme.CA()
+    tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ca.issue_cert("127.0.0.1").configure_cert(tls)
+    with TemporaryDirectory() as directory:
+        ca_file = Path(directory) / "fixture-ca.pem"
+        ca.cert_pem.write_to_path(ca_file)
+        os.environ["REQUESTS_CA_BUNDLE"] = str(ca_file)
+        os.environ["SSL_CERT_FILE"] = str(ca_file)
+        server = make_server("127.0.0.1", 5119, provider, threaded=True, ssl_context=tls)
+        Thread(target=server.serve_forever, daemon=True).start()
+        app.run(host="127.0.0.1", port=APP_PORT, ssl_context=tls, threaded=True)
