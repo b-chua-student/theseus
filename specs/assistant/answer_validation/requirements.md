@@ -7,7 +7,7 @@
 | ID | Requirement | Source | Ticket lines | Scenarios |
 | --- | --- | --- | --- | --- |
 | R-001 | Display a source-backed draft only after validating relevance, factual claims and their cited passages. Withhold an off-topic draft. | from ticket | 13, 19, 25 | S-001, S-002 |
-| R-002 | Revise overstatements and incorrect citations and check the replacement before display. | from ticket | 14, 20 | S-003, S-004 |
+| R-002 | Revise overstatements and incorrect citations and check the replacement before display. | from ticket | 14, 20 | S-003, S-004, S-012 |
 | R-003 | When passages are insufficient and a retry remains, search for better evidence and check the resulting draft. | from ticket | 14, 20 | S-005 |
 | R-004 | Allow at most two retries after initial validation, shared across revision and retrieval. A combined revision and search with its check consumes one retry. | from ticket | 26 | S-006, S-010 |
 | R-005 | At exhaustion, report supported findings and identify remaining evidence gaps. | from ticket | 15, 21 | S-006 |
@@ -19,7 +19,7 @@
 
 ## Open Questions
 
-None for source-backed answer validation. The suggestions below are not requirements.
+- If a service failure coincides with the 30-second deadline, which response should the writer receive? Deferred pending the product lead’s decision.
 
 - Suggestion: requests without Source Library context (manuscript-only and general questions) keep their existing flow and are not validated, because the ticket covers source-backed answers only.
 - Suggestion: progress delivery (D-006) streams records on the existing exchange request. Confirm it works with the production Gunicorn worker type and Flask-Limiter. If it does not, report progress by polling a status endpoint instead.

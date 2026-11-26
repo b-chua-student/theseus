@@ -40,6 +40,7 @@ Give Theseus users answers that address their questions and accurately reflect e
 
 ## Open Questions
 
+- If a service failure coincides with the 30-second deadline, which response should the writer receive? Deferred: awaiting the product lead's decision.
 - Suggestion, not a requirement: should validation apply to answers that do not use the Source Library? Deferred: not covered by the ticket.
 
 ## Success Criteria

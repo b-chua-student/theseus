@@ -3,11 +3,11 @@ Feature: Validate source-backed answers before display
 
   Background:
     Given the user asks when a pilot started and ended
-    And passage P1 in the Source Library states that the pilot started in May
+    And the first search retrieves P1 from the selected pilot report, giving May as the start
 
   @S-001 @criterion-1
   Scenario: Display a supported answer
-    Given passage P2 in the Source Library states that the pilot ended in July
+    Given the first search also retrieves P2 giving July as the end
     When the Assistant drafts an answer that gives May citing P1 and July citing P2
     Then the user sees that answer
     And the answer was checked for relevance, claims, and citations before it was displayed
@@ -21,9 +21,9 @@ Feature: Validate source-backed answers before display
     And the revised answer is checked before it is displayed
     And the displayed answer states July as the end month without a day
 
-  @S-004 @criterion-3
+  @S-004 @criterion-1 @criterion-3
   Scenario: Correct a mismatched citation
-    Given only passage P2 in the Source Library establishes that the pilot ended in July
+    Given only retrieved passage P2 establishes that the pilot ended in July
     And a retry is available
     When the Assistant drafts an answer that cites P1 for the July end date
     Then the Assistant corrects the citation to P2
@@ -32,11 +32,9 @@ Feature: Validate source-backed answers before display
 
   @S-005 @criterion-4
   Scenario: Retrieve missing evidence
-    Given the initial passages omit the end date
-    And a retry is available
-    And passage P2 in the Source Library documents a July end date
+    Given the initial passages omit the end date and a retry is available
     When the Assistant detects the missing evidence
-    Then the Assistant searches again
+    Then the next search retrieves P2 giving July as the end
     And the resulting answer is checked against P1 and P2 before it is displayed
     And the displayed answer cites P1 for May and P2 for July
 
@@ -70,7 +68,7 @@ Feature: Validate source-backed answers before display
   Scenario: Return verified partial findings at the deadline
     Given the Assistant has verified the May start against P1
     And the checked passages leave the end date unresolved
-    And a retry is underway
+    And a retry is still waiting for evidence when the request deadline cuts it short
     When 30 seconds have elapsed since the first draft was ready to check
     Then validation stops for this request
     And the user sees the verified May start citing P1 and an explanation of the missing end date
@@ -94,6 +92,15 @@ Feature: Validate source-backed answers before display
   @S-011 @criterion-9 @edge
   Scenario: Explain an interrupted validation
     Given a draft is awaiting validation
-    When a service error prevents the check from completing
+    When a service error prevents the check from completing before the deadline
     Then the user sees “I couldn’t finish checking this answer. Please try again.”
     And the unchecked draft stays hidden
+
+  @S-012 @criterion-3 @edge
+  Scenario: Distinguish the manuscript claim from what the selected report establishes
+    Given the manuscript says the pilot ended on July 12
+    And the retrieved report gives July without specifying a day
+    And the draft says the report contradicts the manuscript
+    When the Assistant checks and revises the answer
+    Then the displayed answer attributes July 12 to the manuscript
+    And it explains that the report leaves the exact day unverified
