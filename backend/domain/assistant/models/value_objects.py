@@ -234,6 +234,7 @@ class Answer:
 
     text: str
     citations: tuple[Citation, ...] = ()
+    unverified_draft: str | None = None
 
     def __post_init__(self) -> None:
         """Strip whitespace and reject empty text."""

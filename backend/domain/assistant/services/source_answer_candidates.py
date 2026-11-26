@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from domain.assistant.infrastructure.ports.answer_validator import AnswerProposer
 from domain.assistant.models.errors import AnswerValidationError
-from domain.assistant.models.value_objects import Answer, Evidence, Query, Verdict
+from domain.assistant.models.value_objects import Answer, Evidence, ProposedFinding, Query, Verdict
 from domain.assistant.services.answer_validation import INTERRUPTED_MESSAGE
 from domain.assistant.services.local_evidence import check_evidence
 from domain.assistant.services.revise_draft import render_checked, revise_from_evidence
@@ -31,6 +31,16 @@ class SourceAnswerCandidates:
         if self.proposer is None:
             raise AnswerValidationError(INTERRUPTED_MESSAGE)
         proposals = self.proposer.propose(question.text, evidence, manuscript_text, timeout)
+        return self.checked(question, evidence, proposals, manuscript_text)
+
+    def checked(
+        self,
+        question: Query,
+        evidence: Evidence,
+        proposals: tuple[ProposedFinding, ...],
+        manuscript_text: str = "",
+    ) -> tuple[Answer, Verdict]:
+        """Resolve a proposal or a complete set of proposals against admitted evidence."""
         verdict = check_evidence(
             question.text, evidence, proposals=proposals, manuscript_text=manuscript_text
         )

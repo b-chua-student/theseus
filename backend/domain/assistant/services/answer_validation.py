@@ -12,6 +12,7 @@ from domain.assistant.models.value_objects import (
     Evidence,
     Finding,
     ProjectId,
+    ProposedFinding,
     Query,
     Verdict,
 )
@@ -64,6 +65,7 @@ class _Progress:
     unresolved: tuple[str, ...] = ()
     missing_evidence: str | None = None
     relevant_drafts: int = 0
+    pending_claims: dict[str, str] = field(default_factory=dict)
 
     def record(self, verdict: Verdict) -> None:
         """Keep what a relevant draft established; an off-topic draft adds nothing.
@@ -187,12 +189,33 @@ class ValidateAnswer:
         progress.record(verdict)
         if verdict.passed:
             return progress.answer
-        if progress.evidence.passages and candidates.proposer is not None:
+        proposer = candidates.proposer
+        if progress.evidence.passages and proposer is not None:
+            proposals = self._call(
+                executor,
+                deadline,
+                lambda remaining: proposer.propose(
+                    question.text, progress.evidence, manuscript_text, remaining
+                ),
+            )
+            # Only the exchange thread updates progress after a call beats the deadline.
+            # An abandoned worker cannot publish a late proposal or claim decision.
+            progress.pending_claims = {p.text.strip(" .").casefold(): p.text for p in proposals}
+            for claim in proposals:
+
+                def check_claim(_: float, item: ProposedFinding = claim) -> tuple[Answer, Verdict]:
+                    return candidates.checked(question, progress.evidence, (item,), manuscript_text)
+
+                _, checked = self._call(executor, deadline, check_claim)
+                for finding in checked.verified:
+                    progress.findings[finding.claim] = finding
+                progress.pending_claims.pop(claim.text.strip(" .").casefold(), None)
+            # Coverage of the whole question is decided across all completed claims.
             progress.answer, verdict = self._call(
                 executor,
                 deadline,
-                lambda remaining: candidates.assisted(
-                    question, progress.evidence, manuscript_text, remaining
+                lambda _: candidates.checked(
+                    question, progress.evidence, proposals, manuscript_text
                 ),
             )
             progress.record(verdict)
@@ -341,7 +364,8 @@ class ValidateAnswer:
 
     def _at_deadline(self, progress: _Progress) -> Answer:
         if not progress.findings:
-            return Answer(TIMEOUT_MESSAGE)
+            pending = " ".join(progress.pending_claims.values()).strip()
+            return Answer(TIMEOUT_MESSAGE, unverified_draft=pending or None)
         closing = self._gap_sentence(progress)
         unchecked = [*self._unresolved(progress), *self._open_question(progress)]
         if unchecked:
