@@ -81,4 +81,4 @@ Feature: Track deployment rework rate
     And the other deployment has no linked incident and no maintainer disposition
     When a maintainer runs the report on demand
     Then the report shows "Incomplete evidence" and omits the percentage
-    And it shows 2 verified production deployments, 1 confirmed rework deployment, and 1 awaiting review
+    And it shows 2 verified production deployments, 1 confirmed rework, and 1 awaiting review
