@@ -21,7 +21,8 @@ jobs:
         run: date -u '+DORA_REPORT_STARTED_AT=%Y-%m-%dT%H:%M:%SZ' >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
-          ref: main
+          # This job runs with secrets, so always use the base repository's main branch.
+          ref: refs/heads/main
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
