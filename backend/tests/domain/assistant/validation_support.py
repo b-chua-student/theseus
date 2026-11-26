@@ -18,6 +18,7 @@ port, value objects and service:
 """
 
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from uuid import uuid4
 
 from domain.assistant.infrastructure.adapters.in_memory_conversation_repository import (
@@ -228,6 +229,22 @@ class RecordingEmbedder(EmbeddingGenerator):
     def generate(self, chunks: list[Chunk]) -> list[Embedding]:
         self.texts.extend(chunk.text for chunk in chunks)
         return [Embedding(chunk_id=chunk.id, vector=[0.0, 1.0]) for chunk in chunks]
+
+
+class CountingGenerationProvider:
+    """Script the first SDK response and record every outbound generation attempt."""
+
+    def __init__(self, first: str | Exception) -> None:
+        self.first = first
+        self.calls = 0
+
+    def generate_content(self, **_request: object) -> SimpleNamespace:
+        self.calls += 1
+        if self.calls > 1:
+            raise AssertionError("A second Gemini generation call was attempted")
+        if isinstance(self.first, Exception):
+            raise self.first
+        return SimpleNamespace(text=self.first)
 
 
 def searchable_document(project_id: ProjectId) -> IndexedDocument:
