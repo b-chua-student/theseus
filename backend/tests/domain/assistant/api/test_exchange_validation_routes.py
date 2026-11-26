@@ -237,7 +237,91 @@ def test_s007_progress_arrives_after_five_seconds_while_validation_is_pending() 
     assert status == {"type": "status", "message": PROGRESS_MESSAGE}
     assert status_at >= PROGRESS_DELAY_SECONDS
     assert status_at < answer_at
-    assert answer_at >= PROGRESS_DELAY_SECONDS + 0.6
+    # sleep() can wake a few milliseconds early, so allow some slack below the 0.6 s of work.
+    assert answer_at >= PROGRESS_DELAY_SECONDS + 0.5
     assert answer["type"] == "answer"
     assert answer["answer"] == SUPPORTED
     assert "pilot" not in json.dumps(status)
+
+
+def test_s004_json_citations_name_the_source_and_location() -> None:
+    env = build(
+        drafts=[SUPPORTED],
+        searches=[QueryStep([P1, P2])],
+        checks=[CheckStep(Verdict())],
+    )
+
+    body = make_client(env).post(**exchange_request(env, "json")).get_json()
+
+    assert [(c["key"], c["location"], c["source_id"]) for c in body["citations"]] == [
+        (1, "P1", str(P1.doc_ref_id.value)),
+        (2, "P2", str(P2.doc_ref_id.value)),
+    ]
+    assert body["answer"] == SUPPORTED
+
+
+def test_json_response_without_a_stream_request_keeps_the_existing_shape() -> None:
+    env = build(
+        drafts=[SUPPORTED],
+        searches=[QueryStep([P1, P2])],
+        checks=[CheckStep(Verdict())],
+    )
+
+    response = make_client(env).post(**exchange_request(env, "json"))
+
+    assert response.status_code == 201
+    assert response.content_type.startswith("application/json")
+    assert set(response.get_json()) == {"answer", "citations"}
+
+
+def test_a_stream_reports_a_request_error_as_a_terminal_record_with_status_and_code() -> None:
+    env = build(drafts=[SUPPORTED], searches=[QueryStep([P1])], checks=[])
+    request = exchange_request(env, "stream")
+    request["path"] = request["path"].replace(env.conversation_id, str(uuid4()))
+
+    response = make_client(env).post(**request)
+
+    [record] = [json.loads(line) for line in response.get_data(as_text=True).splitlines() if line]
+    assert record["type"] == "error"
+    assert record["status"] == 404
+    assert record["code"] == "assistant.conversation_not_found"
+    assert record["error"]
+
+
+def test_s007_progress_counts_from_when_the_draft_is_ready_not_from_the_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("domain.assistant.api.routes.PROGRESS_DELAY_SECONDS", 0.3)
+    env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(Verdict())])
+    reply = env.model.reply
+
+    def slow_reply(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        time.sleep(0.8)
+        return reply(*args, **kwargs)
+
+    env.model.reply = slow_reply  # type: ignore[method-assign]
+
+    result = outcome(env, "stream")
+
+    assert result.statuses == []
+    assert result.kind == "answer"
+
+
+def test_s007_slow_validation_after_a_ready_draft_reports_progress_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("domain.assistant.api.routes.PROGRESS_DELAY_SECONDS", 0.3)
+    env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(Verdict())])
+    check = env.validator.check
+
+    def slow_check(**kwargs: Any) -> Verdict:  # noqa: ANN401
+        time.sleep(0.8)
+        return check(**kwargs)
+
+    env.validator.check = slow_check  # type: ignore[method-assign]
+
+    result = outcome(env, "stream")
+
+    assert result.statuses == [PROGRESS_MESSAGE]
+    assert result.kind == "answer"
+    assert result.message == SUPPORTED

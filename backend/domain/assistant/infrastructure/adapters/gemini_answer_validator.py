@@ -83,6 +83,7 @@ class GeminiAnswerValidator(AnswerValidator):
             client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=timeout_ms))
         self._client = client
         self._model = model
+        self._timeout_ms = timeout_ms
 
     def check(
         self,
@@ -91,6 +92,7 @@ class GeminiAnswerValidator(AnswerValidator):
         answer: Answer,
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
+        timeout: float | None = None,
     ) -> Verdict:
         """Ask Gemini to check ``answer``, then map its claims onto the supplied passages."""
         prompt = "\n\n".join(
@@ -106,7 +108,7 @@ class GeminiAnswerValidator(AnswerValidator):
             response_mime_type="application/json",
             response_json_schema=_CheckResponse.model_json_schema(),
         )
-        text = self._generate(prompt, config)
+        text = self._generate(prompt, config, timeout)
         try:
             parsed = _CheckResponse.model_validate(json.loads(text))
         except (ValueError, ValidationError) as exc:
@@ -150,6 +152,7 @@ class GeminiAnswerValidator(AnswerValidator):
         verdict: Verdict,
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
+        timeout: float | None = None,
     ) -> Answer:
         """Ask Gemini for a replacement draft that resolves the problems in ``verdict``."""
         problems = [f"- {claim}" for claim in verdict.unresolved]
@@ -175,9 +178,15 @@ class GeminiAnswerValidator(AnswerValidator):
             ]
         )
         config = types.GenerateContentConfig(system_instruction=_REVISE_INSTRUCTION)
-        return Answer(self._generate(prompt, config))
+        return Answer(self._generate(prompt, config, timeout))
 
-    def _generate(self, prompt: str, config: types.GenerateContentConfig) -> str:
+    def _generate(
+        self, prompt: str, config: types.GenerateContentConfig, timeout: float | None
+    ) -> str:
+        if timeout is not None:
+            # Never wait longer than the request has left, or than the client default.
+            limit_ms = max(1, int(min(timeout * 1000, self._timeout_ms)))
+            config.http_options = types.HttpOptions(timeout=limit_ms)
         try:
             response = self._client.models.generate_content(
                 model=self._model, contents=prompt, config=config

@@ -1,8 +1,10 @@
 import builtins
 import logging
+import time
 from collections.abc import Callable
 from typing import Literal
 
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
@@ -12,6 +14,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.errors import (
+    AnswerValidationError,
     ChatModelError,
     ConversationNotFoundError,
     RetrievalError,
@@ -20,10 +23,11 @@ from domain.assistant.models.value_objects import (
     Answer,
     ConversationId,
     DocumentRefId,
+    Evidence,
     ProjectId,
     Query,
-    RetrievedChunk,
 )
+from domain.assistant.services.answer_validation import INTERRUPTED_MESSAGE, ValidateAnswer
 from domain.assistant.services.evidence_retriever import EvidenceRetriever
 
 logger = logging.getLogger(__name__)
@@ -33,7 +37,8 @@ class ChatService:
     """Starts conversations and answers questions, grounded in indexed sources.
 
     Source retrieval requires embedding, vector store, document repository, and
-    an active source ID reader; otherwise the model gets no retrieved context.
+    an active source ID reader; otherwise the model gets no retrieved context. Answers to
+    source-library questions are shown only after ``validator`` has checked them.
     """
 
     def __init__(
@@ -45,8 +50,13 @@ class ChatService:
         document_repository: IndexedDocumentRepository | None = None,
         top_k: int = 5,
         source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
+        validator: AnswerValidator | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
-        """Configure conversation storage, the chat model, and optional retrieval."""
+        """Configure conversation storage, the chat model, retrieval and answer validation.
+
+        ``clock`` is a monotonic time source and defaults to ``time.monotonic``.
+        """
         self._repository = repository
         self._model = model
         self._retriever = EvidenceRetriever(
@@ -55,6 +65,11 @@ class ChatService:
             document_repository=document_repository,
             source_ids=source_ids,
             top_k=top_k,
+        )
+        self._validate_answer = (
+            ValidateAnswer(validator, self._retriever, clock or time.monotonic)
+            if validator is not None
+            else None
         )
 
     def start(self, project_id: str) -> ConversationId:
@@ -82,12 +97,17 @@ class ChatService:
         source_ids: builtins.list[str] | None = None,
         manuscript_text: str = "",
         project_id: str | None = None,
+        on_draft_ready: Callable[[], None] | None = None,
     ) -> Answer:
         """Answer ``text`` within a conversation and return the answer.
 
+        ``on_draft_ready`` is called once when a source-library draft is ready and its
+        validation starts, so that a caller can report progress. It is not called otherwise.
+
         Raises:
             ConversationNotFoundError: If the conversation does not exist.
-            ChatModelError: If the model fails; the exchange is discarded so the user can retry.
+            ChatModelError: If the model fails, or checking a source-backed answer is
+                interrupted; the exchange is discarded so the user can retry.
         """
         if context_scope not in ("none", "manuscript", "source_library"):
             raise ValueError("Unsupported assistant context scope")
@@ -103,8 +123,10 @@ class ChatService:
         exchange = conversation.ask(query)
 
         try:
+            if context_scope == "source_library" and self._validate_answer is None:
+                raise AnswerValidationError(INTERRUPTED_MESSAGE)
             context = (
-                self._retrieve(conversation.project_id, query, source_ids)
+                self._retriever.search(conversation.project_id, query.text, source_ids)
                 if context_scope == "source_library"
                 else []
             )
@@ -117,10 +139,26 @@ class ChatService:
                     f"\n\nQuestion: {query.text}"
                 )
             answer = self._model.reply(history, model_query, context)
+            if context_scope == "source_library" and self._validate_answer is not None:
+                if on_draft_ready is not None:
+                    on_draft_ready()
+                answer = self._validate_answer.execute(
+                    question=query,
+                    draft=answer,
+                    evidence=Evidence(tuple(context)),
+                    project_id=conversation.project_id,
+                    source_ids=source_ids,
+                    manuscript_text=manuscript_text,
+                )
         except ChatModelError:
             # Don't leave the exchange pending, or every later question would be rejected.
             conversation.discard_pending()
             raise
+        except RetrievalError as exc:
+            # A failed lookup is not an empty search: nothing can be said about the sources.
+            conversation.discard_pending()
+            logger.exception("ChatService: retrieval failed")
+            raise AnswerValidationError(INTERRUPTED_MESSAGE) from exc
         except Exception as exc:
             conversation.discard_pending()
             logger.exception("ChatService: model failed unexpectedly")
@@ -132,14 +170,3 @@ class ChatService:
 
         self._repository.save(conversation)
         return answer
-
-    def _retrieve(
-        self, project_id: ProjectId, query: Query, source_ids: builtins.list[str] | None = None
-    ) -> builtins.list[RetrievedChunk]:
-        """Top-k chunks from the project's searchable documents; [] if unavailable."""
-        try:
-            return self._retriever.search(project_id, query.text, source_ids)
-        except RetrievalError:
-            # Retrieval is best-effort: a vector store outage shouldn't block chat.
-            logger.exception("ChatService: retrieval failed; answering without context")
-            return []

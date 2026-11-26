@@ -319,3 +319,304 @@ def test_s013_a_service_error_at_the_deadline_gets_the_deadline_response(
         assert answer.text == TIMEOUT_MESSAGE
         assert cited(answer) == []
     assert recorded(env) == [answer.text]
+
+
+def test_s011_a_failed_first_lookup_is_a_service_error_not_an_empty_search() -> None:
+    env = build(
+        drafts=[SUPPORTED],
+        searches=[QueryStep(error=RuntimeError("vector store down"))],
+        checks=[],
+    )
+
+    with pytest.raises(ChatModelError) as raised:
+        ask(env)
+
+    assert str(raised.value) == INTERRUPTED_MESSAGE
+    assert env.model.calls == []
+    assert env.validator.checks == []
+    assert env.service.get(env.project_id, env.conversation_id).exchanges == []
+
+
+def test_s006_a_successful_empty_first_search_is_still_validated() -> None:
+    no_evidence = "The sources do not say when the pilot started."
+    env = build(
+        drafts=[no_evidence],
+        searches=[QueryStep([])],
+        checks=[CheckStep(Verdict(gaps=("start date",)))],
+    )
+
+    answer = ask(env)
+
+    assert answer.text == no_evidence
+    [check] = env.validator.checks
+    assert check.passages == []
+    assert recorded(env) == [no_evidence]
+
+
+SPONSOR = Finding("The pilot was sponsored by the university", 1)
+OFF_TOPIC_WITH_FINDINGS = Verdict(
+    relevant=False, verified=(SPONSOR,), gaps=("sponsor funding",), unresolved=("sponsor budget",)
+)
+NO_END_DATE = Verdict(verified=(MAY,), unresolved=("end date",), gaps=("end date",))
+
+
+def test_s010_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_exhaustion() -> None:
+    env = build(
+        drafts=["The pilot was sponsored by the university [1]."],
+        searches=[QueryStep([P1, P2])],
+        checks=[CheckStep(OFF_TOPIC_WITH_FINDINGS), CheckStep(NO_END_DATE), CheckStep(NO_END_DATE)],
+        revisions=["The pilot started in May [1].", "The pilot started in May [1] only."],
+    )
+
+    answer = ask(env)
+
+    text = answer.text.lower()
+    assert "sponsor" not in text
+    assert "funding" not in text
+    assert "may" in text
+    assert "end date" in text
+    assert cited(answer) == [(1, "P1")]
+
+
+def test_s008_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_the_deadline() -> None:
+    env = build(
+        drafts=["The pilot was sponsored by the university [1]."],
+        searches=[QueryStep([P1, P2])],
+        checks=[
+            CheckStep(OFF_TOPIC_WITH_FINDINGS),
+            CheckStep(NO_END_DATE),
+            CheckStep(error=RuntimeError("validator down"), at=DEADLINE),
+        ],
+        revisions=["The pilot started in May [1].", "The pilot started in May [1] only."],
+    )
+
+    answer = ask(env)
+
+    text = answer.text.lower()
+    assert "sponsor" not in text
+    assert "funding" not in text
+    assert "may" in text
+    assert "in time" in text
+
+
+def test_s008_findings_that_come_only_from_an_off_topic_draft_give_the_timeout_message() -> None:
+    env = build(
+        drafts=["The pilot was sponsored by the university [1]."],
+        searches=[QueryStep([P1])],
+        checks=[CheckStep(OFF_TOPIC_WITH_FINDINGS), CheckStep(error=RuntimeError(), at=DEADLINE)],
+        revisions=["The university sponsored the pilot [1]."],
+    )
+
+    assert ask(env).text == TIMEOUT_MESSAGE
+
+
+def test_s005_a_gap_that_a_later_check_resolved_is_not_reported() -> None:
+    july = Finding("The pilot ended in July", 2)
+    needs_end_date = Verdict(
+        verified=(MAY,),
+        unresolved=("end date",),
+        gaps=("end date",),
+        missing_evidence="when the pilot ended",
+    )
+    overstated_day = Verdict(verified=(MAY, july), unresolved=("ended on July 12",))
+    env = build(
+        drafts=["The pilot started in May [1]."],
+        searches=[QueryStep([P1]), QueryStep([P2, P1])],
+        checks=[CheckStep(needs_end_date), CheckStep(overstated_day), CheckStep(overstated_day)],
+        revisions=["The pilot started in May [1], ended on July 12 [2].", "Ended on July 12 [2]."],
+    )
+
+    answer = ask(env)
+
+    assert "end date" not in answer.text.lower()
+    assert "do not establish" not in answer.text
+    assert cited(answer) == [(1, "P1"), (2, "P2")]
+    assert "July" in answer.text
+
+
+def test_s005_the_remaining_deadline_budget_is_passed_to_each_validator_call() -> None:
+    env = build(
+        drafts=["The pilot started in May [1] and ended on July 12 [2]."],
+        searches=[QueryStep([P1, P2])],
+        checks=[
+            CheckStep(Verdict(unresolved=("ended on July 12",)), at=START + 10),
+            CheckStep(PASS),
+        ],
+        revisions=[SUPPORTED],
+    )
+
+    ask(env)
+
+    assert env.validator.checks[0].timeout == 30.0
+    assert env.validator.revisions[0].timeout == 20.0
+    assert env.validator.checks[1].timeout == 20.0
+
+
+STILL_LOOKING = Verdict(verified=(MAY,), missing_evidence="the pilot end date")
+
+
+def test_s006_an_outstanding_evidence_request_is_reported_as_unverified_not_as_a_gap() -> None:
+    env = build(
+        drafts=["The pilot started in May [1]."],
+        searches=[QueryStep([P1]), QueryStep([P1]), QueryStep([P1])],
+        checks=[CheckStep(STILL_LOOKING), CheckStep(STILL_LOOKING), CheckStep(STILL_LOOKING)],
+        revisions=[
+            "The pilot started in May [1]. Revised.",
+            "The pilot started in May [1]. Again.",
+        ],
+    )
+
+    answer = ask(env)
+
+    text = answer.text.lower()
+    assert len(env.validator.checks) == 3
+    assert cited(answer) == [(1, "P1")]
+    assert "may" in text
+    assert "end date" in text
+    assert "unverified" in text
+    assert "do not establish" not in text
+    assert "no passage" not in text
+    assert recorded(env) == [answer.text]
+
+
+def test_s008_an_outstanding_evidence_request_is_reported_as_unchecked_at_the_deadline() -> None:
+    env = build(
+        drafts=["The pilot started in May [1]."],
+        searches=[QueryStep([P1]), QueryStep([P1])],
+        checks=[CheckStep(STILL_LOOKING), CheckStep(error=RuntimeError(), at=DEADLINE)],
+        revisions=["The pilot started in May [1]. Revised."],
+    )
+
+    answer = ask(env)
+
+    assert cited(answer) == [(1, "P1")]
+    assert "end date" in answer.text.lower()
+    assert "in time" in answer.text
+
+
+GAP_AND_OPEN_QUESTION = Verdict(
+    verified=(MAY,), gaps=("end date",), missing_evidence="the pilot's July day"
+)
+
+
+def test_s006_an_established_gap_and_an_open_question_are_both_reported_at_exhaustion() -> None:
+    env = build(
+        drafts=["The pilot started in May [1]."],
+        searches=[QueryStep([P1]), QueryStep([P1]), QueryStep([P1])],
+        checks=[CheckStep(GAP_AND_OPEN_QUESTION)] * 3,
+        revisions=["The pilot started in May [1], v2.", "The pilot started in May [1], v3."],
+    )
+
+    answer = ask(env)
+
+    text = answer.text.lower()
+    assert cited(answer) == [(1, "P1")]
+    assert "do not establish: end date" in text
+    assert "still unverified: the pilot's july day" in text
+    assert text.index("end date") < text.index("july day")
+    assert "unverified: end date" not in text
+    assert "do not establish: the pilot's july day" not in text
+
+
+def test_s008_an_established_gap_and_an_open_question_are_both_reported_at_the_deadline() -> None:
+    env = build(
+        drafts=["The pilot started in May [1]."],
+        searches=[QueryStep([P1]), QueryStep([P1])],
+        checks=[CheckStep(GAP_AND_OPEN_QUESTION), CheckStep(error=RuntimeError(), at=DEADLINE)],
+        revisions=["The pilot started in May [1], v2."],
+    )
+
+    answer = ask(env)
+
+    text = answer.text.lower()
+    assert cited(answer) == [(1, "P1")]
+    assert "do not establish: end date" in text
+    assert "could not be checked in time: the pilot's july day" in text
+    assert "checked in time: end date" not in text
+
+
+SAME_ITEM = Verdict(
+    verified=(MAY,),
+    unresolved=("End date.",),
+    gaps=("end date",),
+    missing_evidence="end date",
+)
+
+
+def test_s006_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once() -> None:
+    env = build(
+        drafts=["The pilot started in May [1]."],
+        searches=[QueryStep([P1]), QueryStep([P1]), QueryStep([P1])],
+        checks=[CheckStep(SAME_ITEM)] * 3,
+        revisions=["The pilot started in May [1], v2.", "The pilot started in May [1], v3."],
+    )
+
+    text = ask(env).text.lower()
+
+    assert text.count("end date") == 1
+    assert "do not establish: end date" in text
+    assert "unverified" not in text
+
+
+def test_s008_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once() -> None:
+    env = build(
+        drafts=["The pilot started in May [1]."],
+        searches=[QueryStep([P1]), QueryStep([P1])],
+        checks=[CheckStep(SAME_ITEM), CheckStep(error=RuntimeError(), at=DEADLINE)],
+        revisions=["The pilot started in May [1], v2."],
+    )
+
+    text = ask(env).text.lower()
+
+    assert text.count("end date") == 1
+    assert "do not establish: end date" in text
+    assert "in time" in text
+
+
+def test_s007_the_draft_ready_signal_fires_once_after_the_draft_and_before_the_first_check() -> (
+    None
+):
+    env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(PASS)])
+    seen: list[tuple[int, int]] = []
+
+    env.service.ask(
+        env.conversation_id,
+        QUESTION,
+        context_scope="source_library",
+        on_draft_ready=lambda: seen.append((len(env.model.calls), len(env.validator.checks))),
+    )
+
+    assert seen == [(1, 0)]
+
+
+def test_s007_the_draft_ready_signal_does_not_fire_when_no_draft_is_validated() -> None:
+    env = build(
+        drafts=[SUPPORTED],
+        searches=[QueryStep(error=RuntimeError("vector store down"))],
+        checks=[],
+    )
+    seen: list[str] = []
+
+    with pytest.raises(ChatModelError):
+        env.service.ask(
+            env.conversation_id,
+            QUESTION,
+            context_scope="source_library",
+            on_draft_ready=lambda: seen.append("ready"),
+        )
+
+    assert seen == []
+
+
+def test_s007_the_draft_ready_signal_does_not_fire_for_unvalidated_scopes() -> None:
+    env = build(drafts=["An answer."], searches=[], checks=[])
+    seen: list[str] = []
+
+    env.service.ask(
+        env.conversation_id,
+        QUESTION,
+        context_scope="none",
+        on_draft_ready=lambda: seen.append("ready"),
+    )
+
+    assert seen == []

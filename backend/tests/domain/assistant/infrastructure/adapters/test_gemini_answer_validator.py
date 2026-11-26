@@ -442,3 +442,48 @@ def test_s011_revise_failures_raise_chat_model_errors(
 
     with pytest.raises(expected):
         revise(validator, Verdict(unresolved=("a claim",)))
+
+
+def provider_timeout_ms(models: FakeModels) -> int | None:
+    http_options = models.requests[0]["config"].http_options
+    return None if http_options is None else http_options.timeout
+
+
+@pytest.mark.parametrize(
+    ("timeout", "expected_ms"),
+    [
+        pytest.param(2.5, 2500, id="remaining-time-below-the-default"),
+        pytest.param(100.0, 30_000, id="remaining-time-above-the-default"),
+        pytest.param(0.0004, 1, id="remaining-time-is-never-below-one-millisecond"),
+        pytest.param(None, None, id="no-deadline-keeps-the-client-default"),
+    ],
+)
+def test_s009_check_limits_the_provider_call_to_the_remaining_time(
+    timeout: float | None, expected_ms: int | None
+) -> None:
+    validator, models = validator_with(verdict_json(claims=[claim("The pilot started in May", 1)]))
+
+    validator.check(
+        question=QUESTION,
+        answer=Answer(DRAFT),
+        passages=PASSAGES,
+        manuscript_text="",
+        timeout=timeout,
+    )
+
+    assert provider_timeout_ms(models) == expected_ms
+
+
+def test_s009_revise_limits_the_provider_call_to_the_remaining_time() -> None:
+    validator, models = validator_with("The pilot started in May [1].")
+
+    validator.revise(
+        question=QUESTION,
+        answer=Answer(DRAFT),
+        verdict=Verdict(unresolved=("a claim",)),
+        passages=PASSAGES,
+        manuscript_text="",
+        timeout=4.0,
+    )
+
+    assert provider_timeout_ms(models) == 4000

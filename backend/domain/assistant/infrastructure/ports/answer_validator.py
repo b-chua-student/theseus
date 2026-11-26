@@ -18,11 +18,13 @@ class AnswerValidator(ABC):
         answer: Answer,
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
+        timeout: float | None = None,
     ) -> Verdict:
         """Check relevance, claims and citations of ``answer`` against ``passages``.
 
         ``manuscript_text`` is the user's manuscript, when the request supplied one, so that
-        statements about it can be told apart from what the sources establish.
+        statements about it can be told apart from what the sources establish. ``timeout`` is
+        the number of seconds left for the request; the call should give up within it.
         """
 
     @abstractmethod
@@ -34,5 +36,10 @@ class AnswerValidator(ABC):
         verdict: Verdict,
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
+        timeout: float | None = None,
     ) -> Answer:
-        """Return a replacement for ``answer`` that resolves what ``verdict`` found wrong."""
+        """Return a replacement for ``answer`` that resolves what ``verdict`` found wrong.
+
+        ``timeout`` is the number of seconds left for the request; the call should give up
+        within it.
+        """

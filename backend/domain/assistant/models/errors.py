@@ -123,3 +123,9 @@ class RetrievalError(AssistantError):
     """Looking up source passages failed, as opposed to finding none."""
 
     code = "assistant.retrieval_failed"
+
+
+class AnswerValidationError(ChatModelError):
+    """Checking the answer could not be completed, so no answer is shown."""
+
+    code = "assistant.validation_interrupted"

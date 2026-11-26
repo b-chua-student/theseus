@@ -132,6 +132,7 @@ def build_assistant_module(
             embedding_generator=embedding_generator,
             vector_store=vector_store,
             document_repository=indexed_document_repo,
+            validator=answer_validator,
         )
 
     return AssistantModule(

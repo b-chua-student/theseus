@@ -92,3 +92,17 @@ def test_s012_the_manuscript_text_reaches_the_validator() -> None:
     )
 
     assert validator.revisions[0].manuscript_text == "The pilot ended on July 12."
+
+
+def test_s009_the_remaining_time_reaches_the_validator() -> None:
+    revise, validator = reviser(["The pilot started in May [1]."])
+
+    revise.execute(
+        question=Query(QUESTION),
+        answer=Answer("The pilot started in May [1]."),
+        verdict=Verdict(unresolved=("x",)),
+        evidence=Evidence((P1,)),
+        timeout=7.5,
+    )
+
+    assert validator.revisions[0].timeout == 7.5

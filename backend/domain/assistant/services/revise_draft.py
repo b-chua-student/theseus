@@ -19,6 +19,7 @@ class ReviseDraft:
         verdict: Verdict,
         evidence: Evidence,
         manuscript_text: str = "",
+        timeout: float | None = None,
     ) -> Answer:
         """Return the revised draft, citing only passages that ``evidence`` admits.
 
@@ -31,5 +32,6 @@ class ReviseDraft:
             verdict=verdict,
             passages=list(evidence.passages),
             manuscript_text=manuscript_text,
+            timeout=timeout,
         )
         return replace(revised, citations=evidence.citations_for(revised.text))

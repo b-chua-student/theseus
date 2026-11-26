@@ -101,6 +101,31 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
   });
 
+  it('S-004: lists the sources that the checked answer cites', async () => {
+    await sendQuestion();
+
+    pending.resolve({
+      answer: CORRECTED,
+      citations: [
+        { key: 1, location: 'P1', title: 'Pilot report', source_id: 's1' },
+        { key: 2, location: 'P2', title: 'Pilot report', source_id: 's1' },
+      ],
+    });
+
+    expect(await screen.findByText(/ended in July/)).toBeInTheDocument();
+    const sources = screen.getByLabelText('Sources cited');
+    expect(sources).toHaveTextContent('[1] Pilot report, P1');
+    expect(sources).toHaveTextContent('[2] Pilot report, P2');
+  });
+
+  it('shows no source list when the answer cites nothing', async () => {
+    await sendQuestion();
+
+    pending.resolve({ answer: TIMEOUT, citations: [] });
+
+    expect(await screen.findByText(/couldn’t verify an answer/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Sources cited')).not.toBeInTheDocument();
+  });
   it('S-011: shows the interruption message and clears progress when validation fails', async () => {
     const options = await sendQuestion();
     options.onStatus(PROGRESS);

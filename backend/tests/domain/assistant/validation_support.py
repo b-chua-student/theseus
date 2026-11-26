@@ -107,6 +107,7 @@ class CheckCall:
     text: str
     passages: list[RetrievedChunk]
     manuscript_text: str
+    timeout: float | None = None
 
 
 @dataclass(frozen=True)
@@ -118,6 +119,7 @@ class ReviseCall:
     verdict: Verdict
     passages: list[RetrievedChunk]
     manuscript_text: str
+    timeout: float | None = None
 
 
 class ScriptedChatModel(ChatModel):
@@ -157,8 +159,11 @@ class ScriptedValidator(AnswerValidator):
         answer: Answer,
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
+        timeout: float | None = None,
     ) -> Verdict:
-        self.checks.append(CheckCall(question, answer.text, list(passages), manuscript_text))
+        self.checks.append(
+            CheckCall(question, answer.text, list(passages), manuscript_text, timeout)
+        )
         step = self._checks.pop(0)
         if step.at is not None:
             self._clock.set(step.at)
@@ -175,9 +180,10 @@ class ScriptedValidator(AnswerValidator):
         verdict: Verdict,
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
+        timeout: float | None = None,
     ) -> Answer:
         self.revisions.append(
-            ReviseCall(question, answer.text, verdict, list(passages), manuscript_text)
+            ReviseCall(question, answer.text, verdict, list(passages), manuscript_text, timeout)
         )
         return Answer(self._revisions.pop(0))
 
@@ -282,3 +288,30 @@ def build(
     return Env(
         service, conversation_id, project_id, repository, clock, model, validator, store, embedder
     )
+
+
+class AcceptingValidator(AnswerValidator):
+    """Validator that accepts every draft, for tests that are not about validation."""
+
+    def check(
+        self,
+        *,
+        question: str,
+        answer: Answer,
+        passages: list[RetrievedChunk],
+        manuscript_text: str = "",
+        timeout: float | None = None,
+    ) -> Verdict:
+        return Verdict()
+
+    def revise(
+        self,
+        *,
+        question: str,
+        answer: Answer,
+        verdict: Verdict,
+        passages: list[RetrievedChunk],
+        manuscript_text: str = "",
+        timeout: float | None = None,
+    ) -> Answer:
+        return answer

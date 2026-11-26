@@ -37,6 +37,7 @@ from domain.assistant.models.value_objects import (
     RetrievedChunk,
 )
 from domain.assistant.services.chat import ChatService
+from tests.domain.assistant.validation_support import AcceptingValidator
 
 
 class FakeChatModel(ChatModel):
@@ -121,6 +122,7 @@ def retrieving_service(
         vector_store=library.vectors,
         document_repository=library.documents,
         source_ids=lambda _project: list(library.active),
+        validator=AcceptingValidator(),
     )
 
 
@@ -366,6 +368,7 @@ def test_ask_retrieval_respects_top_k(
         document_repository=library.documents,
         top_k=2,
         source_ids=lambda _project: list(library.active),
+        validator=AcceptingValidator(),
     )
     conversation_id = str(service.start(project_id).value)
 
@@ -377,8 +380,9 @@ def test_ask_retrieval_respects_top_k(
 
 
 def test_ask_without_retrieval_adapters_answers_with_no_context(
-    service: ChatService, model: FakeChatModel, project_id: str
+    repository: InMemoryConversationRepository, model: FakeChatModel, project_id: str
 ) -> None:
+    service = ChatService(repository, model, validator=AcceptingValidator())
     conversation_id = str(service.start(project_id).value)
 
     service.ask(conversation_id, "Question?")
@@ -386,7 +390,7 @@ def test_ask_without_retrieval_adapters_answers_with_no_context(
     assert model.calls[0][2] == []
 
 
-def test_ask_answers_without_context_when_retrieval_fails(
+def test_ask_does_not_answer_a_source_library_question_when_retrieval_fails(
     repository: InMemoryConversationRepository,
     model: FakeChatModel,
     library: Library,
@@ -404,13 +408,15 @@ def test_ask_answers_without_context_when_retrieval_fails(
         vector_store=BrokenVectorStore(),
         document_repository=library.documents,
         source_ids=lambda _project: list(library.active),
+        validator=AcceptingValidator(),
     )
     conversation_id = str(service.start(project_id).value)
 
-    answer = service.ask(conversation_id, "Question?")
+    with pytest.raises(ChatModelError, match="couldn.t finish checking"):
+        service.ask(conversation_id, "Question?")
 
-    assert answer == Answer("An answer.")
-    assert model.calls[0][2] == []
+    assert model.calls == []
+    assert service.get(project_id, conversation_id).exchanges == []
 
 
 def test_ask_reraises_model_errors_and_discards_the_exchange(
@@ -465,3 +471,26 @@ def test_ask_rejects_a_question_while_a_previous_one_is_pending(
 
     with pytest.raises(PendingExchangeError):
         service.ask(str(conversation_id.value), "Next?", context_scope="none")
+
+
+def test_ask_without_a_validator_does_not_answer_a_source_library_question(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    with pytest.raises(ChatModelError, match="couldn.t finish checking"):
+        service.ask(conversation_id, "Question?")
+
+    assert model.calls == []
+    assert service.get(project_id, conversation_id).exchanges == []
+
+
+def test_ask_without_a_validator_still_answers_other_scopes(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(conversation_id, "One?", context_scope="none")
+    service.ask(conversation_id, "Two?", context_scope="manuscript", manuscript_text="Text")
+
+    assert len(model.calls) == 2
