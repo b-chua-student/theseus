@@ -56,7 +56,12 @@ def configure(app: Flask, repo: IdentityRepository) -> None:
     app.extensions["oauth_attempts"] = (
         PostgresPendingAttempts(repo.conn) if hasattr(repo, "conn") else PendingAttempts(collection)
     )
-    app.config.setdefault("OAUTH_PROVIDERS", json.loads(os.getenv("OAUTH_PROVIDERS", "{}")))
+    configured = app.config.setdefault(
+        "OAUTH_PROVIDERS", json.loads(os.getenv("OAUTH_PROVIDERS", "{}"))
+    )
+    app.config["OAUTH_PROVIDERS"] = (
+        {"google": configured["google"]} if "google" in configured else {}
+    )
     if app.config["OAUTH_PROVIDERS"] and not app.testing:
         app.config["SESSION_COOKIE_SECURE"] = True
     app.register_blueprint(oauth, url_prefix="/api/auth")
