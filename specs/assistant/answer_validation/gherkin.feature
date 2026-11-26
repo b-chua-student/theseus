@@ -77,7 +77,7 @@ Feature: Validate source-backed answers before display
   Scenario: Reach the deadline before any validation completes
     Given the first draft is waiting for its initial check to finish
     When 30 seconds have elapsed since that draft was ready to check
-    Then the user is told the answer could not be checked
+    Then the user sees “I couldn’t verify an answer within 30 seconds. Please try again.”
     And the unchecked draft stays hidden
 
   @S-010 @criterion-8 @edge
@@ -104,3 +104,15 @@ Feature: Validate source-backed answers before display
     When the Assistant checks and revises the answer
     Then the displayed answer attributes July 12 to the manuscript
     And it explains that the report leaves the exact day unverified
+
+  @S-013 @criterion-7 @edge
+  Scenario Outline: Apply the deadline response when validation fails at exactly 30 seconds
+    Given the findings verified so far are <findings>
+    When a validation service error occurs exactly 30 seconds after the first draft was ready
+    Then the user sees only <deadline response>
+    And the unchecked draft stays hidden
+
+    Examples:
+      | findings              | deadline response                                                                         |
+      | the May start from P1 | the May start citing P1 and an explanation that the end date could not be checked in time |
+      | no verified findings  | “I couldn’t verify an answer within 30 seconds. Please try again.”                        |

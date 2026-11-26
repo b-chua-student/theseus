@@ -40,7 +40,6 @@ Give Theseus users answers that address their questions and accurately reflect e
 
 ## Open Questions
 
-- If a service failure coincides with the 30-second deadline, which response should the writer receive? Deferred: awaiting the product lead's decision.
 - Suggestion, not a requirement: should validation apply to answers that do not use the Source Library? Deferred: not covered by the ticket.
 
 ## Success Criteria
@@ -51,9 +50,9 @@ Give Theseus users answers that address their questions and accurately reflect e
 4. When evidence is insufficient and retries remain, the Assistant searches again and checks the resulting draft before display.
 5. At the retry limit, the displayed answer states what the sources support and identifies the remaining evidence gaps.
 6. If validation is still running after five seconds, show “Checking the answer against your sources…” and keep draft text hidden.
-7. At the deadline, show any validated findings and explain remaining evidence gaps. If no validation completed, tell the user the answer could not be checked.
+7. At the 30-second deadline, including when a service error occurs at that instant, return only verified findings with their citations and identify what could not be checked in time. If nothing was verified, say “I couldn’t verify an answer within 30 seconds. Please try again.”
 8. If every draft is off-topic and retries are exhausted, say “I couldn’t produce a verified answer to your question.” Describe a source gap only when checked passages establish one.
-9. If a service error prevents validation, withhold the unchecked draft and say “I couldn’t finish checking this answer. Please try again.”
+9. If a service error prevents validation before the deadline, withhold the unchecked draft and say “I couldn’t finish checking this answer. Please try again.”
 
 ## Reference Links
 

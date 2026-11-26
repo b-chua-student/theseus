@@ -26,12 +26,12 @@ The Assistant retrieves passages from the Source Library to answer questions. Th
 - Allow two retries after the initial validation. Each retry can revise the draft, retrieve more evidence, or do both. Checking the resulting draft is part of that retry.
 - If validation is still running after five seconds, show “Checking the answer against your sources…” and keep draft text hidden.
 - If every draft is off-topic and retries are exhausted, say “I couldn’t produce a verified answer to your question.” Describe a source gap only when checked passages establish one.
-- If a service error prevents validation, withhold the unchecked draft and say “I couldn’t finish checking this answer. Please try again.”
+- If a service error prevents validation before the deadline, withhold the unchecked draft and say “I couldn’t finish checking this answer. Please try again.”
 
 ## Non-Functional Requirements
 
 - Allow 30 seconds for validation and all retries combined, starting when the first draft is ready to check.
-- At the deadline, show any validated findings and explain remaining evidence gaps. If no validation completed, tell the user the answer could not be checked.
+- At the 30-second deadline, including when a service error occurs at that instant, return only verified findings with their citations and identify what could not be checked in time. If nothing was verified, say “I couldn’t verify an answer within 30 seconds. Please try again.”
 
 ## Out of Scope
 

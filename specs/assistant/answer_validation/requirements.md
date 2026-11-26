@@ -13,13 +13,11 @@
 | R-005 | At exhaustion, report supported findings and identify remaining evidence gaps. | from ticket | 15, 21 | S-006 |
 | R-006 | While validation is pending, hide draft text. Show “Checking the answer against your sources…” only after five seconds. | from ticket | 27 | S-007 |
 | R-007 | End validation and retries within 30 seconds of the first draft becoming ready. | from ticket | 33 | S-008, S-009 |
-| R-008 | At the deadline, return validated findings and remaining gaps. If no validation completed, tell the user the answer could not be checked. | from ticket | 34 | S-008, S-009 |
+| R-008 | At the 30-second deadline, including when a service error occurs at that instant, return only verified findings with their citations and identify what could not be checked in time. If nothing was verified, say “I couldn’t verify an answer within 30 seconds. Please try again.” | from ticket | 34 | S-008, S-009, S-013 |
 | R-009 | If every draft is off-topic at exhaustion, say “I couldn’t produce a verified answer to your question.” Report a source gap only if checked evidence establishes it. | from ticket | 28 | S-010 |
-| R-010 | If a service error prevents validation, withhold the draft and say “I couldn’t finish checking this answer. Please try again.” | from ticket | 29 | S-011 |
+| R-010 | If a service error prevents validation before the deadline, withhold the draft and say “I couldn’t finish checking this answer. Please try again.” | from ticket | 29 | S-011 |
 
 ## Open Questions
-
-- If a service failure coincides with the 30-second deadline, which response should the writer receive? Deferred pending the product lead’s decision.
 
 - Suggestion: requests without Source Library context (manuscript-only and general questions) keep their existing flow and are not validated, because the ticket covers source-backed answers only.
 - Suggestion: progress delivery (D-006) streams records on the existing exchange request. Confirm it works with the production Gunicorn worker type and Flask-Limiter. If it does not, report progress by polling a status endpoint instead.
