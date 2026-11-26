@@ -132,9 +132,10 @@ def git(*args: str) -> list[str]:
         raise dora_evidence.EvidenceError("Required Git revision history is unavailable.") from None
 
 
-def promotion_manifest() -> dict[str, list[int]]:
+def promotion_manifest(
+    path: Path = Path("specs/devops/dora-change-lead-time/promotions.json"),
+) -> dict[str, list[int]]:
     """Load maintainer-reviewed mappings of promotion revisions to original staging PRs."""
-    path = Path("specs/devops/dora-change-lead-time/promotions.json")
     if not path.exists():
         return {}
     try:

@@ -1,0 +1,35 @@
+name: Reconcile DORA production incidents
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: dora-production-incidents-${{ vars.DORA_RENDER_SERVICE_ID }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record production rollbacks and hotfixes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DORA_RENDER_SERVICE_ID: ${{ vars.DORA_RENDER_SERVICE_ID }}
+          DORA_RENDER_FIRST_DEPLOY_ID: ${{ vars.DORA_RENDER_FIRST_DEPLOY_ID }}
+        run: python scripts/dora_change_failure_rate.py reconcile
