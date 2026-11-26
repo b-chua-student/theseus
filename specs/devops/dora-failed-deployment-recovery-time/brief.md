@@ -17,6 +17,8 @@ Help maintainers see how long it takes to restore normal production service afte
 
 - Report individual recovery durations for qualifying failures with known failure and restoration times.
 - Measure elapsed time from the production failure to restoration of normal service.
+- Summarize completed recovery durations with the median and sample count.
+- Show statuses and separate counts for unresolved failures and restored failures with missing timestamps.
 
 ## Non-Goals
 
@@ -26,11 +28,14 @@ Help maintainers see how long it takes to restore normal production service afte
 ## Constraints
 
 - Only production failures attributable to a deployment that require immediate intervention qualify.
+- Failed deployment attempts that leave production service healthy are excluded.
 - An unresolved failure has no completed recovery duration.
 
 ## Known Touchpoints
 
 - The Theseus DevOps Time to Restore metric report.
+- Production monitoring or a maintainer-confirmed incident timeline establishes when service degraded and when normal service was restored.
+- Render deployment history links releases and corrective deployments to incidents. A corrective deployment's Live time can establish the restoration time when evidence confirms service recovered then.
 
 ## Assumptions
 
@@ -38,14 +43,14 @@ Help maintainers see how long it takes to restore normal production service afte
 
 ## Open Questions
 
-- Deferred: Which events establish failure and restoration? The ticket leaves the event sources open.
-- Deferred: How should the report summarize durations and show unresolved failures? The ticket defines individual recovery durations and leaves summary and presentation rules open.
+- None.
 
 ## Success Criteria
 
-1. The report shows the elapsed time from failure to restoration of normal service for a qualifying production failure with both times known.
-2. The report excludes failures outside production, failures unattributable to deployments, and failures that do not require immediate intervention from the metric.
-3. The report shows no completed recovery duration for an unresolved failure or a qualifying failure with either time unknown.
+1. The report shows the elapsed time from the verified start of production degradation to the verified restoration of normal service for a qualifying failure. It uses the corrective deployment's Render Live time as the restoration time when recovery at that time is confirmed.
+2. The report excludes failures outside production, failures unattributable to deployments, failures that do not require immediate intervention, and failed deployment attempts that leave production service healthy.
+3. The report shows unresolved failures as “Unresolved” and restored failures with either time unknown as “Missing timestamp.” It leaves their durations blank and shows separate counts for the two groups.
+4. The report shows the median and count of qualifying completed recoveries with both timestamps. When the count is zero, it shows “No completed recoveries with known timestamps.”
 
 ## Reference Links
 
