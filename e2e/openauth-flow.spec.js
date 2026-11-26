@@ -59,12 +59,13 @@ for (const destination of ['https://example.org/profile', '//example.org/profile
   })
 }
 
-test('S-017 interrupted consent can restart with Microsoft (S-012)', async ({ page }) => {
+test('S-017 interrupted consent can restart with Google or use a password', async ({ page }) => {
   await page.goto('/')
   await button(page, 'Continue with Google').click()
   await page.goto('/')
   await expect(page.getByRole('alert')).toHaveText('Sign-in wasn’t completed')
-  await login(page, email(), 'Microsoft')
+  await expect(page.getByLabel('Password')).toBeVisible()
+  await login(page, email())
   await expect(button(page, 'Account')).toBeVisible()
 })
 
@@ -153,6 +154,6 @@ for (const [code, message] of Object.entries({
     await page.goto('/?auth_error=' + code + '&provider=google')
     await expect(page.getByRole('alert')).toHaveText(message)
     await expect(button(page, 'Try again')).toBeVisible()
-    await expect(button(page, 'Continue with Microsoft')).toBeVisible()
+    await expect(page.getByLabel('Password')).toBeVisible()
   })
 }
