@@ -34,7 +34,7 @@ test('S-008 S-020 S-021 S-022 S-025 restore the workspace and session securely',
   expect(cookie).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax' })
   const data = await page.evaluate(() => JSON.stringify([location.href, document.cookie,
     document.body.innerText, localStorage, sessionStorage, performance.getEntriesByType('resource').map(e => e.name)]))
-  const audit = await page.request.post('http://127.0.0.1:5119/check-exposure', { data })
+  const audit = await page.request.post('https://127.0.0.1:5119/check-exposure', { data })
   expect(await audit.json()).toEqual({ issued: true, exposed: false })
   await button(page, 'Account').click()
   await page.getByLabel('Display name').fill('Alex')
