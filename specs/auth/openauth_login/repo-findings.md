@@ -2,7 +2,7 @@
 
 Theseus can reuse the Flask user session, current-user endpoint and server logout endpoint. Two integration gaps affect the whole flow. The browser currently decides whether to show the signed-in UI from session storage, and the identity repository assumes that every account has a password. A successful provider callback must be visible to the browser after a full redirect, and a newly provisioned account must still be usable after a database reload.
 
-This source review maps the working tree to the [feature brief](brief.md) and [Gherkin scenarios](gherkin.feature) for issue #116. The ticket specifies Google and Microsoft. The requirements and design record the approved account, recovery, session and data policies. The observations below describe the implementation baseline.
+This source review maps the working tree to the [feature brief](brief.md) and [Gherkin scenarios](gherkin.feature) for issue #116. The ticket specifies Google. The requirements and design record the approved account, recovery, session and data policies. The observations below describe the implementation baseline.
 
 ## Runtime wiring and browser navigation
 
