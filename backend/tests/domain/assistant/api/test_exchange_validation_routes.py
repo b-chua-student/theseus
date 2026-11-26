@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -20,6 +21,7 @@ from flask.testing import FlaskClient
 
 from bootstrap.error_handlers import register_error_handlers
 from domain.assistant.api.routes import conversation_bp
+from domain.assistant.models.errors import ChatModelError
 from domain.assistant.models.value_objects import Finding, Verdict
 from tests.domain.assistant.validation_support import (
     DEADLINE,
@@ -107,6 +109,44 @@ def outcome(env: Env, fmt: str) -> Outcome:
 
 
 formats = pytest.mark.parametrize("fmt", ["json", "stream"])
+
+
+@formats
+@pytest.mark.parametrize("assisted", [False, True], ids=["s014-local", "s015-assisted"])
+def test_checked_answer_and_citations_across_generation_paths(
+    fmt: str,
+    assisted: bool,  # noqa: FBT001
+) -> None:
+    passages = [P1, P2]
+    if assisted:
+        passages.append(passage("P3", "Follow-up ended in August."))
+    env = build(drafts=[SUPPORTED], searches=[QueryStep(passages)], checks=[CheckStep(Verdict())])
+
+    result = outcome(env, fmt)
+
+    assert result.kind == "answer"
+    assert "May" in result.message and "July" in result.message
+    assert "August" not in result.message
+    assert result.citations == [(1, "P1"), (2, "P2")]
+    # These scripted ports represent the current outbound draft, check and revision calls.
+    attempts = len(env.model.calls) + len(env.validator.checks) + len(env.validator.revisions)
+    assert attempts == int(assisted)
+
+
+@formats
+def test_s017_interrupted_generation_returns_one_error_without_a_draft(fmt: str) -> None:
+    env = build(
+        drafts=[],
+        searches=[QueryStep([P1, P2, passage("P3", "Follow-up ended in August.")])],
+        checks=[],
+    )
+    with patch.object(
+        env.model, "reply", side_effect=ChatModelError("provider unavailable")
+    ) as call:
+        result = outcome(env, fmt)
+
+    call.assert_called_once()
+    assert result == Outcome("error", INTERRUPTED_MESSAGE, [], [])
 
 
 @formats

@@ -101,7 +101,7 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
   });
 
-  it('S-004: lists the sources that the checked answer cites', async () => {
+  it('S-004/S-014: shows the direct answer and its sources without a progress event', async () => {
     await sendQuestion();
 
     pending.resolve({
@@ -116,6 +116,26 @@ describe('ChatPanel answer validation', () => {
     const sources = screen.getByLabelText('Sources cited');
     expect(sources).toHaveTextContent('[1] Pilot report, P1');
     expect(sources).toHaveTextContent('[2] Pilot report, P2');
+    expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
+  });
+
+  it('S-015: shows only accepted pilot findings and citations after progress', async () => {
+    const options = await sendQuestion();
+    options.onStatus(PROGRESS);
+    await screen.findByText(PROGRESS);
+    expect(screen.queryByLabelText('Sources cited')).not.toBeInTheDocument();
+
+    pending.resolve({ answer: CORRECTED, citations: [
+      { key: 1, location: 'P1', title: 'Pilot report', source_id: 's1' },
+      { key: 2, location: 'P2', title: 'Pilot report', source_id: 's1' },
+    ] });
+
+    expect(await screen.findByText(/ended in July/)).toBeInTheDocument();
+    const sources = screen.getByLabelText('Sources cited');
+    expect(sources.querySelectorAll('li')).toHaveLength(2);
+    expect(sources).toHaveTextContent('[2] Pilot report, P2');
+    expect(screen.queryByText(/August|follow-up/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
   });
 
   it('shows no source list when the answer cites nothing', async () => {
@@ -152,7 +172,7 @@ describe('ChatPanel answer validation', () => {
     expect(lists[0]).toHaveTextContent('[2] Pilot report, P2');
     expect(screen.getByText('Older answer')).toBeInTheDocument();
   });
-  it('S-011: shows the interruption message and clears progress when validation fails', async () => {
+  it('S-011/S-017: shows one interruption and does not resubmit the question', async () => {
     const options = await sendQuestion();
     options.onStatus(PROGRESS);
     await screen.findByText(PROGRESS);
@@ -160,6 +180,8 @@ describe('ChatPanel answer validation', () => {
     pending.reject(Object.assign(new Error(INTERRUPTED), { status: 502 }));
 
     expect(await screen.findByText(INTERRUPTED)).toBeInTheDocument();
+    expect(askConversation).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText('Sources cited')).not.toBeInTheDocument();
     expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
     expect(screen.queryByText(/July 12/)).not.toBeInTheDocument();
   });
