@@ -104,6 +104,14 @@ class PostgresIdentityRepository(IdentityRepository):
         ).fetchone()
         return self._to_user(row) if row else None
 
+    def has_identity(self, user_id: UserId, issuer: str) -> bool:
+        """Return whether the account owns an identity from this issuer."""
+        row = self.conn.execute(
+            "SELECT 1 FROM external_identities WHERE user_id = %s AND issuer = %s LIMIT 1",
+            (user_id.value, issuer),
+        ).fetchone()
+        return row is not None
+
     def find_identity(self, issuer: str, subject: str) -> User | None:
         """Load the owner of the issuer and subject pair."""
         row = self.conn.execute(
