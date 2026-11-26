@@ -4,13 +4,13 @@
 
 ```mermaid
 flowchart TD
-    T001["T-001 Service tests"]
-    T002["T-002 Route and UI tests"]
-    T003["T-003 Validation port and adapter"]
-    T004["T-004 Retrieval and revision"]
-    T005["T-005 Retry and finalization"]
-    T006["T-006 Progress delivery"]
-    T007["T-007 Scenario verification"]
+    T001["T-001 Service and provider tests"]
+    T002["T-002 Route and panel tests"]
+    T003["T-003 Local checks and optional generation"]
+    T004["T-004 Local retry and revision"]
+    T005["T-005 Exchange orchestration and budgets"]
+    T006["T-006 Progress and terminal delivery"]
+    T007["T-007 Verify all scenarios"]
     T001 --> T003
     T003 --> T004
     T004 --> T005
@@ -23,10 +23,10 @@ flowchart TD
 
 | ID | Work item | References | Depends on | Verification | Scenarios | Wave |
 | --- | --- | --- | --- | --- | --- | --- |
-| T-001 | Write service and adapter tests from the approved scenarios using scripted drafts, P1–P3, retrieval outcomes and a controllable clock. | R-001, R-002, R-003, R-004, R-005, R-007, R-008, R-009, R-010 | - | Run `pytest backend/tests/domain/assistant` before implementation. Record expected failures for missing checks, retries and terminal outcomes. | S-001, S-002, S-003, S-004, S-005, S-006, S-008, S-009, S-010, S-011, S-012, S-013 | 1 |
-| T-002 | Write exchange-route and chat panel tests for progress and terminal events, including the existing JSON response. | R-002, R-006, R-007, R-008, R-010 | - | Run `pytest backend/tests/domain/assistant` and `npm --prefix frontend run test:components` before implementation. With a controllable clock, assert for S-007 that no progress message appears through five seconds, that the progress message then arrives while validation is still pending, and that the draft stays hidden throughout. Check terminal messages and verify that JSON and streamed success responses carry only the corrected answer’s citations. | S-004, S-007, S-008, S-009, S-011, S-013 | 1 |
-| T-003 | Implement the verdict contract, citation checks and Gemini adapter. Wire the production validator through `bootstrap/contexts/assistant/module.py` and both container configurations in `bootstrap/container.py`, and inject scripted fakes for tests. | D-001, D-002 | T-001 | Run service and adapter tests for relevance, unsupported claims and incorrect citation targets. | - | 2 |
-| T-004 | Implement a retrieval retry for the original question within the request’s existing source scope, and draft revision, with stable passage references and distinct retrieval errors. | D-003 | T-003 | Exercise a repeat search returning P2 and verify that P1 keeps its citation identity, that the search uses the original question and the same project and selected sources, and that the revised draft stays within the evidence budget. Verify that a revision keeps a manuscript claim attributed to the manuscript (S-012) and that a failed lookup is distinct from an empty result. | - | 3 |
-| T-005 | Integrate validation, the shared retry budget, deadline and terminal outcomes into the exchange lifecycle. | D-001, D-004, D-005 | T-004 | Advance the fake clock through the deadline during a retry. Simulate an error exactly at the deadline with and without verified findings. Confirm late work cannot publish or save another answer. | - | 4 |
-| T-006 | Connect server progress and final events to the chat panel, preserving the existing JSON exchange contract. | D-006 | T-002, T-005 | Exercise both response formats. Verify the progress event carries no draft and disappears on completion or error. | - | 5 |
-| T-007 | Verify all Gherkin outcomes through the service, route and chat panel. | R-001, R-002, R-003, R-004, R-005, R-006, R-007, R-008, R-009, R-010, D-001, D-002, D-003, D-004, D-005, D-006 | T-006 | Run `ruff check backend/`, `mypy backend/`, `pytest backend/`, `npm --prefix frontend test` and `npm --prefix frontend run test:components`. Confirm all thirteen scenarios pass with fake sources and no live model. | S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011, S-012, S-013 | 6 |
+| T-001 | Create or adapt service and adapter tests from approved Gherkin. Use one counting generation fake for every provider entry point, separate embedding counts, scripted passages and a fake clock. | R-001, R-002, R-003, R-004, R-005, R-007, R-008, R-009, R-010, R-011, R-012, R-013 | - | Run `pytest backend/tests/domain/assistant` before production edits. Record expected failures for call counts and local checking. Cover exhausted allowance on failure and timeout, and a genuine excerpt with the wrong precision. | S-001, S-002, S-003, S-004, S-005, S-006, S-008, S-009, S-010, S-011, S-012, S-013, S-014, S-015, S-016, S-017 | 1 |
+| T-002 | Retain and extend route and panel tests for both answer paths, partial answers, progress and errors. | R-001, R-006, R-007, R-008, R-010, R-013 | - | Run route and component suites before application changes. Verify the draft stays hidden, progress arrives while validation is pending, and JSON and streamed answers expose only accepted citations. | S-004, S-007, S-008, S-009, S-011, S-013, S-014, S-015, S-017 | 1 |
+| T-003 | Build local candidate extraction and claim-level checks. Adapt the Gemini path to propose excerpts and keys in one outbound request. Wire both through assistant bootstrap. | D-001, D-002, D-004 | T-001 | Compare direct and generated candidates against the same checker. Reject a month offered as a year, citation swaps and unsupported conclusions. Verify failed provider attempts are never automatically resent. | - | 2 |
+| T-004 | Adapt evidence recovery and draft revision to operate locally after generation is spent. Keep the original source scope and keys supporting retained findings. | D-003 | T-003 | Verify an additional search can supply missing evidence, a local correction removes unsupported precision, and an exhausted retry yields only supported findings. Check manuscript attribution independently. | - | 3 |
+| T-005 | Route source-backed exchanges through local selection before any model reply. Own the generation allowance, retry count, validation clock and terminal decision for the whole request. | D-001, D-004, D-005 | T-004 | Exercise the normal ask entry point. Assert zero or one generation attempt across the entire exchange, including retry, timeout and provider-error paths. Verify exactly one recorded final answer or the specified interruption. | - | 4 |
+| T-006 | Connect both paths to existing draft-ready and terminal events. Preserve JSON, stream and history behavior. | D-006 | T-002, T-005 | Check the five-second boundary, one terminal record, and that displayed and reopened citations identify the locally accepted passages. | - | 5 |
+| T-007 | Verify all 17 scenarios using fake sources and no live Gemini key. | D-001, D-002, D-003, D-004, D-005, D-006 | T-006 | Run `ruff check backend/`, `mypy backend/`, `pytest backend/`, `npm --prefix frontend test` and `npm --prefix frontend run test:components`. Confirm S-014 uses zero calls and S-015 to S-017 use one each, alongside their accuracy and fallback assertions. | S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011, S-012, S-013, S-014, S-015, S-016, S-017 | 6 |

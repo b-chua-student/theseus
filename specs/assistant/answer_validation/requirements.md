@@ -16,6 +16,9 @@
 | R-008 | At the 30-second deadline, including when a service error occurs at that instant, return only verified findings with their citations and identify what could not be checked in time. If nothing was verified, say “I couldn’t verify an answer within 30 seconds. Please try again.” | from ticket | 34 | S-008, S-009, S-013 |
 | R-009 | If every draft is off-topic at exhaustion, say “I couldn’t produce a verified answer to your question.” Report a source gap only if checked evidence establishes it. | from ticket | 28 | S-010 |
 | R-010 | If a service error prevents validation before the deadline, withhold the draft and say “I couldn’t finish checking this answer. Please try again.” | from ticket | 29 | S-011 |
+| R-011 | For each source-backed question, allow at most one Gemini generation attempt in total across drafting, checking, revision and retries. Failure and timeout consume the attempt. Count embedding requests separately. | from ticket | 35 | S-014, S-015, S-016, S-017 |
+| R-012 | When local evidence establishes the requested fact at the requested precision, answer with zero generation calls. Otherwise an optional generation call may propose an answer with exact excerpts and passage references. | from ticket | 36 | S-014, S-015 |
+| R-013 | Locally verify each displayed claim against its own cited excerpt and the question. When only part is supported, give verified findings or explain what remains unverified. | from ticket | 37 | S-003, S-004, S-012, S-015, S-016 |
 
 ## Open Questions
 
