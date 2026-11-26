@@ -276,7 +276,7 @@ Feature: User can log in through email via OAuth
 
   @S-030 @criterion-5
   Scenario: A new user sees how to create an account
-    Then guidance below "Continue with Google" should explain that a first Google sign-in creates a Theseus account for a new user
+    Then the first-time Google registration note should be absent
     And password sign-up should be available
 
   @S-031 @criterion-5
@@ -316,3 +316,19 @@ Feature: User can log in through email via OAuth
     When I continue with Google
     Then I should be able to complete Google's normal sign-in flow
     And I should receive a Theseus session only after Google authenticates me
+
+  @S-036 @criterion-7
+  Scenario: Continue with the last successful Google account
+    Given I last signed in successfully with Google as "reader@example.com" in this browser
+    And I signed out of Theseus
+    And Google sign-in is available
+    When I open the sign-in page
+    Then I should see "Continue with reader@example.com" and "Use another Google account"
+    When I select "Continue with reader@example.com"
+    Then Google sign-in should start for "reader@example.com"
+
+  @S-037 @criterion-7
+  Scenario: A browser without a remembered account offers generic Google sign-in
+    Given this browser has no remembered Google account
+    When I open the sign-in page
+    Then I should see "Continue with Google"
