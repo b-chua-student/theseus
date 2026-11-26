@@ -29,8 +29,9 @@
       return;
     }
     const destination = query.get('return_to') || location.pathname;
-    const params = new URLSearchParams({ return_to: destination });
-    if (chooseAccount) params.set('choose_account', '1');
+    const params = new URLSearchParams(chooseAccount
+      ? { return_to: destination, choose_account: '1' }
+      : { return_to: destination });
     location.assign('/api/auth/oauth/google/start?' + params);
   }
   async function loadProviders() {
