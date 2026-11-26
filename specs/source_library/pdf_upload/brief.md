@@ -41,7 +41,8 @@ Allow users to add PDF documents to the Source Library by uploading them.
 
 ## Success Criteria
 
-1. A user can upload a PDF and the uploaded PDF appears in the Source Library.
+1. A Theseus user can upload a PDF document to the Source Library.
+2. The uploaded PDF appears in the Source Library.
 
 ## Reference Links
 
