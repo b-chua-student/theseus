@@ -412,3 +412,13 @@ def test_s034_silent_sign_in_requires_the_same_verified_subject(client, provider
     claims["sub"] = "different-subject"
     assert "auth_error=invalid" in authorize().location
     assert client.get("/api/auth/me").status_code == 401
+
+
+def test_s036_s037_remember_last_google_email(client, provider) -> None:
+    claims, authorize = provider
+    route = "/api/auth/oauth/providers"
+    assert client.get(route).json.get("remembered_google_email") is None
+    assert authorize().location == "/"
+    client.post("/api/auth/logout")
+    assert client.get(route).json.get("remembered_google_email") == claims["email"]
+    assert start(client)["login_hint"] == claims["sub"]
