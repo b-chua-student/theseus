@@ -27,6 +27,7 @@ ISSUER = "http://127.0.0.1:5119"
 provider = Flask("controlled_provider")
 key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 codes = {}
+grants = {}
 tokens = []
 log = io.StringIO()
 logging.getLogger().addHandler(logging.StreamHandler(log))
@@ -35,18 +36,35 @@ logging.getLogger().setLevel(logging.INFO)
 
 @provider.route("/authorize", methods=["GET", "POST"])
 def authorize():
-    if request.method == "GET":
+    silent = request.args.get("prompt") == "none"
+    if silent:
+        address = grants.get(request.cookies.get("fixture_grant"))
+        if not address or address != request.args.get("login_hint"):
+            return redirect(
+                request.args["redirect_uri"]
+                + "?"
+                + urlencode({"error": "interaction_required", "state": request.args["state"]})
+            )
+    elif request.method == "GET":
         return render_template_string("""
           <h1>Authorize Theseus</h1><form method="post">
           <label>Email<input name="email" required></label>
           <button>Continue</button></form>""")
+    else:
+        address = request.form["email"]
     code = secrets.token_urlsafe()
-    codes[code] = dict(email=request.form["email"], **request.args)
-    return redirect(
+    codes[code] = dict(email=address, **request.args)
+    response = redirect(
         request.args["redirect_uri"]
         + "?"
         + urlencode({"code": code, "state": request.args["state"]})
     )
+
+    if not silent:
+        grant = secrets.token_urlsafe()
+        grants[grant] = address
+        response.set_cookie("fixture_grant", grant, httponly=True)
+    return response
 
 
 @provider.post("/token")
