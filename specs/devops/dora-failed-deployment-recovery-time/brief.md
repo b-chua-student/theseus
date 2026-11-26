@@ -19,6 +19,7 @@ Help maintainers see how long it takes to restore normal production service afte
 - Measure elapsed time from the production failure to restoration of normal service.
 - Summarize completed recovery durations with the median and sample count.
 - Show statuses and separate counts for unresolved failures and restored failures with missing timestamps.
+- Let maintainers record qualifying production failures before a corrective deployment exists and report those failures and recoveries that occur without a corrective deployment.
 
 ## Non-Goals
 
@@ -51,6 +52,7 @@ Help maintainers see how long it takes to restore normal production service afte
 2. The report excludes failures outside production, failures unattributable to deployments, failures that do not require immediate intervention, and failed deployment attempts that leave production service healthy.
 3. The report shows unresolved failures as “Unresolved” and restored failures with either time unknown as “Missing timestamp.” It leaves their durations blank and shows separate counts for the two groups.
 4. The report shows the median and count of qualifying completed recoveries with both timestamps. When the count is zero, it shows “No completed recoveries with known timestamps.”
+5. A recorded qualifying failure appears in the report before any corrective deployment. A recovery confirmed without a corrective deployment is reported using the same timestamp and status rules.
 
 ## Reference Links
 

@@ -9,6 +9,14 @@ Feature: Track failed deployment recovery time
     When a maintainer views the failed deployment recovery time report
     Then the report shows a recovery duration of 45 minutes for the failure
 
+  @S-054 @criterion-1 @criterion-5
+  Scenario: Report a recovery confirmed without a corrective deployment
+    Given a maintainer records a qualifying deployment-caused production failure
+    And the maintainer confirms that degradation began at 10:00 UTC, intervention began at 10:08 UTC, and normal service was restored at 10:30 UTC on the same day
+    And service recovered without a corrective deployment
+    When a maintainer views the failed deployment recovery time report
+    Then the report shows a recovery duration of 30 minutes for the failure
+
   @S-046 @criterion-3 @criterion-4
   Scenario: Summarize completed recoveries with known timestamps
     Given three qualifying production failures with verified recovery durations of 15, 45, and 120 minutes
@@ -48,10 +56,11 @@ Feature: Track failed deployment recovery time
     When a maintainer views the failed deployment recovery time report
     Then the report shows a recovery duration of 30 minutes for the failure
 
-  @S-052 @criterion-3 @edge
+  @S-052 @criterion-3 @criterion-5 @edge
   Scenario: Omit the completed recovery duration for an unresolved failure
-    Given a deployment causes a production failure that requires immediate intervention
+    Given a maintainer records a deployment-caused production failure that requires immediate intervention
     And the failure time is known
+    And no corrective deployment has shipped
     And normal service has yet to be restored
     When a maintainer views the failed deployment recovery time report
     Then the report shows the failure as "Unresolved" with a blank recovery duration
