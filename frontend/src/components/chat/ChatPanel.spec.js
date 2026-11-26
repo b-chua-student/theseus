@@ -47,16 +47,16 @@ async function sendQuestion() {
   });
   await fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   await waitFor(() => expect(askConversation).toHaveBeenCalled());
-  return askConversation.mock.calls[0][6];
+  return vi.mocked(askConversation).mock.calls[0][6];
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
   pending = deferred();
-  startConversation.mockResolvedValue('c1');
-  listConversations.mockResolvedValue([]);
-  listSources.mockResolvedValue([]);
-  askConversation.mockReturnValue(pending.promise);
+  vi.mocked(startConversation).mockResolvedValue('c1');
+  vi.mocked(listConversations).mockResolvedValue([]);
+  vi.mocked(listSources).mockResolvedValue([]);
+  vi.mocked(askConversation).mockReturnValue(pending.promise);
 });
 
 describe('ChatPanel answer validation', () => {
