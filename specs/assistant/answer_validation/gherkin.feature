@@ -163,8 +163,7 @@ Feature: Validate source-backed answers before display
     And another claim about July 12 was already found unsupported
     When the 30-second validation window ends
     Then the writer sees “View unverified draft” with the draft text hidden
-    When the writer chooses “View unverified draft”
-    Then the pending claim is shown with an unverified label
+    And selecting “View unverified draft” reveals only the pending claim with an unverified label
     And the July 12 claim is absent
     And the entire exchange made one Gemini generation call
 
