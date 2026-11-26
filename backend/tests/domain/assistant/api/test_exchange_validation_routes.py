@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -21,8 +20,15 @@ from flask.testing import FlaskClient
 
 from bootstrap.error_handlers import register_error_handlers
 from domain.assistant.api.routes import conversation_bp
-from domain.assistant.models.errors import ChatModelError
 from domain.assistant.models.value_objects import Finding, Verdict
+from tests.domain.assistant.generation_support import (
+    END,
+    FOLLOW_UP,
+    START,
+    BudgetExchange,
+    exchange,
+    proposal,
+)
 from tests.domain.assistant.validation_support import (
     DEADLINE,
     INTERRUPTED_MESSAGE,
@@ -57,7 +63,7 @@ class Outcome:
     statuses: list[str]
 
 
-def make_client(env: Env) -> FlaskClient:
+def make_client(env: Env | BudgetExchange) -> FlaskClient:
     app = Flask(__name__)
     app.config.update(TESTING=True, SECRET_KEY="test-secret")
     user_id = str(uuid4())
@@ -78,7 +84,7 @@ def make_client(env: Env) -> FlaskClient:
     return client
 
 
-def exchange_request(env: Env, fmt: str) -> dict[str, Any]:
+def exchange_request(env: Env | BudgetExchange, fmt: str) -> dict[str, Any]:
     return dict(
         path=f"/api/projects/{env.project_id}/conversations/{env.conversation_id}/exchanges",
         json={"query": QUESTION, "context_scope": "source_library"},
@@ -90,7 +96,7 @@ def pairs(citations: list[dict[str, Any]]) -> list[tuple[int, str]]:
     return [(c["key"], c["location"]) for c in citations]
 
 
-def outcome(env: Env, fmt: str) -> Outcome:
+def outcome(env: Env | BudgetExchange, fmt: str) -> Outcome:
     response = make_client(env).post(**exchange_request(env, fmt))
     if fmt == "json":
         body = response.get_json()
@@ -117,35 +123,20 @@ def test_checked_answer_and_citations_across_generation_paths(
     fmt: str,
     assisted: bool,  # noqa: FBT001
 ) -> None:
-    passages = [P1, P2]
-    if assisted:
-        passages.append(passage("P3", "Follow-up ended in August."))
-    env = build(drafts=[SUPPORTED], searches=[QueryStep(passages)], checks=[CheckStep(Verdict())])
-
-    result = outcome(env, fmt)
+    passages = [START, END, FOLLOW_UP] if assisted else [START, END]
+    with exchange([passages], proposal(END, END), int(assisted)) as env:
+        result = outcome(env, fmt)
 
     assert result.kind == "answer"
     assert "May" in result.message and "July" in result.message
     assert "August" not in result.message
     assert result.citations == [(1, "P1"), (2, "P2")]
-    # These scripted ports represent the current outbound draft, check and revision calls.
-    attempts = len(env.model.calls) + len(env.validator.checks) + len(env.validator.revisions)
-    assert attempts == int(assisted)
 
 
 @formats
 def test_s017_interrupted_generation_returns_one_error_without_a_draft(fmt: str) -> None:
-    env = build(
-        drafts=[],
-        searches=[QueryStep([P1, P2, passage("P3", "Follow-up ended in August.")])],
-        checks=[],
-    )
-    with patch.object(
-        env.model, "reply", side_effect=ChatModelError("provider unavailable")
-    ) as call:
+    with exchange([[START, END, FOLLOW_UP]], RuntimeError("provider unavailable"), 1) as env:
         result = outcome(env, fmt)
-
-    call.assert_called_once()
     assert result == Outcome("error", INTERRUPTED_MESSAGE, [], [])
 
 

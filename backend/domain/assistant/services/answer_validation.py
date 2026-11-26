@@ -3,7 +3,7 @@ import threading
 from collections.abc import Callable
 from concurrent.futures import Executor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field, replace
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.models.errors import AnswerValidationError, ValidationBudgetExceeded
@@ -17,6 +17,9 @@ from domain.assistant.models.value_objects import (
 )
 from domain.assistant.services.evidence_retriever import EvidenceRetriever
 from domain.assistant.services.revise_draft import ReviseDraft
+
+if TYPE_CHECKING:
+    from domain.assistant.services.source_answer_candidates import SourceAnswerCandidates
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +107,7 @@ class ValidateAnswer:
 
     def __init__(
         self,
-        validator: AnswerValidator,
+        validator: AnswerValidator | None,
         retriever: EvidenceRetriever,
         clock: Callable[[], float],
         deadline_seconds: float = DEADLINE_SECONDS,
@@ -118,7 +121,7 @@ class ValidateAnswer:
         """
         self._validator = validator
         self._retriever = retriever
-        self._reviser = ReviseDraft(validator)
+        self._reviser = ReviseDraft(validator) if validator is not None else None
         self._clock = clock
         self._deadline_seconds = deadline_seconds
         self._max_retries = max_retries
@@ -133,6 +136,7 @@ class ValidateAnswer:
         project_id: ProjectId,
         source_ids: list[str] | None = None,
         manuscript_text: str = "",
+        candidates: "SourceAnswerCandidates | None" = None,
     ) -> Answer:
         """Return the answer to show for ``draft``, which has just become ready.
 
@@ -143,6 +147,17 @@ class ValidateAnswer:
         progress = _Progress(answer=draft, evidence=evidence)
         executor = ThreadPoolExecutor(max_workers=1)
         try:
+            if candidates is not None:
+                return self._select(
+                    executor,
+                    deadline,
+                    progress,
+                    question,
+                    project_id,
+                    source_ids,
+                    manuscript_text,
+                    candidates,
+                )
             return self._validate(
                 executor, deadline, progress, question, project_id, source_ids, manuscript_text
             )
@@ -154,6 +169,53 @@ class ValidateAnswer:
             # A blocking call cannot be cancelled; its late result is never read.
             executor.shutdown(wait=False, cancel_futures=True)
 
+    def _select(  # noqa: PLR0913
+        self,
+        executor: Executor,
+        deadline: float,
+        progress: _Progress,
+        question: Query,
+        project_id: ProjectId,
+        source_ids: list[str] | None,
+        manuscript_text: str,
+        candidates: "SourceAnswerCandidates",
+    ) -> Answer:
+        def local(_: float) -> tuple[Answer, Verdict]:
+            return candidates.local(question, progress.evidence, manuscript_text)
+
+        progress.answer, verdict = self._call(executor, deadline, local)
+        progress.record(verdict)
+        if verdict.passed:
+            return progress.answer
+        if progress.evidence.passages and candidates.proposer is not None:
+            progress.answer, verdict = self._call(
+                executor,
+                deadline,
+                lambda remaining: candidates.assisted(
+                    question, progress.evidence, manuscript_text, remaining
+                ),
+            )
+            progress.record(verdict)
+        for _ in range(self._max_retries):
+            if verdict.passed or not verdict.missing_evidence:
+                break
+            missing = verdict.missing_evidence
+
+            def search(_: float, request: str = missing) -> Evidence:
+                return self._retriever.find_more(
+                    project_id,
+                    question,
+                    progress.evidence,
+                    request,
+                    source_ids,
+                    keep=progress.cited_keys(),
+                )
+
+            progress.evidence = self._call(executor, deadline, search)
+            progress.answer, verdict = self._call(executor, deadline, local)
+            progress.record(verdict)
+        return progress.answer if verdict.passed else self._exhausted(progress)
+
     def _validate(  # noqa: PLR0913
         self,
         executor: Executor,
@@ -164,12 +226,14 @@ class ValidateAnswer:
         source_ids: list[str] | None,
         manuscript_text: str,
     ) -> Answer:
+        validator = self._validator
+        assert validator is not None
         retries = 0
         while True:
             verdict = self._call(
                 executor,
                 deadline,
-                lambda timeout: self._validator.check(
+                lambda timeout: validator.check(
                     question=question.text,
                     answer=progress.answer,
                     passages=list(progress.evidence.passages),
@@ -219,10 +283,12 @@ class ValidateAnswer:
                     keep=progress.cited_keys(),
                 ),
             )
+        reviser = self._reviser
+        assert reviser is not None
         progress.answer = self._call(
             executor,
             deadline,
-            lambda timeout: self._reviser.execute(
+            lambda timeout: reviser.execute(
                 question=question,
                 answer=progress.answer,
                 verdict=verdict,

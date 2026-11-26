@@ -126,6 +126,9 @@ def build_assistant_module(
     # injected (tests, or environments without a configured chat provider), chat
     # stays None and the conversation routes return a server error if called.
     chat: ChatService | None = None
+    candidates = SourceAnswerCandidates(
+        answer_validator if isinstance(answer_validator, AnswerProposer) else None
+    )
     if chat_model is not None:
         chat = ChatService(
             source_ids=source_ids,
@@ -135,6 +138,7 @@ def build_assistant_module(
             vector_store=vector_store,
             document_repository=indexed_document_repo,
             validator=answer_validator,
+            candidates=candidates,
         )
 
     return AssistantModule(
@@ -146,8 +150,6 @@ def build_assistant_module(
         vector_store=vector_store,
         chat=chat,
         answer_validator=answer_validator,
-        source_answer_candidates=SourceAnswerCandidates(
-            answer_validator if isinstance(answer_validator, AnswerProposer) else None
-        ),
+        source_answer_candidates=candidates,
         indexing_status=GetIndexingStatusService(repository=indexed_document_repo),
     )

@@ -4,7 +4,7 @@ import time
 from collections.abc import Callable
 from typing import Literal
 
-from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
+from domain.assistant.infrastructure.ports.answer_validator import AnswerProposer, AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
@@ -29,6 +29,7 @@ from domain.assistant.models.value_objects import (
 )
 from domain.assistant.services.answer_validation import INTERRUPTED_MESSAGE, ValidateAnswer
 from domain.assistant.services.evidence_retriever import EvidenceRetriever
+from domain.assistant.services.source_answer_candidates import SourceAnswerCandidates
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ class ChatService:
         source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
         validator: AnswerValidator | None = None,
         clock: Callable[[], float] | None = None,
+        candidates: SourceAnswerCandidates | None = None,
     ) -> None:
         """Configure conversation storage, the chat model, retrieval and answer validation.
 
@@ -66,9 +68,12 @@ class ChatService:
             source_ids=source_ids,
             top_k=top_k,
         )
+        self._candidates = candidates
+        if candidates is None and isinstance(validator, AnswerProposer):
+            self._candidates = SourceAnswerCandidates(validator)
         self._validate_answer = (
             ValidateAnswer(validator, self._retriever, clock or time.monotonic)
-            if validator is not None
+            if validator is not None or self._candidates is not None
             else None
         )
 
@@ -138,13 +143,17 @@ class ChatService:
                     f"Current manuscript:\n{manuscript_text.strip() or '(empty manuscript)'}"
                     f"\n\nQuestion: {query.text}"
                 )
-            answer = self._model.reply(history, model_query, context)
+            if context_scope == "source_library" and self._candidates is not None:
+                answer = Answer("\n".join(p.text for p in context) or "No retrieved passages.")
+            else:
+                answer = self._model.reply(history, model_query, context)
             if context_scope == "source_library" and self._validate_answer is not None:
                 if on_draft_ready is not None:
                     on_draft_ready()
                 answer = self._validate_answer.execute(
                     question=query,
                     draft=answer,
+                    candidates=self._candidates,
                     evidence=Evidence(tuple(context)),
                     project_id=conversation.project_id,
                     source_ids=source_ids,
