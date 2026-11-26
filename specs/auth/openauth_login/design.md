@@ -12,7 +12,7 @@
 | D-006 | Resolve linked identities before email lookup and preserve their account email. Check suspension before granting a session. On an unmatched email create a passwordless account with the usable provider name or “Theseus user”. Trim the provider name and accept 1–50 characters. Save later edits on the Theseus profile and preserve them on subsequent sign-ins. | Identity service, user aggregate, repository adapters, profile editor | R-006, R-007, R-008, R-009, R-010 |
 | D-007 | Restore the requested local view or home. Map failures to a sign-in message and retry action, including existing-method guidance on collision. On return from an unfinished attempt show the interruption message and restart and alternate-method controls. | Sign-in page, SPA navigation, pending request store | R-005, R-011, R-012, R-013 |
 | D-008 | End the Theseus session through existing logout. Reuse the ordinary sign-in audit hook if present. Allowlist account claims on persistence, discard tokens on every exit and redact them from logs and browser responses. | Session routes, provider client, identity adapters, sign-in audit integration | R-014, R-015, R-016, R-017 |
-| D-009 | Render both provider choices above the password form. Use server settings to start configured providers and report unavailable choices inline. | Sign-in page | R-018 |
+| D-009 | Render only the Google choice above the password form. Use server settings to start configured providers and report unavailable choices inline. | Sign-in page | R-018 |
 
 ## Components and Flow
 
