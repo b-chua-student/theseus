@@ -10,10 +10,15 @@ This metric is part of DORA’s current software delivery metrics. [DORA metric 
 - Report the percentage of production deployments that are unplanned and made in response to a production incident.
 
 ## Expected Outcomes
-- [ ] The report shows the number of qualifying rework deployments, the total number of production deployments, and the resulting percentage when the total is greater than zero.
+- [ ] A maintainer can run the report on demand for the preceding 30 days in UTC.
+- [ ] With complete evidence and a positive production deployment total, the report shows the qualifying rework count, the production deployment total, and the resulting percentage. If none qualify, show 0%.
+- [ ] When production history verifies an empty period, show zero for both counts and display **N/A — no production deployments** for the rate.
+- [ ] When missing evidence could change either count, show **Incomplete evidence** and withhold the percentage. If production history is complete, show the verified total, confirmed rework count, and number awaiting review. Otherwise mark the production total as unverified.
 
 ## Rules / Constraints
 - Count each qualifying deployment once. Include all production deployments in the denominator for the reporting period.
+- Count a deployment as rework when production history confirms it went live and a maintainer confirms on the incident record that the specific deployment was an unplanned response to a production incident. Hotfix labels and rollback records can identify candidates for review. The incident can have any cause.
+- Assign deployments to the period by their production live time. Include the window start and exclude the report start, regardless of when the incident began.
 
 ## Non-Functional Requirements
 No additional non-functional requirements specified.
@@ -22,7 +27,7 @@ No additional non-functional requirements specified.
 - Changes to deployment operations and reporting for other metrics.
 
 ## Open Questions
-- What evidence establishes that a deployment was unplanned and incident-driven? How should periods with no deployments or incomplete evidence appear?
+- None.
 
 ## Output Paths
 This feature lives in `specs/devops/dora-deployment-rework-rate/`.
