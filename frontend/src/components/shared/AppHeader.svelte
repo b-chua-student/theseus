@@ -3,7 +3,7 @@
   import { apiFetch, jsonBody } from '../../lib/api/http.js';
   let { user, inEditor = false, documentTitle = '', manuscriptCount = 0, onworkspace, onsignout } = $props();
   let profileOpen = $state(false);
-  let providers = $state([]);
+  let googleEnabled = $state(false);
   let name = $state('');
   let feedback = $state('');
   let csrf = '';
@@ -14,7 +14,7 @@
     feedback = '';
     try {
       const settings = await providerSettings();
-      providers = settings.providers;
+      googleEnabled = settings.providers.includes('google');
       csrf = settings.csrf;
     } catch (e) { feedback = e.message; }
   }
@@ -27,9 +27,9 @@
       feedback = 'Name saved.';
     } catch (e) { feedback = e.message; }
   }
-  async function link(provider) {
+  async function linkGoogle() {
     try {
-      const response = await apiFetch('/api/auth/oauth/' + provider + '/link',
+      const response = await apiFetch('/api/auth/oauth/google/link',
         { method: 'POST', headers: { 'X-CSRF-Token': csrf } }, 'Could not start linking.');
       location.assign((await response.json()).location);
     } catch (e) { feedback = e.message; }
@@ -53,9 +53,9 @@
     {#if profileOpen}<div id="account-menu" class="account-menu"><form onsubmit={event => { event.preventDefault(); save(); }}>
       <label>Display name<input bind:value={name} required maxlength="50" /></label><button>Save</button>
       </form>
-      {#each providers as provider}
-        <button onclick={() => link(provider)}>Link {provider === 'google' ? 'Google' : 'Microsoft'}</button>
-      {/each}
+      {#if googleEnabled}
+        <button onclick={linkGoogle}>Link Google</button>
+      {/if}
       {#if feedback}<p role="status">{feedback}</p>{/if}<button type="button" onclick={() => { profileOpen = false; onworkspace?.(); }}>Workspace</button>
       <!-- TODO(API): Connect authenticated user details and project navigation when supported. -->
       <button type="button" disabled>All Projects</button><button type="button" disabled>New Project</button><button type="button" onclick={() => { profileOpen = false; onsignout?.(); }}>Sign Out</button>
