@@ -29,6 +29,7 @@ flowchart TD
     T008 --> T011
     T012["T-012 Reuse Google approval"]
     T010 --> T012
+    T012 --> T013["T-013 Personalize Google sign-in"]
     T008 --> T007
 ```
 
@@ -45,9 +46,10 @@ flowchart TD
 | T-007 | Run backend, storage and browser scenarios together against the completed app, including existing password sign-in and registration regressions. | D-001, D-002, D-003, D-004, D-005, D-006, D-007, D-008 | T-008 | Run `python -m pytest` in backend and `npm test` in e2e with the controlled provider and HTTPS. Record passing evidence for every scenario and outline example, including real cookie attributes and absence of tokens in logs and browser state. | S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011, S-012, S-013, S-014, S-015, S-016, S-017, S-018, S-019, S-020, S-021, S-022, S-023, S-024, S-025, S-026, S-027, S-028 | 6 |
 | T-008 | Implement the signed-in Link provider control, authenticated link endpoint, and callback that saves the identity on the initiating account. | D-005 | T-005, T-006 | Run the S-024 browser test. Verify that switching accounts during authorization or presenting an identity owned by another account leaves existing links intact. | S-024 | 5 |
 | T-009 | Test the unavailable Google choice, then implement persistent sign-in controls and verify configured navigation. | D-009 | T-006 | Run the sign-in component scenarios and verify the Google button on the regular dev page. | S-002, S-029 | 4 |
-| T-010 | Test and implement registration guidance and recovery actions. | D-010 | T-009 | Verify distinct messages and a fresh Google authorization attempt. | S-030, S-031, S-032 | 5 |
+| T-010 | Test and implement the sign-up option without a registration note and recovery actions. | D-010 | T-009 | Verify distinct messages and a fresh Google authorization attempt. | S-030, S-031, S-032 | 5 |
 | T-011 | Test and implement durable Google connection status. | D-011 | T-008 | Reopen Account after linking and verify the connected label. | S-033 | 6 |
 | T-012 | Test returning sign-in and one interactive fallback, then implement remembered account selection and verify fresh authorization parameters. | D-012 | T-010 | Verify same account, logout, callback validation, account switching and protected return path. | S-034, S-035 | 6 |
+| T-013 | Test and implement the remembered email label. | D-013 | T-012 | Check fresh and returning browser labels, successful sign-in and account switching. | S-036, S-037 | 7 |
 
 ## Verification evidence
 
@@ -70,7 +72,7 @@ The completed run on 2026-11-25 passed 302 backend tests with MongoDB and Postgr
 
 ### Google sign-in guidance and connection status
 
-S-030 through S-033 are exercised by the HTTPS browser suite using a controlled Google provider. The tests check the first-time account guidance, restart from the expiry notice through a fresh authorization, the connection-failure retry action, and the persisted connected label after explicitly linking and reopening Account. Backend tests also cover expired attempts after store cleanup and connection failures that leave the session signed out.
+S-030 through S-033 are exercised by the HTTPS browser suite using a controlled Google provider. The tests check that the registration note is absent, restart from the expiry notice through a fresh authorization, the connection-failure retry action, and the persisted connected label after explicitly linking and reopening Account. Backend tests also cover expired attempts after store cleanup and connection failures that leave the session signed out.
 
 ### Returning Google users
 
