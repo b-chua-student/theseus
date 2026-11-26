@@ -79,6 +79,7 @@ def _conversation_json(
                 id=str(e.id.value),
                 query=e.query.text,
                 answer=e.answer.text if e.answer else None,
+                citations=[_citation_json(c) for c in e.answer.citations] if e.answer else [],
                 asked_at=e.asked_at.replace(tzinfo=UTC).isoformat(),
             )
             for e in conversation.history
@@ -173,8 +174,13 @@ def _stream_exchange(chat: ChatService, arguments: dict[str, Any]) -> Response:
         error = future.exception()
         if error is not None:
             yield _record(_error_record(error if isinstance(error, Exception) else Exception()))
-        else:
-            yield _record(dict(type="answer", **_answer_json(future.result())))
+            return
+        try:
+            record = dict(type="answer", **_answer_json(future.result()))
+        except Exception as exc:
+            logger.exception("Could not build the answer record")
+            record = _error_record(exc)
+        yield _record(record)
 
     return Response(
         stream_with_context(records()),

@@ -1,4 +1,5 @@
 import logging
+import threading
 from collections.abc import Callable
 from concurrent.futures import Executor, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field, replace
@@ -21,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 DEADLINE_SECONDS = 30.0
 MAX_RETRIES = 2
+# Calls that may run at once, counting calls abandoned at a deadline that are still blocked.
+MAX_OUTSTANDING_CALLS = 16
 TIMEOUT_MESSAGE = "I couldn\u2019t verify an answer within 30 seconds. Please try again."
 INTERRUPTED_MESSAGE = "I couldn\u2019t finish checking this answer. Please try again."
 OFF_TOPIC_MESSAGE = "I couldn\u2019t produce a verified answer to your question."
@@ -41,6 +44,10 @@ class _Outcome[T]:
     value: T | None
     error: Exception | None
     at: float
+
+
+def _same(first: str, second: str) -> bool:
+    return first.strip(" .").casefold() == second.strip(" .").casefold()
 
 
 @dataclass
@@ -67,7 +74,12 @@ class _Progress:
             return
         self.relevant_drafts += 1
         for finding in verdict.verified:
-            self.findings.setdefault(finding.claim, finding)
+            self.findings[finding.claim] = finding
+        # A claim that a later check disputes is no longer a finding. Findings that a later
+        # draft simply does not mention stay.
+        for claim in verdict.unresolved:
+            for known in [k for k in self.findings if _same(k, claim)]:
+                del self.findings[known]
         self.gaps = list(verdict.gaps)
         self.unresolved = verdict.unresolved
         self.missing_evidence = verdict.missing_evidence
@@ -97,14 +109,20 @@ class ValidateAnswer:
         clock: Callable[[], float],
         deadline_seconds: float = DEADLINE_SECONDS,
         max_retries: int = MAX_RETRIES,
+        max_outstanding_calls: int = MAX_OUTSTANDING_CALLS,
     ) -> None:
-        """Configure the validator, the evidence retriever, the monotonic clock and budgets."""
+        """Configure the validator, the evidence retriever, the monotonic clock and budgets.
+
+        A blocking call cannot be cancelled, so one that outlives its deadline keeps running.
+        ``max_outstanding_calls`` bounds those calls: when it is reached, new work is rejected.
+        """
         self._validator = validator
         self._retriever = retriever
         self._reviser = ReviseDraft(validator)
         self._clock = clock
         self._deadline_seconds = deadline_seconds
         self._max_retries = max_retries
+        self._slots = threading.BoundedSemaphore(max_outstanding_calls)
 
     def execute(
         self,
@@ -224,12 +242,19 @@ class ValidateAnswer:
         if remaining <= 0:
             raise _DeadlineReached
 
+        if not self._slots.acquire(blocking=False):
+            raise _ServiceFailure from RuntimeError("Too many validation calls are outstanding.")
+
         def run() -> _Outcome[T]:
             try:
                 value = work(remaining)
             except Exception as exc:
                 return _Outcome(None, exc, self._clock())
-            return _Outcome(value, None, self._clock())
+            else:
+                return _Outcome(value, None, self._clock())
+            finally:
+                # Released when the call really ends, even if its result was abandoned.
+                self._slots.release()
 
         future = executor.submit(run)
         done, _ = wait([future], timeout=remaining)
@@ -277,16 +302,12 @@ class ValidateAnswer:
             return []
         return [f"The available passages do not establish: {'; '.join(progress.gaps)}."]
 
-    @staticmethod
-    def _same(first: str, second: str) -> bool:
-        return first.strip(" .").casefold() == second.strip(" .").casefold()
-
     def _unresolved(self, progress: _Progress) -> list[str]:
         """Unresolved claims, minus any item that is already reported as an established gap."""
         return [
             claim
             for claim in progress.unresolved
-            if not any(self._same(claim, gap) for gap in progress.gaps)
+            if not any(_same(claim, gap) for gap in progress.gaps)
         ]
 
     def _open_question(self, progress: _Progress) -> list[str]:
@@ -295,7 +316,7 @@ class ValidateAnswer:
         if not request:
             return []
         reported = [*progress.gaps, *progress.unresolved]
-        return [] if any(self._same(request, item) for item in reported) else [request]
+        return [] if any(_same(request, item) for item in reported) else [request]
 
     def _summary(self, progress: _Progress, closing: str) -> Answer:
         sentences = [self._sentence(f) for f in progress.findings.values()]

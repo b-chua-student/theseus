@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -31,7 +32,10 @@ _CHECK_INSTRUCTION = (
     'passages, and a "library" claim is never supported by the manuscript: attributing '
     "something the manuscript says to a source passage is not supported. Set `missing_evidence` "
     "to a short description of what a new search should look for when better evidence might "
-    "exist, otherwise null. List in `gaps` only the gaps that the passages shown establish."
+    "exist, otherwise null. List in `gaps` only the gaps that the passages shown establish. Set "
+    "`states_missing_evidence` to true only when the draft makes no factual claim and just "
+    "says what the sources do not establish; then `claims` may be empty and `gaps` must name "
+    "what the passages shown fail to establish."
 )
 
 _REVISE_INSTRUCTION = (
@@ -62,6 +66,7 @@ class _CheckResponse(BaseModel):
     claims: list[_Claim]
     missing_evidence: str | None = None
     gaps: list[str] = []
+    states_missing_evidence: bool = False
 
 
 class GeminiAnswerValidator(AnswerValidator):
@@ -114,12 +119,23 @@ class GeminiAnswerValidator(AnswerValidator):
         except (ValueError, ValidationError) as exc:
             raise ChatModelError("The AI provider returned an unusable check result.") from exc
         if parsed.relevant and not parsed.claims:
-            # A factual draft with nothing checked has not been validated.
-            raise ChatModelError("The AI provider did not check any claim in the draft.")
+            if not parsed.states_missing_evidence:
+                # A factual draft with nothing checked has not been validated.
+                raise ChatModelError("The AI provider did not check any claim in the draft.")
+            # A draft that only says what the sources lack is checked by the gaps it names.
+            return Verdict(
+                relevant=True,
+                unresolved=()
+                if parsed.gaps
+                else ("The draft states missing evidence that no checked gap establishes",),
+                gaps=tuple(parsed.gaps),
+                missing_evidence=parsed.missing_evidence or None,
+            )
 
         verified: list[Finding] = []
         unresolved: list[str] = []
         has_manuscript = bool(manuscript_text.strip())
+        markers = {int(key) for key in re.findall(r"\[(\d+)\]", answer.text)}
         for claim in parsed.claims:
             if claim.source == "manuscript":
                 # Supported only by the manuscript text that the request supplied.
@@ -131,11 +147,19 @@ class GeminiAnswerValidator(AnswerValidator):
                 claim.supported
                 and claim.citation is not None
                 and 1 <= claim.citation <= len(passages)
+                and claim.citation in markers
             ):
                 # A library claim counts only when its citation names a supplied passage.
                 verified.append(Finding(claim.text, claim.citation, "library"))
             else:
                 unresolved.append(claim.text)
+        if parsed.relevant:
+            # Every citation the answer will show must belong to a claim that was checked.
+            checked = {c.citation for c in parsed.claims if c.source == "library"}
+            unresolved.extend(
+                f"The citation [{key}] is not tied to a checked claim."
+                for key in sorted(markers - checked)
+            )
         return Verdict(
             relevant=parsed.relevant,
             verified=tuple(verified),

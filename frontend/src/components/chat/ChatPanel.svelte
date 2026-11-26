@@ -83,7 +83,7 @@
         conversationId: id,
         messages: conversation.exchanges.flatMap(e => [
           { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
-          { id: nextMessageId++, role: 'assistant', text: e.answer, timestamp: e.asked_at },
+          { id: nextMessageId++, role: 'assistant', text: e.answer, citations: e.citations ?? [], timestamp: e.asked_at },
         ]),
       };
       input = '';

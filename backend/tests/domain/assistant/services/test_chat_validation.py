@@ -620,3 +620,40 @@ def test_s007_the_draft_ready_signal_does_not_fire_for_unvalidated_scopes() -> N
     )
 
     assert seen == []
+
+
+def test_s010_a_later_check_that_disputes_a_finding_removes_it_but_keeps_absent_ones() -> None:
+    july = Finding("The pilot ended in July", 2)
+    site = Finding("The pilot site was a hospital", 1)
+    first = Verdict(verified=(MAY, july, site), unresolved=("ended on July 12",))
+    second = Verdict(verified=(MAY,), unresolved=("The pilot ended in July",))
+    env = build(
+        drafts=["The pilot started in May [1], ended on July 12 [2]."],
+        searches=[QueryStep([P1, P2])],
+        checks=[CheckStep(first), CheckStep(second), CheckStep(second)],
+        revisions=["The pilot started in May [1].", "The pilot started in May [1], v3."],
+    )
+
+    answer = ask(env)
+
+    assert "pilot site was a hospital [1]" in answer.text
+    assert "ended in July [2]" not in answer.text
+    assert cited(answer) == [(1, "P1")]
+
+
+def test_s008_a_disputed_finding_is_not_reported_at_the_deadline() -> None:
+    july = Finding("The pilot ended in July", 2)
+    first = Verdict(verified=(MAY, july), unresolved=("ended on July 12",))
+    second = Verdict(verified=(MAY,), unresolved=("The pilot ended in July",))
+    env = build(
+        drafts=["The pilot started in May [1], ended on July 12 [2]."],
+        searches=[QueryStep([P1, P2])],
+        checks=[CheckStep(first), CheckStep(second), CheckStep(error=RuntimeError(), at=DEADLINE)],
+        revisions=["The pilot started in May [1].", "The pilot started in May [1], v3."],
+    )
+
+    answer = ask(env)
+
+    assert "ended in July [2]" not in answer.text
+    assert cited(answer) == [(1, "P1")]
+    assert "in time" in answer.text

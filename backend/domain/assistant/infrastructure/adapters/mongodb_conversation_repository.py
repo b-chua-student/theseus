@@ -7,7 +7,10 @@ from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.entities import Exchange
 from domain.assistant.models.value_objects import (
     Answer,
+    ChunkId,
+    Citation,
     ConversationId,
+    DocumentRefId,
     ExchangeId,
     ProjectId,
     Query,
@@ -28,15 +31,40 @@ class MongoConversationRepository(ConversationRepository):
             "id": str(exchange.id.value),
             "query": exchange.query.text,
             "answer": exchange.answer.text if exchange.answer else None,
+            "citations": [
+                {
+                    "key": c.key,
+                    "chunk_id": str(c.chunk_id.value),
+                    "doc_ref_id": str(c.doc_ref_id.value),
+                    "location": c.location,
+                }
+                for c in (exchange.answer.citations if exchange.answer else ())
+            ],
             "asked_at": exchange.asked_at,
         }
 
     @staticmethod
-    def _exchange_from_doc(doc: dict) -> Exchange:
+    def _answer_from_doc(doc: dict) -> Answer | None:
+        if doc["answer"] is None:
+            return None
+        # Exchanges stored before citations existed have no "citations" field.
+        citations = tuple(
+            Citation(
+                key=c["key"],
+                chunk_id=ChunkId(UUID(c["chunk_id"])),
+                doc_ref_id=DocumentRefId(UUID(c["doc_ref_id"])),
+                location=c["location"],
+            )
+            for c in doc.get("citations", [])
+        )
+        return Answer(doc["answer"], citations=citations)
+
+    @classmethod
+    def _exchange_from_doc(cls, doc: dict) -> Exchange:
         return Exchange(
             id=ExchangeId(UUID(doc["id"])),
             query=Query(doc["query"]),
-            answer=Answer(doc["answer"]) if doc["answer"] is not None else None,
+            answer=cls._answer_from_doc(doc),
             asked_at=doc["asked_at"],
         )
 

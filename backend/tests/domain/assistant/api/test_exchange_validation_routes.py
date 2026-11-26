@@ -325,3 +325,34 @@ def test_s007_slow_validation_after_a_ready_draft_reports_progress_once(
     assert result.statuses == [PROGRESS_MESSAGE]
     assert result.kind == "answer"
     assert result.message == SUPPORTED
+
+
+def test_a_failure_building_the_answer_record_ends_the_stream_with_one_error_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def explode(answer: object) -> None:
+        raise RuntimeError("citation lookup failed")
+
+    monkeypatch.setattr("domain.assistant.api.routes._answer_json", explode)
+    env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(Verdict())])
+
+    response = make_client(env).post(**exchange_request(env, "stream"))
+
+    records = [json.loads(line) for line in response.get_data(as_text=True).splitlines() if line]
+    assert [r["type"] for r in records] == ["error"]
+    assert records[0]["status"] == 500
+    assert SUPPORTED not in response.get_data(as_text=True)
+
+
+def test_s004_a_reopened_conversation_lists_the_citations_of_each_answer() -> None:
+    env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(Verdict())])
+    client = make_client(env)
+    client.post(**exchange_request(env, "json"))
+
+    body = client.get(
+        f"/api/projects/{env.project_id}/conversations/{env.conversation_id}"
+    ).get_json()
+
+    [exchange] = body["exchanges"]
+    assert exchange["answer"] == SUPPORTED
+    assert [(c["key"], c["location"]) for c in exchange["citations"]] == [(1, "P1"), (2, "P2")]

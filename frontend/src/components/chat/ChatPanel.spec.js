@@ -9,7 +9,7 @@ vi.mock('../../lib/api/chat.js', () => ({
 }));
 vi.mock('../../lib/api/sources.js', () => ({ listSources: vi.fn() }));
 
-import { startConversation, askConversation, listConversations } from '../../lib/api/chat.js';
+import { startConversation, askConversation, listConversations, getConversation } from '../../lib/api/chat.js';
 import { listSources } from '../../lib/api/sources.js';
 import ChatPanel from './ChatPanel.svelte';
 
@@ -125,6 +125,32 @@ describe('ChatPanel answer validation', () => {
 
     expect(await screen.findByText(/couldn’t verify an answer/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Sources cited')).not.toBeInTheDocument();
+  });
+  it('S-004: a reopened conversation lists the sources each answer cited', async () => {
+    listConversations.mockResolvedValue([{ id: 'c9', title: 'Earlier chat' }]);
+    getConversation.mockResolvedValue({
+      context_scope: 'source_library',
+      source_ids: null,
+      exchanges: [
+        {
+          query: 'When did it start?',
+          answer: CORRECTED,
+          asked_at: '2026-11-26T00:00:00Z',
+          citations: [{ key: 2, location: 'P2', title: 'Pilot report', source_id: 's1' }],
+        },
+        { query: 'Older question', answer: 'Older answer', asked_at: '2026-11-25T00:00:00Z' },
+      ],
+    });
+    render(ChatPanel, { projectId: 'p1', editor, tick: 0, open: true, onclose: vi.fn(), notice: '' });
+
+    await screen.findByRole('option', { name: 'Earlier chat' });
+    await fireEvent.change(screen.getByLabelText('Saved conversations'), { target: { value: 'c9' } });
+
+    expect(await screen.findByText(/ended in July/)).toBeInTheDocument();
+    const lists = screen.getAllByLabelText('Sources cited');
+    expect(lists).toHaveLength(1);
+    expect(lists[0]).toHaveTextContent('[2] Pilot report, P2');
+    expect(screen.getByText('Older answer')).toBeInTheDocument();
   });
   it('S-011: shows the interruption message and clears progress when validation fails', async () => {
     const options = await sendQuestion();

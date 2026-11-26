@@ -60,6 +60,7 @@ def verdict_json(
     claims: list[dict[str, Any]] | None = None,
     missing_evidence: str | None = None,
     gaps: list[str] | None = None,
+    states_missing_evidence: bool = False,
 ) -> str:
     return json.dumps(
         {
@@ -67,6 +68,7 @@ def verdict_json(
             "claims": claims or [],
             "missing_evidence": missing_evidence,
             "gaps": gaps or [],
+            "states_missing_evidence": states_missing_evidence,
         }
     )
 
@@ -162,8 +164,9 @@ def test_s004_a_claim_with_an_incorrect_citation_is_unresolved(
     validator, _ = validator_with(
         verdict_json(claims=[claim("The pilot ended in July", citation, supported=supported)])
     )
+    draft = "The pilot ended in July" + (f" [{citation}]." if citation is not None else ".")
 
-    verdict = check(validator)
+    verdict = check(validator, draft=draft)
 
     assert list(verdict.verified) == []
     assert list(verdict.unresolved) == ["The pilot ended in July"]
@@ -250,7 +253,7 @@ def test_s005_a_verdict_requesting_more_evidence_is_not_an_accepted_answer() -> 
 
 MANUSCRIPT_CLAIM = "The manuscript says the pilot ended on July 12"
 REPORT_CLAIM = "The report establishes only July"
-S012_DRAFT = "The manuscript says July 12; the report establishes only July [1]."
+S012_DRAFT = "The manuscript says July 12; the report establishes only July [2]."
 
 
 def test_s012_a_manuscript_statement_is_supported_by_the_manuscript_text() -> None:
@@ -258,7 +261,7 @@ def test_s012_a_manuscript_statement_is_supported_by_the_manuscript_text() -> No
         verdict_json(
             claims=[
                 claim(MANUSCRIPT_CLAIM, None, source="manuscript"),
-                claim(REPORT_CLAIM, 1),
+                claim(REPORT_CLAIM, 2),
             ]
         )
     )
@@ -267,7 +270,7 @@ def test_s012_a_manuscript_statement_is_supported_by_the_manuscript_text() -> No
 
     assert [(f.claim, f.citation, f.source) for f in verdict.verified] == [
         (MANUSCRIPT_CLAIM, None, "manuscript"),
-        (REPORT_CLAIM, 1, "library"),
+        (REPORT_CLAIM, 2, "library"),
     ]
     assert list(verdict.unresolved) == []
     assert verdict.passed is True
@@ -278,7 +281,7 @@ def test_s012_a_manuscript_statement_fails_when_no_manuscript_was_supplied() -> 
         verdict_json(
             claims=[
                 claim(MANUSCRIPT_CLAIM, None, source="manuscript"),
-                claim(REPORT_CLAIM, 1),
+                claim(REPORT_CLAIM, 2),
             ]
         )
     )
@@ -339,7 +342,7 @@ def test_s012_attributing_the_manuscript_day_to_the_report_fails_validation() ->
 
 
 def test_s012_the_check_instruction_separates_manuscript_claims_from_source_findings() -> None:
-    validator, models = validator_with(verdict_json(claims=[claim(REPORT_CLAIM, 1)]))
+    validator, models = validator_with(verdict_json(claims=[claim(REPORT_CLAIM, 2)]))
 
     check(validator, manuscript_text=MANUSCRIPT, draft=S012_DRAFT)
 
@@ -487,3 +490,67 @@ def test_s009_revise_limits_the_provider_call_to_the_remaining_time() -> None:
     )
 
     assert provider_timeout_ms(models) == 4000
+
+
+def test_s004_a_claim_verified_for_a_passage_the_draft_does_not_cite_is_unresolved() -> None:
+    validator, _ = validator_with(verdict_json(claims=[claim("The pilot started in May", 2)]))
+
+    verdict = check(validator, draft="The pilot started in May [1].")
+
+    assert list(verdict.verified) == []
+    assert "The pilot started in May" in verdict.unresolved
+    assert verdict.passed is False
+
+
+def test_s004_a_citation_marker_that_no_claim_was_checked_for_is_unresolved() -> None:
+    validator, _ = validator_with(verdict_json(claims=[claim("The pilot started in May", 1)]))
+
+    verdict = check(validator, draft="The pilot started in May [1], as the report [2] notes.")
+
+    assert [f.claim for f in verdict.verified] == ["The pilot started in May"]
+    assert len(verdict.unresolved) == 1
+    assert "[2]" in verdict.unresolved[0]
+    assert verdict.passed is False
+
+
+def test_s004_a_marker_covered_by_an_unsupported_claim_is_not_reported_twice() -> None:
+    validator, _ = validator_with(
+        verdict_json(claims=[claim("The pilot ended on July 12", 2, supported=False)])
+    )
+
+    verdict = check(validator, draft="The pilot ended on July 12 [2].")
+
+    assert list(verdict.unresolved) == ["The pilot ended on July 12"]
+
+
+def test_s006_a_relevant_draft_that_only_states_missing_evidence_is_a_checked_result() -> None:
+    validator, _ = validator_with(
+        verdict_json(
+            claims=[],
+            gaps=["The passages do not give an end date"],
+            states_missing_evidence=True,
+        )
+    )
+
+    verdict = check(validator, draft="The sources do not say when the pilot ended.")
+
+    assert verdict.relevant is True
+    assert list(verdict.gaps) == ["The passages do not give an end date"]
+    assert list(verdict.unresolved) == []
+    assert verdict.passed is True
+
+
+def test_s006_a_statement_of_missing_evidence_needs_an_established_gap() -> None:
+    validator, _ = validator_with(verdict_json(claims=[], states_missing_evidence=True))
+
+    verdict = check(validator, draft="The sources do not say when the pilot ended.")
+
+    assert verdict.passed is False
+    assert len(verdict.unresolved) == 1
+
+
+def test_a_factual_draft_without_checked_claims_is_still_rejected() -> None:
+    validator, _ = validator_with(verdict_json(claims=[], states_missing_evidence=False))
+
+    with pytest.raises(ChatModelError):
+        check(validator)
