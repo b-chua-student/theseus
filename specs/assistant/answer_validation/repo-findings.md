@@ -1,12 +1,16 @@
 # Repo findings — assistant answer validation (#125)
 
-## Current implementation
+## Pre-migration baseline
 
-`ChatService.ask()` delegates scoped retrieval to `EvidenceRetriever`. Source-backed answers currently use `SourceAnswerCandidates`, the pattern-based `local_evidence.py` checker and an optional Gemini proposal. The Gemini adapter already exposes propose, check and revise operations. Current service tests reflect both the local path and older validator injection.
+Before the migration, `ChatService.ask()` delegated scoped retrieval to `EvidenceRetriever`. Source Library answers used `SourceAnswerCandidates`, the pattern-based `local_evidence.py` checker and an optional Gemini proposal. The adapter exposed proposal, check and revision operations.
 
-`ValidateAnswer` already owns a validation deadline and pending-claim state. The route, client and panel already carry an optional unverified draft separately from the answer and citations. Reuse the existing progress and deadline handling. Saved conversation history alone does not identify a fully reviewed success or all inputs that produced it.
+`ValidateAnswer` already tracked the validation deadline and pending claims. The route, client and chat panel could deliver an optional unverified draft separately from verified findings and citations. Saved conversation history alone did not establish whether an answer had passed review or which evidence had supported it.
 
-## Changes needed for the approved ticket
+## Implemented outcome
+
+For a fresh Source Library question with retrieved passages, Gemini drafts once. The service can retrieve additional evidence before a separate Gemini call reviews the draft against the question and passages. Each exchange allows at most two generation attempts. An eligible exact cache hit reuses the reviewed answer and citations, and a successful search with no passages returns an insufficient-evidence message. Both cases use zero generation attempts. Search embeddings are counted separately. The scripted passage checker and its candidate-selection code were removed.
+
+## Original migration plan
 
 - Reuse the source-scoped retrieval and citation identities. Distinguish empty retrieval from missing dependencies or a failed lookup before testing the cache.
 - Adapt the adapter and port in place for separate draft and review attempts. Count calls at the provider boundary in `test_generation_budget.py` using `generation_support.py`. Verify failures cannot dispatch an implicit third attempt.
