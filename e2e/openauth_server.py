@@ -87,16 +87,15 @@ def keys():
 
 
 configs = {
-    p: dict(
+    "google": dict(
         issuer=ISSUER,
         authorization_endpoint=ISSUER + "/authorize",
         token_endpoint=ISSUER + "/token",
         jwks_uri=ISSUER + "/keys",
         client_id="theseus",
         client_secret="fixture",
-        redirect_uri=f"{APP}/api/auth/oauth/{p}/callback",
+        redirect_uri=f"{APP}/api/auth/oauth/google/callback",
     )
-    for p in ("google", "microsoft")
 }
 app = create_app({"TESTING": True, "OAUTH_PROVIDERS": configs, "SESSION_COOKIE_SECURE": True})
 dist = ROOT / "frontend" / "dist"
