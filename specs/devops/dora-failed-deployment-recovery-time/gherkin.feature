@@ -168,8 +168,8 @@ Feature: Track failed deployment recovery time
   Scenario: Use the latest confirmation that resolves conflicting evidence
     Given a qualifying incident began at 10:00 UTC
     And its evidence disagrees on the time normal service returned that day
-    And an earlier maintainer confirmation recorded restoration at 10:30 UTC
-    And a later valid maintainer confirmation explicitly resolves the conflict at 10:45 UTC
+    And an earlier valid maintainer confirmation explicitly resolves the restoration conflict with a time of 10:30 UTC
+    And a later valid maintainer confirmation explicitly resolves the same conflict with a time of 10:45 UTC
     When a maintainer views the failed deployment recovery time report
     Then the report shows a recovery duration of 45 minutes for the incident
     And the report shows a median recovery duration of 45 minutes across 1 completed recovery
