@@ -343,7 +343,7 @@ def find_corrections(
                 targets = set()
                 for pr in newly_shipped:
                     for link in re.findall(
-                        r"^Incident:[ \t]*(.*)$", hotfix_bodies[pr], re.MULTILINE | re.IGNORECASE
+                        r"^Incident:(.*)", hotfix_bodies[pr], re.MULTILINE | re.IGNORECASE
                     ):
                         match = re.fullmatch(
                             rf"(?:#|https://github\.com/{re.escape(repo)}/issues/)([1-9][0-9]*)",
