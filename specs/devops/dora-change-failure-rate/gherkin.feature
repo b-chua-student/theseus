@@ -68,6 +68,21 @@ Feature: Track DORA change failure rate
     And the report shows 4 total production deployments
     And the change failure rate is 0%
 
+  @S-042 @criterion-13 @edge
+  Scenario Outline: Exclude attribution with unverified corrective evidence
+    Given one eligible production deployment has no other confirmed interventions
+    And a maintainer confirms an intervention within 24 hours on incident #123
+    And <evidence gap>
+    When a maintainer reviews the change failure rate report
+    Then the report shows 0 deployments requiring immediate intervention and 1 total production deployment, both confirmed so far
+    And the report identifies incident #123 and the missing corrective evidence
+    And the rate is unavailable
+
+    Examples:
+      | evidence gap                                                           |
+      | production history cannot verify that the referenced rollback went live |
+      | the referenced hotfix went live but does not match the incident entry    |
+
   @S-033 @criterion-5 @edge
   Scenario: Attribute an intervention at the 24-hour boundary to the original period
     Given a production deployment went live near the end of a reporting period

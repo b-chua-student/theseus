@@ -36,6 +36,10 @@ Theseus deploys to production on Render, where maintainers can review production
 ## Non-Functional Requirements
 No additional non-functional requirements specified.
 
+## Production Readiness
+
+- [ ] If a maintainer-confirmed incident references a corrective deployment that cannot be verified as live in production, or its action does not match the recorded incident entry, exclude that attribution from the confirmed count. If it could change the count, identify the incident and missing evidence and mark the rate unavailable.
+
 ## Out of Scope
 - Changes to deployment operations and reporting for other metrics.
 

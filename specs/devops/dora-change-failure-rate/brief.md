@@ -34,6 +34,7 @@ Show Theseus maintainers how often production deployments require immediate inte
 - Pending attribution makes the rate unavailable when confirming the incident could add an original deployment to the intervention count under the 24-hour rule.
 - Record each qualifying corrective deployment on one issue, even if it is processed more than once.
 - Automated issue entries link to the corrective action and mark attribution pending until a maintainer confirms the original deployment.
+- Confirmed attribution must match a verified live production correction and its recorded incident entry.
 - Apply `production-hotfix` to the original hotfix pull request into `staging` or `main`. Use that pull request to link an existing incident issue, when available.
 
 ## Known Touchpoints
@@ -63,8 +64,8 @@ Show Theseus maintainers how often production deployments require immediate inte
 9. A qualifying corrective deployment creates a GitHub incident issue or updates its explicitly linked incident issue with the corrective action link and pending attribution.
 10. Reprocessing a qualifying corrective deployment leaves one incident issue entry for that deployment.
 11. A labeled hotfix merged into staging is recorded when it goes live in production after an unlabeled promotion into main. A labeled hotfix merged directly into main is also recorded when it goes live in production.
-
 12. When a pending incident could add a deployment to the intervention count, the report identifies the incident and marks the rate unavailable. When pending attribution cannot change the count and the remaining evidence is complete, the report shows the rate if there is at least one eligible deployment.
+13. The report excludes attribution that lacks a verified production correction or matches no recorded corrective action on the incident. When that attribution could change the count, the report identifies the incident and missing evidence, labels the counts as confirmed so far, and marks the rate unavailable.
 
 ## Reference Links
 
