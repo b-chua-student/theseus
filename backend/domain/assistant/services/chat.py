@@ -1,5 +1,6 @@
 import builtins
 import logging
+import re
 from collections.abc import Callable
 from html import escape
 from typing import Literal
@@ -15,6 +16,7 @@ from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.errors import (
     ChatModelError,
     ConversationNotFoundError,
+    PromptInjectionError,
 )
 from domain.assistant.models.value_objects import (
     Answer,
@@ -28,6 +30,21 @@ from domain.assistant.models.value_objects import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+_HISTORY_LIMIT = 10
+
+# Match requests directed at the assistant, including polite requests, at sentence starts.
+_DIRECT_INSTRUCTION_REQUEST = re.compile(
+    r"(?:^|[.!?]\s+|\n)\s*(?:(?:can|could|would)\s+you\s+)?(?:please[,\s]+)?"
+    r"(?:"
+    r"(?:ignore|disregard|override)\s+(?:all\s+)?(?:your\s+|the\s+)?"
+    r"(?:previous|prior|earlier|system|internal|original)\s+(?:instructions|rules)"
+    r"|(?:reveal|show|print|repeat|disclose)\s+(?:me\s+)?(?:your|the)\s+"
+    r"(?:internal\s+|hidden\s+)?(?:system\s+(?:prompt|instructions)|internal instructions)"
+    r")\b",
+    re.IGNORECASE,
+)
 
 
 class ChatService:
@@ -98,7 +115,11 @@ class ChatService:
             self.get(project_id, conversation_id)
 
         query = Query(text)
-        history = conversation.history
+        if _DIRECT_INSTRUCTION_REQUEST.search(query.text):
+            raise PromptInjectionError(
+                "Requests to override or disclose internal instructions are blocked."
+            )
+        history = conversation.history[-_HISTORY_LIMIT:]
         exchange = conversation.ask(query)
 
         try:
