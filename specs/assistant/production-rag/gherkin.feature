@@ -3,9 +3,10 @@ Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
 
   @S-019 @criterion-1
   Scenario: Long document text is split into ordered overlapping chunks with hashes
-    Given a document contains multiple paragraphs of prose exceeding one chunk size
+    Given a document contains multiple paragraphs of prose exceeding the configured token budget
     When the production document chunker splits the document text
     Then multiple ordered chunks are produced with sequential positions and content hashes
+    And each chunk contains at most the configured number of tokens
     And adjacent chunks preserve contextual overlap across chunk boundaries
 
   @S-020 @criterion-2
@@ -23,16 +24,25 @@ Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
 
   @S-022 @criterion-4
   Scenario: Removing an indexed source deletes its vectors from the vector store
-    Given a project source has been indexed and stored in the vector store
-    When the source is removed from the source library
-    Then the indexed document record is marked stale
+    Given two sources in the same project have been indexed
+    When one source is removed from the source library
+    Then the removed source record is marked stale
     And all vectors for that source are deleted from the vector store
+    And the other source remains retrievable
 
   @S-023 @criterion-5
   Scenario: Automated RAG pipeline checks run offline without live credentials
     Given the automated test suite runs without network access or live external credentials
     When the production RAG pipeline tests are executed
     Then chunking, local embeddings, wiring, and vector cleanup are verified offline
+
+  @S-027 @criterion-2
+  Scenario: A paraphrased question retrieves the passage with the matching meaning
+    Given the local model is available and network access is disabled
+    And passages about bicycle repair and bread baking have been indexed locally
+    When a writer searches for "How can I fix a flat on my bike?"
+    Then the bicycle repair passage ranks ahead of the bread baking passage
+    And the query uses the same local embedding model as the indexed passages
 
   @S-024 @criterion-1 @edge
   Scenario: Blank or whitespace-only text produces no chunks
@@ -45,6 +55,7 @@ Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
     Given the application starts in automated testing mode
     When the assistant module dependencies are assembled
     Then the in-memory chunker, embedding generator, and vector store defaults remain active
+    And no data is written to production storage
 
   @S-026 @criterion-4 @edge
   Scenario: Removing a source that was never indexed does not fail vector cleanup

@@ -45,21 +45,22 @@ Replace the assistant's placeholder in-memory RAG adapters with a real productio
 ## Assumptions
 
 - Production runs on a host with sufficient local memory for a lightweight local semantic embedding model.
-- Persistent vector storage path can be configured via an environment setting with a sensible local default when MongoDB is enabled.
+
 
 ## Open Questions
 
-- Should chunk size and overlap be configurable per project? Deferred: use sensible fixed defaults with optional constructor overrides for the current deadline.
+- Should chunk size and overlap be configurable per project? Deferred: fixed defaults suffice for this release.
 
 ## Success Criteria
 
-1. Document chunking splits non-empty text into ordered overlapping chunks with content hashes and returns an empty list for blank text.
-2. Local semantic embedding generation returns one consistent fixed-dimension vector per chunk in order without calling external AI APIs.
+1. Document chunking splits non-empty text into ordered overlapping chunks within the configured token budget with content hashes and returns an empty list for blank text.
+2. Local semantic embedding generation returns one consistent fixed-dimension vector per chunk in order without calling external AI APIs. A paraphrased query ranks the matching passage above an unrelated passage.
 3. Production application wiring uses the real chunker, local embedding generator, and persistent vector store, while test wiring preserves in-memory defaults.
-4. Removing a source deletes its vectors from the vector store and handles unindexed sources gracefully.
+4. Removing a source deletes its vectors from the vector store while leaving other sources retrievable. Removing an unindexed source succeeds.
 5. Automated offline tests verify chunking, local embedding behavior, production vs. test wiring, and source-removal vector cleanup without external credentials or network calls.
 
 ## Reference Links
 
+- Source ticket: [assistant-rag.md](../../../tickets/assistant-rag.md)
 - Prior specs: specs/assistant/prompt-guardrails/brief.md, specs/assistant/chat-safeguards/brief.md
 - Repository SDD workflow: AGENTS.md
