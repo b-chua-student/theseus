@@ -1,6 +1,43 @@
 <script>
-  let { inEditor = false, documentTitle = '', manuscriptCount = 0, onworkspace, onsignout } = $props();
+  import { providerSettings } from '../../lib/api/auth.js';
+  import { apiFetch, jsonBody } from '../../lib/api/http.js';
+  let { user, inEditor = false, documentTitle = '', manuscriptCount = 0, onworkspace, onsignout } = $props();
   let profileOpen = $state(false);
+  let googleEnabled = $state(false);
+  let googleConnected = $state(false);
+  let name = $state('');
+  let feedback = $state('');
+  let csrf = '';
+  async function openAccount() {
+    profileOpen = !profileOpen;
+    if (!profileOpen) return;
+    name = user.display_name;
+    googleConnected = false;
+    googleEnabled = false;
+    feedback = '';
+    try {
+      const settings = await providerSettings();
+      googleEnabled = settings.providers.includes('google');
+      googleConnected = settings.google_connected;
+      csrf = settings.csrf;
+    } catch (e) { feedback = e.message; }
+  }
+  async function save() {
+    try {
+      const options = jsonBody('PATCH', { display_name: name });
+      options.headers['X-CSRF-Token'] = csrf;
+      const response = await apiFetch('/api/auth/me', options, 'Could not save your name.');
+      user.display_name = (await response.json()).display_name;
+      feedback = 'Name saved.';
+    } catch (e) { feedback = e.message; }
+  }
+  async function linkGoogle() {
+    try {
+      const response = await apiFetch('/api/auth/oauth/google/link',
+        { method: 'POST', headers: { 'X-CSRF-Token': csrf } }, 'Could not start linking.');
+      location.assign((await response.json()).location);
+    } catch (e) { feedback = e.message; }
+  }
   function closeProfile(event) { if (!event.target.closest?.('.profile-control')) profileOpen = false; }
 </script>
 
@@ -16,8 +53,16 @@
     </nav>
   </div>
   <div class="profile-control">
-    <button type="button" class="profile-button" onclick={() => profileOpen = !profileOpen} aria-expanded={profileOpen} aria-controls="account-menu"><span class="avatar" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 22v-3a7 7 0 0 1 14 0v3"/></svg></span><span class="account-label">Account</span><span aria-hidden="true">⌄</span></button>
-    {#if profileOpen}<div id="account-menu" class="account-menu"><p>Account services are not connected.</p><button type="button" onclick={() => { profileOpen = false; onworkspace?.(); }}>Workspace</button>
+    <button type="button" class="profile-button" onclick={openAccount} aria-expanded={profileOpen} aria-controls="account-menu"><span class="avatar" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 22v-3a7 7 0 0 1 14 0v3"/></svg></span><span class="account-label">Account</span><span aria-hidden="true">⌄</span></button>
+    {#if profileOpen}<div id="account-menu" class="account-menu"><form onsubmit={event => { event.preventDefault(); save(); }}>
+      <label>Display name<input bind:value={name} required maxlength="50" /></label><button>Save</button>
+      </form>
+      {#if googleConnected}
+        <p>Google connected</p>
+      {:else if googleEnabled}
+        <button onclick={linkGoogle}>Link Google</button>
+      {/if}
+      {#if feedback}<p role="status">{feedback}</p>{/if}<button type="button" onclick={() => { profileOpen = false; onworkspace?.(); }}>Workspace</button>
       <!-- TODO(API): Connect authenticated user details and project navigation when supported. -->
       <button type="button" disabled>All Projects</button><button type="button" disabled>New Project</button><button type="button" onclick={() => { profileOpen = false; onsignout?.(); }}>Sign Out</button>
     </div>{/if}

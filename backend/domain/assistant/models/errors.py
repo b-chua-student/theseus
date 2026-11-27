@@ -77,6 +77,12 @@ class EmptyQueryError(AssistantError):
     code = "assistant.empty_query"
 
 
+class PromptInjectionError(AssistantError):
+    """A question directly requests an instruction override or disclosure."""
+
+    code = "assistant.prompt_injection"
+
+
 class EmptyAnswerError(AssistantError):
     """Raised when an answer is blank."""
 

@@ -38,6 +38,11 @@ from domain.src_lib.api.errors import SourceNotFoundError
 logger = logging.getLogger(__name__)
 
 
+def log_invalid_credentials(error: Exception) -> None:
+    """Record an authentication rejection without request or provider data."""
+    logger.warning("Invalid credentials attempt: %s", error)
+
+
 def register_error_handlers(app: Flask) -> None:
     """Register handlers that map domain and service errors to JSON HTTP responses."""
 
@@ -64,7 +69,7 @@ def register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(InvalidCredentialsError)
     def handle_invalid_credentials(e: Exception) -> tuple[Response, int]:
-        logger.warning("Invalid credentials attempt: %s", e)
+        log_invalid_credentials(e)
         return jsonify(error="Invalid credentials"), 401
 
     @app.errorhandler(EmailAlreadyRegisteredError)

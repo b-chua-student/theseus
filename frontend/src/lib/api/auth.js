@@ -1,11 +1,15 @@
 import { apiFetch } from './http.js';
 
-const key = 'theseus.session';
-
-export function getSession() {
-  try { return JSON.parse(sessionStorage.getItem(key) || 'null'); } catch { return null; }
+export async function getSession() {
+  const response = await fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' });
+  if (response.status === 401) return null;
+  if (!response.ok) throw new Error('Could not check your session. Please try again.');
+  return response.json();
 }
 
+export async function providerSettings() {
+  return (await apiFetch('/api/auth/oauth/providers', { cache: 'no-store' }, 'Could not load sign-in options.')).json();
+}
 export async function signIn({ email, password }) {
   if (!email.trim() || !password) throw new Error('Enter your email and password.');
   const res = await apiFetch('/api/auth/login', {
@@ -14,7 +18,6 @@ export async function signIn({ email, password }) {
     body: JSON.stringify({ email: email.trim(), password }),
   }, 'Sign in failed. Please try again.');
   const user = await res.json();
-  sessionStorage.setItem(key, JSON.stringify(user));
   return user;
 }
 
@@ -26,8 +29,14 @@ export async function signUp({ name, email, password }) {
     body: JSON.stringify({ display_name: name.trim(), email: email.trim(), password }),
   }, 'Could not create your account. Please try again.');
   const user = await res.json();
-  sessionStorage.setItem(key, JSON.stringify(user));
   return user;
 }
 
-export async function signOut() { sessionStorage.removeItem(key); }
+export async function signOut() {
+  try {
+    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    if (response.status === 204) return;
+  } catch { /* The server may already have ended the session. */ }
+  if (await getSession() === null) return;
+  throw new Error('Could not confirm sign-out. Please try again.');
+}

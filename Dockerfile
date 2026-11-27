@@ -13,6 +13,9 @@ WORKDIR /app
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY backend/bootstrap/rag.py bootstrap/rag.py
+RUN python -m bootstrap.rag
+
 COPY backend/ .
 COPY --from=frontend /frontend/dist ./static
 
