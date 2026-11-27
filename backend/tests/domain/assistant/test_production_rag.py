@@ -135,11 +135,13 @@ def add(container: Container, project: UUID, text: str) -> DocumentRefId:
     return DocumentRefId(source.value)
 
 
-def ask(container: Container, project: UUID, model: Mock) -> list[DocumentRefId]:
+def ask(
+    container: Container, project: UUID, model: Mock, question: str = QUESTION
+) -> list[DocumentRefId]:
     chat = container.assistant.chat
     assert chat is not None
     conversation = chat.start(str(project))
-    chat.ask(str(conversation.value), QUESTION)
+    chat.ask(str(conversation.value), question)
     return [hit.doc_ref_id for hit in model.reply.call_args.args[2]]
 
 
@@ -251,8 +253,10 @@ def test_s027_semantic_ranking(production, chat_model, monkeypatch) -> None:
     bread = add(container, project, BREAD)
     bike = add(container, project, BIKE)
     assert ask(container, project, chat_model) == [bike, bread]
+    bread_question = "How do I bake a loaf of bread?"
+    assert ask(container, project, chat_model, bread_question) == [bread, bike]
     texts = [chunk.text for call in generate.call_args_list for chunk in call.args[0]]
-    assert texts == [BREAD, BIKE, QUESTION]
+    assert texts == [BREAD, BIKE, QUESTION, bread_question]
 
 
 def test_s028_removal_during_indexing(monkeypatch) -> None:
