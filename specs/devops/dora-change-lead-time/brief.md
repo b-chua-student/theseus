@@ -34,4 +34,4 @@ GitHub PR metadata supplies feature PR identities and merge timestamps. Git hist
 
 ## Success Criteria
 
-See [lead-time.feature](lead-time.feature).
+See [gherkin.feature](gherkin.feature).
