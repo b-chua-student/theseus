@@ -10,11 +10,11 @@ from unittest.mock import MagicMock, Mock
 from uuid import UUID, uuid4
 
 import pytest
-from huggingface_hub import snapshot_download
 from tokenizers import Tokenizer
 
 from bootstrap.app import create_app
-from bootstrap.container import Container, build_container
+from bootstrap.container import Container, build_container, build_mongo_container
+from bootstrap.rag import minilm_snapshot
 from domain.assistant.infrastructure.adapters.in_memory_conversation_repository import (
     InMemoryConversationRepository,
 )
@@ -43,7 +43,6 @@ from domain.src_lib.infrastructure.adapters.in_memory_source_repository import (
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
 
 pytestmark = pytest.mark.integration
-REVISION = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
 BIKE = "Bicycle maintenance: patch the punctured inner tube and inflate the tire."
 BREAD = "Baking sourdough: knead the dough and let it rise before heating the oven."
 QUESTION = "How can I fix a flat on my bike?"
@@ -52,15 +51,7 @@ QUESTION = "How can I fix a flat on my bike?"
 @pytest.fixture(scope="session")
 def model_snapshot() -> Path:
     # Only provisioning may access the network. The same pinned files serve local and CI runs.
-    files = ["tokenizer.json", "onnx/model.onnx"]
-    snapshot = Path(
-        snapshot_download(
-            "sentence-transformers/all-MiniLM-L6-v2", revision=REVISION, allow_patterns=files
-        )
-    )
-    for name in files:
-        assert (snapshot / name).is_file(), f"Missing MiniLM artifact: {name}"
-    return snapshot
+    return minilm_snapshot(local_files_only=False)
 
 
 @pytest.fixture(autouse=True)
@@ -194,7 +185,12 @@ def test_s020_embeddings_preserve_order(rag_container) -> None:
         assert embedding.vector == pytest.approx(generator.generate([chunk])[0].vector, abs=1e-5)
 
 
-def test_s021_search_after_restart(production, chat_model, tmp_path) -> None:
+@pytest.mark.parametrize("model_source", ["configured_path", "provisioned_cache"])
+def test_s021_search_after_restart(
+    production, chat_model, tmp_path, model_source, monkeypatch
+) -> None:
+    if model_source == "provisioned_cache":
+        monkeypatch.delenv("RAG_MODEL_PATH")
     project = uuid4()
     source = add(production(), project, BIKE)
     restarted = production()
@@ -234,7 +230,9 @@ def test_s024_blank_text(rag_container, text) -> None:
 
 
 def test_s025_test_startup_stays_in_memory(tmp_path) -> None:
-    container = create_app({"TESTING": True}).extensions["container"]
+    container = create_app({"TESTING": True, "MONGODB_URI": "mongodb://unused.invalid"}).extensions[
+        "container"
+    ]
     assistant = container.assistant
     assert isinstance(assistant.document_chunker, InMemoryDocumentChunker)
     assert isinstance(assistant.embedding_generator, InMemoryEmbeddingGenerator)
@@ -318,3 +316,18 @@ def test_s022_cleanup_can_retry_after_vector_store_failure(monkeypatch) -> None:
     assert store.store[ref]
     container.source.remove.execute(str(ref.value))
     assert not store.store.get(ref)
+
+
+@pytest.mark.usefixtures("production")
+def test_production_preserves_explicit_rag_adapters(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("RAG_MODEL_PATH", str(tmp_path / "absent-model"))
+    chunker = InMemoryDocumentChunker()
+    embeddings = InMemoryEmbeddingGenerator()
+    store = InMemoryVectorStore()
+    assistant = build_mongo_container(
+        document_chunker=chunker, embedding_generator=embeddings, vector_store=store
+    ).assistant
+    assert assistant.document_chunker is chunker
+    assert assistant.embedding_generator is embeddings
+    assert assistant.vector_store is store
+    assert not (tmp_path / "vectors").exists()
