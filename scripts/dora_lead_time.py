@@ -280,18 +280,21 @@ def main() -> int:
     """Publish a complete summary or emit a fixed error diagnostic."""
     end = datetime.now(UTC)
     try:
+        label = os.environ.get("DORA_FEATURE_LABEL", "").strip()
+        if not label:
+            raise dora_evidence.EvidenceError("DORA_FEATURE_LABEL must specify a feature PR label.")
         repo = os.environ["GITHUB_REPOSITORY"]
         github_token = os.environ["GH_TOKEN"]
         service = os.environ["DORA_RENDER_SERVICE_ID"]
         render_token = os.environ["RENDER_API_KEY"]
         first_id = os.environ["DORA_RENDER_FIRST_DEPLOY_ID"]
-        label = os.environ["DORA_FEATURE_LABEL"]
         summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
         if not (
             re.fullmatch(r"[\w.-]+/[\w.-]+", repo)
             and re.fullmatch(r"srv-[A-Za-z0-9]+", service)
             and re.fullmatch(r"(?:dep-[A-Za-z0-9]+|empty)", first_id)
-            and all(value.strip() for value in (github_token, render_token, label))
+            and github_token.strip()
+            and render_token.strip()
         ):
             raise dora_evidence.EvidenceError(
                 "Required reporting configuration is missing or invalid."
