@@ -1,7 +1,7 @@
 <script>
   import { listSources, addSource, removeSource, updateSourceMetadata } from '../../lib/api/sources.js';
 
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { getTextSource } from '../../lib/api/textSources.js';
   import TextSourceList from '../text-sources/TextSourceList.svelte';
   import TextSourceForm from '../text-sources/TextSourceForm.svelte';
@@ -12,6 +12,16 @@
   // ── data ──────────────────────────────────────────────────────────────────────
   /** @type {import('../../lib/api/sources.js').Source[]} */
   let sources = $state([]);
+  const tabs = ['Text Sources', 'Source Library'];
+  let activeTab = $state(0);
+
+  function navigateTabs(event) {
+    const keys = { ArrowLeft: 1 - activeTab, ArrowRight: 1 - activeTab, Home: 0, End: 1 };
+    if (!Object.hasOwn(keys, event.key)) return;
+    event.preventDefault();
+    activeTab = keys[event.key];
+    event.currentTarget.parentElement.children[activeTab].focus();
+  }
   let loading = $state(false);
   let error = $state('');
   let loadFailed = $state(false);
@@ -42,10 +52,13 @@
   let textRefresh = $state(0);
   let textError = $state('');
 
-  function openTextCreate() {
+  let createTextDialog = $state(null);
+  async function openTextCreate() {
     textEditing = null;
     textError = '';
-    textView = 'form';
+    textView = 'create';
+    await tick();
+    if (textView === 'create') createTextDialog?.showModal();
   }
 
   async function openTextEdit(summary) {
@@ -60,6 +73,7 @@
   }
 
   function closeTextForm() {
+    if (createTextDialog?.open) createTextDialog.close();
     textView = 'list';
     textEditing = null;
   }
@@ -69,6 +83,7 @@
   $effect.pre(() => {
     if (projectId !== lastProjectId) {
       lastProjectId = projectId;
+      activeTab = 0;
       textView = 'list';
       textEditing = null;
       textError = '';
@@ -177,7 +192,17 @@
   }
 </script>
 
-<aside class="source-card surface" aria-labelledby="sources-heading">
+<aside class="source-card surface" aria-label="Research sources">
+  {#if projectId}
+    <div class="source-tabs" role="tablist" aria-label="Source collections">
+      {#each tabs as tab, i (tab)}
+        <button type="button" role="tab" id={'source-tab-' + i} aria-controls={'source-panel-' + i}
+          aria-selected={activeTab === i} tabindex={activeTab === i ? 0 : -1}
+          onclick={() => activeTab = i} onkeydown={navigateTabs}>{tab}</button>
+      {/each}
+    </div>
+  {/if}
+  <div id="source-panel-1" role={projectId ? 'tabpanel' : undefined} aria-labelledby={projectId ? 'source-tab-1' : undefined} hidden={Boolean(projectId) && activeTab !== 1}>
   <div class="card-header">
     <h2 id="sources-heading">{@render icon('books')} Source Library</h2>
     <button type="button" class="add-button" onclick={openAddDialog}>+ Add</button>
@@ -232,6 +257,8 @@
     </ul>
   {/if}
 
+  </div>
+  <div id="source-panel-0" role={projectId ? 'tabpanel' : undefined} aria-labelledby={projectId ? 'source-tab-0' : undefined} hidden={!projectId || activeTab !== 0}>
   {#if textError}
     <div class="error-banner" role="alert">{textError}</div>
   {/if}
@@ -244,7 +271,16 @@
     {:else}
       <TextSourceList {projectId} oncreate={openTextCreate} onedit={openTextEdit} refreshKey={textRefresh} />
     {/if}
+    {#if projectId}
+      <dialog class="text-dialog" bind:this={createTextDialog} aria-labelledby="new-text-title" onclose={() => { if (textView === 'create') closeTextForm(); }}>
+        {#if textView === 'create'}
+          <header><h2 id="new-text-title">Add Text Source</h2><button type="button" aria-label="Close" onclick={closeTextForm}>×</button></header>
+          <TextSourceForm {projectId} modal onsaved={handleTextSaved} oncancel={closeTextForm} />
+        {/if}
+      </dialog>
+    {/if}
   {/key}
+  </div>
 </aside>
 
 <!-- Add dialog -->
@@ -319,12 +355,22 @@
 </dialog>
 
 <style>
+  .text-dialog { width:min(650px,calc(100% - 32px)); max-height:90dvh; overflow:auto; box-sizing:border-box; padding:clamp(18px,3vw,28px); border:1px solid #c9d7cc; border-radius:16px; color:#20392b; background:#fafcf9; box-shadow:0 20px 64px #142c2240; }
+  .text-dialog::backdrop { background:#182a2166; }
+  .text-dialog header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .text-dialog h2 { margin:0; font:700 22px var(--sans); }
+  .text-dialog header button { width:36px; height:36px; border:0; background:transparent; color:inherit; font-size:24px; cursor:pointer; }
+
   .source-card, .source-card * { box-sizing: border-box; }
   button { font: inherit; color: inherit; cursor: pointer; }
   button:disabled { cursor: default; opacity: 1; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
   .surface { background: var(--surface); border: 1.5px solid transparent; border-radius: 14px; box-shadow: var(--shadow); }
+  .source-tabs { display:flex; margin:0 0 16px; border-bottom:1px solid #dce6de; }
+  .source-tabs button { flex:1; padding:9px 4px; border:0; border-bottom:2px solid transparent; background:transparent; color:#526359; font:600 12px var(--sans); }
+  .source-tabs button[aria-selected=true] { color:#234836; border-bottom-color:#365d46; }
+  .source-tabs button:hover { background:#eef5ef; }
   .source-card { padding: 20px; }
 
   .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
