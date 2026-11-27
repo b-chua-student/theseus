@@ -8,7 +8,7 @@ from domain.assistant.infrastructure.adapters.gemini_chat_model import GeminiCha
 from domain.assistant.models.value_objects import Query
 
 
-def test_offline_provider_captures_request(offline_provider: Mock) -> None:
+def test_s014_offline_provider_captures_request(offline_provider: Mock) -> None:
     adapter = GeminiChatModel(model="offline-model")
     assert offline_provider.call_args.kwargs["api_key"] == "offline-test-key"
 
