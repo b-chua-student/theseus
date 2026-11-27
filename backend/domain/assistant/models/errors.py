@@ -113,6 +113,12 @@ class ChatModelError(AssistantError):
     code = "assistant.model_error"
 
 
+class ChatRequestTooLargeError(ChatModelError):
+    """The assembled request does not fit in the model's context window."""
+
+    code = "assistant.request_too_large"
+
+
 class ChatModelRateLimitedError(ChatModelError):
     """The AI provider rejected the request because of rate limiting."""
 
@@ -123,3 +129,9 @@ class ChatUnavailableError(AssistantError):
     """No chat provider is configured, so the assistant cannot answer."""
 
     code = "assistant.unavailable"
+
+
+class EmbeddingGenerationError(AssistantError):
+    """The embedding provider failed or returned the wrong number of vectors."""
+
+    code = "assistant.embedding_error"

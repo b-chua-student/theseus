@@ -1,5 +1,6 @@
 """Unit tests for the assistant ChatService."""
 
+from collections.abc import Sequence
 from typing import Literal
 from uuid import uuid4
 
@@ -16,6 +17,7 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
 )
 from domain.assistant.infrastructure.adapters.in_memory_vector_store import InMemoryVectorStore
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.models.aggregates import IndexedDocument
 from domain.assistant.models.entities import Exchange
 from domain.assistant.models.errors import (
@@ -33,10 +35,12 @@ from domain.assistant.models.value_objects import (
     ChunkId,
     ConversationId,
     DocumentRefId,
+    ExchangeContext,
     IndexedDocumentTitle,
     ProjectId,
     Query,
     RetrievedChunk,
+    SourceOutcome,
 )
 from domain.assistant.services.chat import ChatService
 
@@ -48,14 +52,27 @@ class FakeChatModel(ChatModel):
         self.answer = answer
         self.error = error
         self.calls: list[tuple[list[Exchange], Query, list[RetrievedChunk] | None]] = []
+        self.drafts: list[str | None] = []
+        self.quotes: list[str | None] = []
+        self.outcomes: list[list[SourceOutcome]] = []
+        self.webs: list[bool] = []
 
     def reply(
         self,
         history: list[Exchange],
         query: Query,
         context: list[RetrievedChunk] | None = None,
+        manuscript_text: str | None = None,
+        quote: str | None = None,
+        outcomes: Sequence[SourceOutcome] = (),
+        *,
+        web: bool = True,
     ) -> Answer:
         self.calls.append((history, query, context))
+        self.drafts.append(manuscript_text)
+        self.quotes.append(quote)
+        self.outcomes.append(list(outcomes))
+        self.webs.append(web)
         if self.error is not None:
             raise self.error
         return Answer(self.answer)
@@ -71,16 +88,31 @@ class Library:
         self.embedder = InMemoryEmbeddingGenerator()
         self.active: list[DocumentRefId] = []
 
-    def add_source(self, text: str, *, indexed: bool = True, active: bool = True) -> DocumentRefId:
+    def add_source(
+        self,
+        text: str,
+        *,
+        indexed: bool = True,
+        active: bool = True,
+        title: str = "Source",
+        more_passages: int = 0,
+    ) -> DocumentRefId:
         ref = DocumentRefId.new()
-        document = IndexedDocument.create(IndexedDocumentTitle("Source"), ref, self.project_id)
+        document = IndexedDocument.create(IndexedDocumentTitle(title), ref, self.project_id)
         if indexed:
-            chunk = Chunk(
-                id=ChunkId.new(), text=text, position="1", location="p1", content_hash=text
-            )
+            chunks = [
+                Chunk(
+                    id=ChunkId.new(),
+                    text=text if index == 0 else f"{text} {index}",
+                    position=str(index + 1),
+                    location=f"p{index + 1}",
+                    content_hash=f"{text}{index}",
+                )
+                for index in range(more_passages + 1)
+            ]
             document.start_indexing()
-            document.complete_indexing([chunk])
-            self.vectors.upsert(ref, self.embedder.generate([chunk]), [chunk])
+            document.complete_indexing(chunks)
+            self.vectors.upsert(ref, self.embedder.generate(chunks), chunks)
         self.documents.add(document)
         if active:
             self.active.append(ref)
@@ -256,7 +288,7 @@ def test_ask_records_scope_and_selected_sources_on_the_conversation(
     assert conversation.source_ids == [source_id]
 
 
-def test_ask_with_manuscript_scope_wraps_the_manuscript_in_the_model_query(
+def test_ask_with_manuscript_scope_passes_the_manuscript_apart_from_the_question(
     service: ChatService, model: FakeChatModel, project_id: str
 ) -> None:
     conversation_id = str(service.start(project_id).value)
@@ -269,20 +301,19 @@ def test_ask_with_manuscript_scope_wraps_the_manuscript_in_the_model_query(
     )
 
     [(_, query, context)] = model.calls
-    assert "Current manuscript:\nChapter one text." in query.text
-    assert query.text.endswith("Question: Summarise it")
-    assert "not instructions" in query.text
+    assert query == Query("Summarise it")
+    assert model.drafts == ["  Chapter one text.  "]
     assert context == []
 
 
-def test_ask_with_empty_manuscript_marks_it_as_empty(
+def test_ask_with_an_empty_manuscript_still_passes_the_empty_draft(
     service: ChatService, model: FakeChatModel, project_id: str
 ) -> None:
     conversation_id = str(service.start(project_id).value)
 
     service.ask(conversation_id, "Summarise it", context_scope="manuscript")
 
-    assert "(empty manuscript)" in model.calls[0][1].text
+    assert model.drafts == [""]
 
 
 def test_ask_with_none_scope_sends_the_plain_question_and_no_context(
@@ -352,14 +383,13 @@ def test_ask_retrieval_skips_sources_that_are_not_active_or_not_indexed(
     assert model.calls[0][2] == []
 
 
-def test_ask_retrieval_respects_top_k(
+def test_ask_retrieval_takes_at_most_top_k_passages_from_one_source(
     repository: InMemoryConversationRepository,
     model: FakeChatModel,
     library: Library,
     project_id: str,
 ) -> None:
-    for index in range(4):
-        library.add_source(f"Passage {index}")
+    library.add_source("Passage", more_passages=3)
     service = ChatService(
         repository,
         model,
@@ -467,6 +497,499 @@ def test_ask_rejects_a_question_while_a_previous_one_is_pending(
 
     with pytest.raises(PendingExchangeError):
         service.ask(str(conversation_id.value), "Next?", context_scope="none")
+
+
+def test_ask_with_a_combined_context_sends_the_draft_and_retrieved_passages(
+    retrieving_service: ChatService,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    selected = library.add_source("Methods reports 18 participants.")
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Which studies support my figure?",
+        context_scope="source_library",
+        source_ids=[str(selected.value)],
+        manuscript_text="The trial enrolled 18 participants.",
+    )
+
+    [(_, query, context)] = model.calls
+    assert query == Query("Which studies support my figure?")
+    assert model.drafts == ["The trial enrolled 18 participants."]
+    assert context is not None
+    assert [c.text for c in context] == ["Methods reports 18 participants."]
+
+
+def test_ask_passes_the_quote_apart_from_the_question_and_without_the_draft(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(
+        conversation_id,
+        "How does this compare?",
+        context_scope="none",
+        quote="Children recovered in 5 days",
+    )
+
+    [(_, query, _)] = model.calls
+    assert query == Query("How does this compare?")
+    assert model.quotes == ["Children recovered in 5 days"]
+    assert model.drafts == [None]
+
+
+def test_ask_accepts_a_decoded_context(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(
+        conversation_id,
+        "Summarise it",
+        context=ExchangeContext.decode("manuscript", manuscript_text="Chapter one."),
+    )
+
+    assert model.drafts == ["Chapter one."]
+    assert service.get(project_id, conversation_id).context_scope == "manuscript"
+
+
+def test_ask_retrieval_labels_each_passage_with_its_source_id_and_title(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(conversation_id, "Question?")
+
+    context = model.calls[0][2]
+    assert context is not None
+    assert [(chunk.doc_ref_id, chunk.title) for chunk in context] == [(methods, "Methods")]
+
+
+def test_ask_retrieval_searches_each_source_on_its_own(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    refs = [library.add_source(f"Text {index}", title=f"S{index}") for index in range(3)]
+    searched: list[list[DocumentRefId] | None] = []
+    original = library.vectors.query
+
+    def recording_query(
+        vector: list[float], k: int = 5, doc_ref_ids: list[DocumentRefId] | None = None
+    ) -> list[RetrievedChunk]:
+        searched.append(doc_ref_ids)
+        return original(vector, k, doc_ref_ids)
+
+    library.vectors.query = recording_query  # type: ignore[method-assign,assignment]
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(conversation_id, "Question?")
+
+    assert sorted(searched, key=str) == sorted([[ref] for ref in refs], key=str)
+
+
+def test_ask_retrieval_lets_a_source_with_many_matches_share_with_another(
+    repository: InMemoryConversationRepository,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    many = library.add_source("Sample size", title="Methods", more_passages=4)
+    one = library.add_source("Sample size", title="Replication")
+    service = ChatService(
+        repository,
+        model,
+        embedding_generator=library.embedder,
+        vector_store=library.vectors,
+        document_repository=library.documents,
+        top_k=2,
+        source_ids=lambda _project: list(library.active),
+    )
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(conversation_id, "Sample size")
+
+    context = model.calls[0][2]
+    assert context is not None
+    assert {chunk.doc_ref_id for chunk in context} == {many, one}
+
+
+def test_ask_retrieval_uses_the_quote_with_the_question_to_find_passages(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    library.add_source("Children recovered in 7 days", title="Methods")
+    library.add_source("Unrelated words", title="Other")
+    embedded: list[str] = []
+    original = library.embedder.generate
+
+    def recording_generate(chunks: list[Chunk]) -> list:  # type: ignore[type-arg]
+        embedded.extend(chunk.text for chunk in chunks)
+        return original(chunks)
+
+    library.embedder.generate = recording_generate  # type: ignore[method-assign]
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "How does this compare?",
+        context=ExchangeContext.decode("source_library", quote="Children recovered in 5 days"),
+    )
+
+    assert embedded == ["Children recovered in 5 days\nHow does this compare?"]
+
+
+def test_ask_resolves_cited_keys_against_the_supplied_excerpts(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    model.answer = "Methods supports it [1]. Nothing backs [7] or [1] again."
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    answer = retrieving_service.ask(conversation_id, "Question?")
+
+    assert [(c.key, c.doc_ref_id, c.title) for c in answer.citations] == [("1", methods, "Methods")]
+
+
+def test_ask_cites_nothing_when_no_excerpt_was_supplied(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    model.answer = "General knowledge [1]."
+    conversation_id = str(service.start(project_id).value)
+
+    answer = service.ask(conversation_id, "Question?", context_scope="none")
+
+    assert answer.citations == ()
+
+
+def test_ask_saves_the_selection_after_a_successful_exchange(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Question?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="Draft",
+            source_ids=[str(methods.value)],
+            web=False,
+            manuscript=True,
+        ),
+    )
+
+    saved = retrieving_service.get(project_id, conversation_id)
+    assert (saved.web, saved.manuscript) == (False, True)
+    assert saved.source_ids == [str(methods.value)]
+    assert [(s.id, s.title) for s in saved.sources] == [(str(methods.value), "Methods")]
+
+
+def test_ask_keeps_the_previous_selection_when_the_exchange_fails(
+    repository: InMemoryConversationRepository,
+    library: Library,
+    project_id: str,
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    model = FakeChatModel()
+    service = ChatService(
+        repository,
+        model,
+        embedding_generator=library.embedder,
+        vector_store=library.vectors,
+        document_repository=library.documents,
+        source_ids=lambda _project: list(library.active),
+    )
+    conversation_id = str(service.start(project_id).value)
+    service.ask(
+        conversation_id,
+        "First?",
+        context=ExchangeContext.decode("source_library", source_ids=[str(methods.value)], web=True),
+    )
+    model.error = ChatModelError("down")
+
+    with pytest.raises(ChatModelError):
+        service.ask(conversation_id, "Second?", context=ExchangeContext.decode("none"))
+
+    saved = service.get(project_id, conversation_id)
+    assert saved.web is True
+    assert saved.source_ids == [str(methods.value)]
+    assert [s.title for s in saved.sources] == ["Methods"]
+
+
+def test_ask_never_stores_the_title_of_a_source_from_another_project(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    foreign = DocumentRefId.new()
+    library.documents.add(
+        IndexedDocument.create(IndexedDocumentTitle("Secret title"), foreign, ProjectId.new())
+    )
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Question?",
+        context=ExchangeContext.decode("source_library", source_ids=[str(foreign.value)]),
+    )
+
+    saved = retrieving_service.get(project_id, conversation_id)
+    assert [s.title for s in saved.sources] == [""]
+
+
+def test_ask_tells_the_model_whether_web_is_selected(
+    service: ChatService, model: FakeChatModel, project_id: str
+) -> None:
+    conversation_id = str(service.start(project_id).value)
+
+    service.ask(conversation_id, "One?", context=ExchangeContext.decode("none"))
+    service.ask(
+        conversation_id,
+        "Two?",
+        context=ExchangeContext.decode(
+            "manuscript", manuscript_text="Draft", web=False, manuscript=True
+        ),
+    )
+
+    assert model.webs == [True, False]
+
+
+def _overflowing_service(
+    repository: InMemoryConversationRepository, model: FakeChatModel, library: Library
+) -> ChatService:
+    """Build a service whose window fits one passage and none of the three outcome records."""
+
+    class Counter(TokenCounter):
+        def count(self, text: str) -> int:
+            return (
+                50
+                if "Delta passage" in text
+                else 200
+                if "passage" in text
+                else 10 * ("matched, but" in text)
+            )
+
+    return ChatService(
+        repository,
+        model,
+        embedding_generator=library.embedder,
+        vector_store=library.vectors,
+        document_repository=library.documents,
+        source_ids=lambda _project: list(library.active),
+        token_counter=Counter(),
+        context_window=55,
+        response_reserve=5,
+    )
+
+
+def test_ask_appends_a_gap_report_naming_every_source_when_records_overflow(
+    repository: InMemoryConversationRepository,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    library.add_source("Delta passage", title="Delta")
+    for title in ("Alpha", "Beta", "Gamma"):
+        library.add_source(f"{title} passage", title=title)
+    model.answer = "Delta supports it [1]."
+    service = _overflowing_service(repository, model, library)
+    conversation_id = str(service.start(project_id).value)
+
+    answer = service.ask(conversation_id, "Passage?")
+
+    lines = answer.text.splitlines()
+    assert lines[0] == "Delta supports it [1]."
+    for title in ("Alpha", "Beta", "Gamma"):
+        assert any(title in line and "available space" in line for line in lines)
+    assert "Delta:" not in answer.text
+    assert [c.title for c in answer.citations] == ["Delta"]
+    assert model.outcomes[0] == []
+
+
+def test_ask_adds_no_gap_report_when_every_record_reached_the_model(
+    retrieving_service: ChatService,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    library.add_source("Unindexed", indexed=False, title="Methods")
+    model.answer = "Methods could not be checked."
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    answer = retrieving_service.ask(conversation_id, "Question?")
+
+    assert answer.text == "Methods could not be checked."
+    assert [o.title for o in model.outcomes[0]] == ["Methods"]
+
+
+def test_ask_does_not_read_citations_from_the_appended_gap_report(
+    repository: InMemoryConversationRepository,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+) -> None:
+    library.add_source("Delta passage", title="Delta")
+    library.add_source("Alpha passage", title="Study [1]")
+    model.answer = "No citations here."
+    service = _overflowing_service(repository, model, library)
+    conversation_id = str(service.start(project_id).value)
+
+    answer = service.ask(conversation_id, "Passage?")
+
+    assert "Study [1]" in answer.text
+    assert answer.citations == ()
+
+
+def _record_embedded_texts(library: Library) -> list[str]:
+    """Record the texts the library embedder is asked to embed from now on."""
+    embedded: list[str] = []
+    original = library.embedder.generate
+
+    def recording(chunks: list[Chunk]) -> list:  # type: ignore[type-arg]
+        embedded.extend(chunk.text for chunk in chunks)
+        return original(chunks)
+
+    library.embedder.generate = recording  # type: ignore[method-assign]
+    return embedded
+
+
+def test_ask_searches_with_the_question_and_the_draft_when_manuscript_is_checked(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    embedded = _record_embedded_texts(library)
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Which selected studies support my enrollment figure?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="The trial enrolled 18 participants.",
+            source_ids=[str(methods.value)],
+            manuscript=True,
+        ),
+    )
+
+    assert embedded == [
+        "Which selected studies support my enrollment figure?\nThe trial enrolled 18 participants."
+    ]
+
+
+def test_ask_searches_with_the_quote_and_question_only_when_a_quote_is_given(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    embedded = _record_embedded_texts(library)
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "How does this compare?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="Adults recovered in 8 days. Children recovered in 5 days.",
+            source_ids=[str(methods.value)],
+            quote="Children recovered in 5 days",
+            manuscript=True,
+        ),
+    )
+
+    assert embedded == ["Children recovered in 5 days\nHow does this compare?"]
+
+
+def test_ask_searches_with_no_draft_text_when_manuscript_is_unchecked(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    embedded = _record_embedded_texts(library)
+    conversation_id = str(retrieving_service.start(project_id).value)
+
+    retrieving_service.ask(
+        conversation_id,
+        "Which selected studies support my enrollment figure?",
+        context=ExchangeContext.decode(
+            "source_library",
+            manuscript_text="The trial enrolled 18 participants.",
+            source_ids=[str(methods.value)],
+            manuscript=False,
+        ),
+    )
+
+    assert embedded == ["Which selected studies support my enrollment figure?"]
+    assert model.drafts == [None]
+
+
+def _select(library: Library, *sources: DocumentRefId) -> ExchangeContext:
+    return ExchangeContext.decode(
+        "source_library", source_ids=[str(source.value) for source in sources]
+    )
+
+
+def test_a_failed_title_refresh_keeps_the_saved_titles_and_still_returns_the_answer(
+    library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    conversation_id = str(retrieving_service.start(project_id).value)
+    retrieving_service.ask(conversation_id, "First?", context=_select(library, methods))
+    original = library.documents.list_by_project
+    calls = 0
+
+    def flaky(project: ProjectId) -> list[IndexedDocument]:
+        nonlocal calls
+        calls += 1
+        if calls >= 2:  # the retriever reads once; the title refresh reads second
+            raise RuntimeError("repository down")
+        return original(project)
+
+    library.documents.list_by_project = flaky  # type: ignore[method-assign,assignment]
+
+    answer = retrieving_service.ask(conversation_id, "Second?", context=_select(library, methods))
+
+    saved = retrieving_service.get(project_id, conversation_id)
+    assert answer.text == "An answer."
+    assert len(saved.history) == 2
+    assert [(s.id, s.title) for s in saved.sources] == [(str(methods.value), "Methods")]
+
+
+def test_a_failure_while_finishing_the_exchange_discards_the_pending_question(
+    model: FakeChatModel, retrieving_service: ChatService, project_id: str
+) -> None:
+    conversation_id = str(retrieving_service.start(project_id).value)
+    real = retrieving_service._selected_sources  # noqa: SLF001
+
+    def broken(*args: object, **kwargs: object) -> list:  # type: ignore[type-arg]
+        raise RuntimeError("could not finish")
+
+    retrieving_service._selected_sources = broken  # type: ignore[method-assign,assignment]  # noqa: SLF001
+    with pytest.raises(RuntimeError, match="could not finish"):
+        retrieving_service.ask(conversation_id, "Lost?")
+
+    assert retrieving_service.get(project_id, conversation_id).pending is None
+    retrieving_service._selected_sources = real  # type: ignore[method-assign]  # noqa: SLF001
+    assert retrieving_service.ask(conversation_id, "Retry?").text == "An answer."
+
+
+def test_a_source_removed_since_the_last_exchange_is_reported_unavailable_by_its_saved_title(
+    model: FakeChatModel, library: Library, retrieving_service: ChatService, project_id: str
+) -> None:
+    methods = library.add_source("Methods text", title="Methods")
+    replication = library.add_source("Replication text", title="Replication")
+    conversation_id = str(retrieving_service.start(project_id).value)
+    retrieving_service.ask(
+        conversation_id, "First?", context=_select(library, methods, replication)
+    )
+    library.active.remove(replication)
+
+    retrieving_service.ask(
+        conversation_id, "Second?", context=_select(library, methods, replication)
+    )
+
+    assert [(o.title, o.status.value) for o in model.outcomes[-1]] == [
+        ("Replication", "unavailable")
+    ]
+    assert [chunk.title for chunk in model.calls[-1][2] or []] == ["Methods"]
 
 
 @pytest.mark.parametrize(

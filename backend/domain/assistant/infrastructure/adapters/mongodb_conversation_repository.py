@@ -11,6 +11,7 @@ from domain.assistant.models.value_objects import (
     ExchangeId,
     ProjectId,
     Query,
+    SelectedSource,
 )
 
 
@@ -48,7 +49,10 @@ class MongoConversationRepository(ConversationRepository):
             "exchanges": [cls._exchange_to_doc(e) for e in conversation.exchanges],
             "started_at": conversation.started_at,
             "context_scope": conversation.context_scope,
+            "web": conversation.web,
+            "manuscript": conversation.manuscript,
             "source_ids": conversation.source_ids,
+            "sources": [{"id": s.id, "title": s.title} for s in conversation.sources],
             "updated_at": conversation.exchanges[-1].asked_at
             if conversation.exchanges
             else conversation.started_at,
@@ -56,13 +60,19 @@ class MongoConversationRepository(ConversationRepository):
 
     @classmethod
     def _to_conversation(cls, doc: dict) -> Conversation:
+        # Records saved before Web and Manuscript were stored map from their scope: ``none`` is
+        # Web alone, ``manuscript`` is Manuscript alone and ``source_library`` is its sources.
+        scope = doc.get("context_scope", "source_library")
         return Conversation(
             id=ConversationId(UUID(doc["_id"])),
             project_id=ProjectId(UUID(doc["project_id"])),
             exchanges=[cls._exchange_from_doc(e) for e in doc["exchanges"]],
             started_at=doc["started_at"],
-            context_scope=doc.get("context_scope", "source_library"),
+            context_scope=scope,
+            web=doc.get("web", scope == "none"),
+            manuscript=doc.get("manuscript", scope == "manuscript"),
             source_ids=doc.get("source_ids"),
+            sources=[SelectedSource(s["id"], s["title"]) for s in doc.get("sources", [])],
         )
 
     # ---- port implementation ----

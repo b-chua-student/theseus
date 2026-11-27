@@ -37,6 +37,9 @@ from domain.assistant.models.value_objects import (
     IndexStatus,
     ProjectId,
 )
+from domain.identity.infrastructure.adapters.in_memory_identity_repository import (
+    InMemoryIdentityRepository,
+)
 from domain.src_lib.infrastructure.adapters.in_memory_source_repository import (
     InMemorySourceRepository,
 )
@@ -94,12 +97,12 @@ def production(monkeypatch, chat_model) -> Callable[[], Container]:
     # Keep the same source and index metadata across app instances. Exercise the real
     # production composition root and vector store while replacing external Mongo I/O.
     monkeypatch.setattr("bootstrap.mongo.create_database", MagicMock())
-    monkeypatch.setattr("bootstrap.app._build_chat_model", lambda: chat_model)
+    monkeypatch.setattr("bootstrap.app._build_chat_model", lambda _evidence: chat_model)
     adapters = "domain.assistant.infrastructure.adapters"
     for target, repo in [
         (
             "domain.identity.infrastructure.adapters.mongodb_identity_repository.MongoIdentityRepository",
-            Mock(),
+            InMemoryIdentityRepository(),
         ),
         (
             "domain.src_lib.infrastructure.adapters.mongodb_source_repository.MongoSourceRepository",

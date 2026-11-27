@@ -2,13 +2,17 @@
 
 import os
 from collections.abc import Mapping
+from dataclasses import dataclass
 from secrets import token_hex
 
+import click
 from dotenv import load_dotenv
 from flask import Flask, Response, abort, send_from_directory
 
-from domain.assistant.api.routes import conversation_bp, indexing_bp
+from domain.assistant.api.routes import conversation_bp, indexing_bp, library_bp
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
+from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.identity.api.auth.oauth import configure as configure_oauth
 from domain.identity.api.auth.routes import auth_bp
 from domain.manuscript.api.routes import manuscript_bp
@@ -21,13 +25,66 @@ from .error_handlers import register_error_handlers
 from .extensions import limiter
 
 
-def _build_chat_model() -> ChatModel | None:
+def _build_embedding_generator() -> EmbeddingGenerator | None:
+    """Use semantic Gemini embeddings when a key is set; otherwise keep the in-memory default."""
+    if not os.getenv("GEMINI_API_KEY"):
+        return None
+
+    from domain.assistant.infrastructure.adapters.gemini_embedding_generator import (
+        GeminiEmbeddingGenerator,
+    )
+
+    return GeminiEmbeddingGenerator()
+
+
+# The model's input window and the tokens kept free for its answer. Override with
+# ASSISTANT_CONTEXT_WINDOW and ASSISTANT_RESPONSE_RESERVE.
+DEFAULT_CONTEXT_WINDOW = 1_048_576
+DEFAULT_RESPONSE_RESERVE = 16_384
+
+
+@dataclass(frozen=True)
+class _EvidenceSettings:
+    """How the assistant picks library evidence for each exchange."""
+
+    relevance_threshold: float | None = None
+    token_counter: TokenCounter | None = None
+    context_window: int | None = None
+    response_reserve: int = 0
+
+
+def _build_evidence_settings() -> _EvidenceSettings:
+    """Read the evidence settings from the environment.
+
+    ASSISTANT_RELEVANCE_THRESHOLD is the lowest cosine score a passage may have. It is not
+    set by default: calibrate it with the semantic embedding model before enabling it. With a
+    Gemini key, evidence is also fitted into the model's window using Gemini token counts.
+    """
+    threshold = os.getenv("ASSISTANT_RELEVANCE_THRESHOLD")
+    relevance_threshold = float(threshold) if threshold else None
+    if not os.getenv("GEMINI_API_KEY"):
+        return _EvidenceSettings(relevance_threshold=relevance_threshold)
+
+    from domain.assistant.infrastructure.adapters.gemini_token_counter import GeminiTokenCounter
+
+    return _EvidenceSettings(
+        relevance_threshold=relevance_threshold,
+        token_counter=GeminiTokenCounter(),
+        context_window=int(os.getenv("ASSISTANT_CONTEXT_WINDOW") or DEFAULT_CONTEXT_WINDOW),
+        response_reserve=int(os.getenv("ASSISTANT_RESPONSE_RESERVE") or DEFAULT_RESPONSE_RESERVE),
+    )
+
+
+def _build_chat_model(evidence: _EvidenceSettings) -> ChatModel | None:
+    """Use Gemini when a key is set. It counts each request against the same context window."""
     if not os.getenv("GEMINI_API_KEY"):
         return None
 
     from domain.assistant.infrastructure.adapters.gemini_chat_model import GeminiChatModel
 
-    return GeminiChatModel()
+    return GeminiChatModel(
+        token_counter=evidence.token_counter, context_window=evidence.context_window
+    )
 
 
 def create_app(
@@ -50,15 +107,31 @@ def create_app(
         app.config.setdefault("RATELIMIT_ENABLED", False)
 
     if container is None:
-        chat_model = None if app.testing else _build_chat_model()
+        embedding_generator = None if app.testing else _build_embedding_generator()
+        evidence = _EvidenceSettings() if app.testing else _build_evidence_settings()
+        chat_model = None if app.testing else _build_chat_model(evidence)
         if not app.testing and (uri := app.config["MONGODB_URI"]):
             if not app.secret_key:
                 raise RuntimeError("Set SECRET_KEY when running with MongoDB.")
             container = build_mongo_container(
-                uri=uri, db_name=app.config["MONGODB_DB"], chat_model=chat_model
+                uri=uri,
+                db_name=app.config["MONGODB_DB"],
+                chat_model=chat_model,
+                embedding_generator=embedding_generator,
+                relevance_threshold=evidence.relevance_threshold,
+                token_counter=evidence.token_counter,
+                context_window=evidence.context_window,
+                response_reserve=evidence.response_reserve,
             )
         else:
-            container = build_container(chat_model=chat_model)
+            container = build_container(
+                chat_model=chat_model,
+                embedding_generator=embedding_generator,
+                relevance_threshold=evidence.relevance_threshold,
+                token_counter=evidence.token_counter,
+                context_window=evidence.context_window,
+                response_reserve=evidence.response_reserve,
+            )
 
     if not app.secret_key:
         app.secret_key = token_hex(32)
@@ -76,8 +149,17 @@ def create_app(
     app.register_blueprint(revision_bp, url_prefix=f"{manuscripts}/<manuscript_id>/revisions")
     app.register_blueprint(indexing_bp, url_prefix=manuscripts)
     app.register_blueprint(conversation_bp, url_prefix="/api/projects/<project_id>/conversations")
+    app.register_blueprint(library_bp, url_prefix="/api/projects/<project_id>")
 
     limiter.exempt(app.send_static_file)
+
+    @app.cli.command("reindex-documents")
+    def reindex_documents() -> None:
+        """Re-embed every indexed document, for example after changing the embedding model."""
+        reindex = app.extensions["container"].assistant.reindex
+        if reindex is None:
+            raise click.ClickException("Document indexing is not configured.")
+        click.echo(f"Re-queued {reindex.execute()} documents for indexing.")
 
     @app.get("/")
     @limiter.exempt

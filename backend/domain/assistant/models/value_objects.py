@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from .errors import (
@@ -142,7 +143,11 @@ class Embedding:
 
 @dataclass(frozen=True)
 class RetrievedChunk:
-    """A chunk returned from a similarity query, ranked by ``score`` (higher = closer)."""
+    """A chunk returned from a similarity query, ranked by ``score`` (higher = closer).
+
+    ``title`` is the title of the source the chunk belongs to. Vector stores leave it blank;
+    the chat service fills it in.
+    """
 
     chunk_id: ChunkId
     doc_ref_id: DocumentRefId
@@ -150,6 +155,7 @@ class RetrievedChunk:
     position: str
     location: str
     score: float
+    title: str = ""
 
 
 @dataclass(frozen=True)
@@ -213,10 +219,72 @@ class Query:
 
 
 @dataclass(frozen=True)
+class Citation:
+    """A source passage an answer relies on, resolved from the excerpts the model was given.
+
+    ``key`` is the exchange-local number the model cites in square brackets, such as ``[1]``.
+    """
+
+    key: str
+    doc_ref_id: DocumentRefId
+    title: str
+    location: str
+
+
+class SourceStatus(Enum):
+    """Why a selected source supplied no evidence to an exchange."""
+
+    UNAVAILABLE = "unavailable"
+    SEARCHED_WITHOUT_MATCH = "searched_without_match"
+    OMITTED_FOR_CAPACITY = "omitted_for_capacity"
+
+
+_STATUS_REASONS = {
+    SourceStatus.UNAVAILABLE: "could not be checked.",
+    SourceStatus.SEARCHED_WITHOUT_MATCH: "was searched and no relevant passage was found.",
+    SourceStatus.OMITTED_FOR_CAPACITY: (
+        "matched, but its evidence exceeded the available space and was not supplied."
+    ),
+}
+
+
+@dataclass(frozen=True)
+class SourceOutcome:
+    """What happened to one selected source that supplied no evidence.
+
+    A source that supplied at least one passage has no outcome. ``unavailable`` means it could
+    not be searched at send time. ``searched_without_match`` means the search completed and no
+    passage met the relevance threshold. ``omitted_for_capacity`` means relevant passages were
+    found but none fit in the evidence budget.
+    """
+
+    doc_ref_id: DocumentRefId
+    title: str
+    status: SourceStatus
+
+    def record(self) -> str:
+        """Return the one-line, named record of this outcome that the model receives."""
+        return f"{self.title}: {_STATUS_REASONS[self.status]}"
+
+
+@dataclass(frozen=True)
+class SelectedSource:
+    """A library source the writer had checked, kept with its title as it was then."""
+
+    id: str
+    title: str
+
+
+@dataclass(frozen=True)
 class Answer:
-    """The assistant's reply; text is stripped and must not be blank."""
+    """The assistant's reply; text is stripped and must not be blank.
+
+    ``citations`` are the supplied excerpts the text cites. The chat model leaves them empty;
+    the chat service resolves them.
+    """
 
     text: str
+    citations: tuple[Citation, ...] = ()
 
     def __post_init__(self) -> None:
         """Strip whitespace and reject empty text."""
@@ -224,3 +292,77 @@ class Answer:
         if not stripped:
             raise EmptyAnswerError("Answer must not be blank.")
         object.__setattr__(self, "text", stripped)
+
+
+ContextScope = Literal["none", "manuscript", "source_library"]
+CONTEXT_SCOPES: tuple[ContextScope, ...] = ("none", "manuscript", "source_library")
+
+
+@dataclass(frozen=True)
+class ExchangeContext:
+    """Independent manuscript, library and quote inputs for one exchange.
+
+    ``manuscript_text`` is None when Manuscript is not selected. ``search_library`` says whether
+    library sources are searched. ``source_ids`` are the requested sources, kept as sent so the
+    conversation can remember them; None while searching means every active project source (the
+    legacy "all library sources" selection). ``quote`` is the exact passage the writer quoted, or
+    None. ``scope`` is the legacy scope the inputs map to. ``web`` says whether Web is checked.
+    """
+
+    scope: ContextScope
+    manuscript_text: str | None = None
+    search_library: bool = False
+    source_ids: tuple[str, ...] | None = None
+    quote: str | None = None
+    web: bool = False
+
+    @property
+    def manuscript(self) -> bool:
+        """Return whether Manuscript is checked, that is, whether the draft is used."""
+        return self.manuscript_text is not None
+
+    @classmethod
+    def decode(
+        cls,
+        context_scope: str,
+        manuscript_text: str = "",
+        source_ids: list[str] | None = None,
+        quote: str | None = None,
+        *,
+        web: bool | None = None,
+        manuscript: bool | None = None,
+    ) -> ExchangeContext:
+        """Decode a request's legacy scope and fields into independent inputs.
+
+        ``none`` uses neither the draft nor the library. ``manuscript`` uses the draft alone.
+        ``source_library`` searches the library and also uses the draft when one is sent, which
+        is how a combined request is expressed. A blank quote counts as no quote; any other
+        quote is kept exactly as written.
+
+        ``web`` and ``manuscript`` are the writer's checked items. When ``manuscript`` is given,
+        the draft is used exactly when it is true. When ``web`` is missing, only legacy ``none``
+        meant Web.
+
+        Raises:
+            ValueError: If ``context_scope`` is not a supported scope.
+        """
+        exact_quote = quote if quote is not None and quote.strip() else None
+        requested = tuple(source_ids) if source_ids is not None else None
+        if context_scope not in CONTEXT_SCOPES:
+            raise ValueError("Unsupported assistant context scope")
+        if manuscript is not None:
+            draft = manuscript_text if manuscript else None
+        elif context_scope == "manuscript" or (
+            context_scope == "source_library" and manuscript_text.strip()
+        ):
+            draft = manuscript_text
+        else:
+            draft = None
+        return cls(
+            scope=cast("ContextScope", context_scope),
+            manuscript_text=draft,
+            search_library=context_scope == "source_library",
+            source_ids=requested,
+            quote=exact_quote,
+            web=web if web is not None else context_scope == "none",
+        )

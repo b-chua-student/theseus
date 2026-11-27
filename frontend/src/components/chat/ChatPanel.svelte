@@ -1,6 +1,7 @@
 <script>
-  import { startConversation, askConversation, listConversations, getConversation } from "../../lib/api/chat.js";
-  import { listSources } from "../../lib/api/sources.js";
+  import { startConversation, askConversation, listConversations, getConversation, listIndexedSourceIds } from "../../lib/api/chat.js";
+  import ContextDropdown from "./ContextDropdown.svelte";
+  import { encodeSelection, initialSelection, restoreSelection } from "./contextSelection.js";
   import { tick as flushUI } from "svelte";
   import { marked } from "marked";
   import DOMPurify from "dompurify";
@@ -9,36 +10,16 @@
   let { projectId, editor, tick, open, onclose, notice = $bindable() } = $props();
 
   // Keep this component mounted while closed to retain the session conversation.
-  /** @type {'none' | 'manuscript' | 'source_library'} */
-  let contextScope = $state("none");
-  let sessions = $state({});
-  let selectedSourceIds = $state(null);
-  let sources = $state([]);
-  let sourcesLoading = $state(false);
-  let sourcesError = $state('');
-  let pickerOpen = $state(false);
-  const sessionKey = $derived.by(() => {
-    if (contextScope !== 'source_library') return contextScope;
-    return `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`;
-  });
-  const messages = $derived(sessions[sessionKey]?.messages ?? []);
-
-  async function openSources() {
-    pickerOpen = !pickerOpen;
-    if (!pickerOpen) return;
-    sourcesLoading = true;
-    sourcesError = '';
-    try { sources = await listSources(projectId); }
-    catch (e) { sourcesError = e.message || 'Could not load sources.'; }
-    finally { sourcesLoading = false; }
-  }
-  function selectSource(id, checked) {
-    const current = selectedSourceIds ?? sources.map(source => source.id);
-    selectedSourceIds = checked ? [...current, id] : current.filter(value => value !== id);
-  }
+  // One conversation continues across context changes; the selection is read at send time.
+  let selection = $state(initialSelection());
+  // Saved sources that can no longer be searched, named when a chat is reopened.
+  let unavailableSources = $state([]);
+  let conversationId = $state(null);
+  let messages = $state([]);
   let savedConversations = $state([]);
   let historyLoading = $state(false);
   let historyError = $state('');
+  let historyOpen = $state(false);
   let loadedProject = $state(null);
   let historyRequest = 0;
 
@@ -46,10 +27,13 @@
     const id = projectId;
     if (id !== loadedProject) {
       loadedProject = id;
-      sessions = {};
+      historyOpen = false;
+      conversationId = null;
+      messages = [];
       savedConversations = [];
-      contextScope = 'none';
-      selectedSourceIds = null;
+      selection = initialSelection();
+      unavailableSources = [];
+      selectionQuote = '';
       refreshHistory(id);
     }
   });
@@ -76,16 +60,18 @@
     try {
       const conversation = await getConversation(project, id);
       if (project !== projectId) return;
-      contextScope = conversation.context_scope;
-      selectedSourceIds = conversation.source_ids;
-      const key = contextScope !== 'source_library' ? contextScope : `source_library:${selectedSourceIds === null ? 'all' : [...selectedSourceIds].sort().join(',')}`;
-      sessions[key] = {
-        conversationId: id,
-        messages: conversation.exchanges.flatMap(e => [
-          { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
-          { id: nextMessageId++, role: 'assistant', text: e.answer, timestamp: e.asked_at },
-        ]),
-      };
+      // The indexed sources show which saved sources are gone, and fill in an old all-library
+      // record that has no source list. If they can't be loaded, the saved choices are kept.
+      const indexedIds = await listIndexedSourceIds(project).catch(() => null);
+      if (project !== projectId) return;
+      const restored = restoreSelection(conversation, indexedIds);
+      selection = restored.selection;
+      unavailableSources = restored.unavailable;
+      conversationId = id;
+      messages = conversation.exchanges.flatMap(e => [
+        { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
+        { id: nextMessageId++, role: 'assistant', text: e.answer, timestamp: e.asked_at },
+      ]);
       input = '';
       selectionQuote = '';
       scrollDown();
@@ -94,7 +80,10 @@
   }
 
   function newConversation() {
-    sessions[sessionKey] = { messages: [], conversationId: null };
+    conversationId = null;
+    messages = [];
+    selection = initialSelection();
+    unavailableSources = [];
     input = '';
     selectionQuote = '';
   }
@@ -103,11 +92,6 @@
   let input = $state("");
   let loading = $state(false);
   let log = $state();
-  function switchContext(scope) {
-    if (loading) return;
-    contextScope = scope;
-    scrollDown();
-  }
 
 
   // Browser-local timestamps and writing tools.
@@ -150,10 +134,7 @@
     const { from, to } = editor.state.selection;
     selectionQuote = editor.state.doc.textBetween(from, to, '\n').trim();
     if (!selectionQuote) notice = 'Select a passage in the manuscript, then choose Quote selection.';
-  }
-  function useQuote() {
-    input = [input.trim(), 'Selected passage:\n' + selectionQuote].filter(Boolean).join('\n\n');
-    selectionQuote = ''; composer?.focus();
+    else composer?.focus();
   }
   async function copyReply(text) {
     try { await navigator.clipboard.writeText(text); notice = 'Reply copied.'; }
@@ -173,46 +154,48 @@
     flushUI().then(() => { if (log) log.scrollTop = log.scrollHeight; });
   }
 
-  // Each scope has its own conversation history to keep source context isolated.
   // Failures worth offering a retry for: network errors (no status), rate limits,
   // AI provider errors and an unavailable assistant. Validation errors (4xx) won't
   // succeed on retry, so they are not retryable.
   const isRetryable = (e) => !e.status || e.status === 429 || e.status >= 500;
 
-  async function ask(text) {
-    const session = sessions[sessionKey];
-    const manuscriptText = contextScope === "manuscript" ? editor?.getText() ?? "" : "";
-    if (!session.conversationId) {
-      session.conversationId = await startConversation(projectId);
+  async function ask(text, quote) {
+    // Read the selection and the draft now, as they are when the writer asks.
+    const { contextScope, sourceIds, manuscriptText, web, manuscript } = encodeSelection(selection, editor?.getText() ?? "");
+    const checked = { web, manuscript };
+    if (!conversationId) {
+      conversationId = await startConversation(projectId);
     }
     try {
-      return await askConversation(projectId, session.conversationId, text, contextScope, contextScope === "source_library" ? selectedSourceIds : null, manuscriptText);
+      return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
-        session.conversationId = await startConversation(projectId);
-        return await askConversation(projectId, session.conversationId, text, contextScope, contextScope === "source_library" ? selectedSourceIds : null, manuscriptText);
+        conversationId = await startConversation(projectId);
+        return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked);
       }
       throw e;
     }
   }
 
-  async function send(retryText) {
+  async function send(retryText, retryQuote = null) {
     // `retryText` is only a string when called from the Retry button; the click
     // handler otherwise passes an event.
     const retry = typeof retryText === "string";
     const text = retry ? retryText : input.trim();
     if (!text || loading) return;
-    sessions[sessionKey] ??= { messages: [], conversationId: null };
+    // The quote travels as its own field, exactly as selected, never inside the question.
+    const quote = retry ? retryQuote : selectionQuote || null;
     if (!retry) {
-      messages.push({ id: nextMessageId++, role: "user", text, timestamp: Date.now() });
+      messages.push({ id: nextMessageId++, role: "user", text, quote, timestamp: Date.now() });
       input = "";
+      selectionQuote = "";
     }
     loading = true;
     scrollDown();
     try {
-      const answer = await ask(text);
-      messages.push({ id: nextMessageId++, role: "assistant", text: answer, timestamp: Date.now() });
+      const { answer, citations } = await ask(text, quote);
+      messages.push({ id: nextMessageId++, role: "assistant", text: answer, citations, timestamp: Date.now() });
       refreshHistory();
     } catch (e) {
       messages.push({
@@ -222,6 +205,7 @@
         timestamp: Date.now(),
         isError: true,
         retryText: isRetryable(e) ? text : null,
+        retryQuote: quote,
       });
     }
     loading = false;
@@ -232,7 +216,7 @@
   function retryMessage(m) {
     const index = messages.indexOf(m);
     if (index !== -1) messages.splice(index, 1);
-    send(m.retryText);
+    send(m.retryText, m.retryQuote);
   }
 
   function onkey(e) {
@@ -246,6 +230,8 @@
 {#snippet icon(name, size = 14)}
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     {#if name === 'panel'}<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/>
+    {:else if name === 'compose'}<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m15.5 4.5 4 4M10 18l-4 1 1-4L18.5 3.5a2.83 2.83 0 0 1 4 4Z" transform="translate(0 -1)"/>
+    {:else if name === 'refresh'}<path d="M20 7a9 9 0 1 0 1 8M20 2v5h-5"/>
     {:else if name === 'send'}<path d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13"/>{/if}
   </svg>
 {/snippet}
@@ -254,45 +240,27 @@
         <header class="scholar-header">
           <div class="scholar-identity"><span class="scholar-avatar" aria-hidden="true">t<span></span></span><div><h3>Theseus Scholar AI</h3></div></div>
           <button type="button" class="scholar-close" onclick={onclose} aria-label="Close assistant" title="Close assistant">{@render icon('panel')}</button>
+          <div class="history-actions">
+            <button type="button" aria-label="New chat" title="New chat" disabled={loading} onclick={newConversation}>{@render icon('compose', 16)}</button>
+            <button type="button" aria-label="Refresh" title="Refresh saved conversations" disabled={historyLoading || loading} onclick={() => refreshHistory()}>{@render icon('refresh', 16)}</button>
+            <button type="button" aria-expanded={historyOpen} aria-controls="assistant-history" onclick={() => historyOpen = !historyOpen}>History</button>
+          </div>
         </header>
 
-        <div class="conversation-history">
+        <div class="conversation-history" id="assistant-history" hidden={!historyOpen}>
           <label for="saved-conversations">Saved conversations</label>
-          <select id="saved-conversations" value={sessions[sessionKey]?.conversationId ?? ''} disabled={loading || historyLoading} onchange={(event) => openConversation(event.currentTarget.value)}>
+          <select id="saved-conversations" value={conversationId ?? ''} disabled={loading || historyLoading} onchange={(event) => openConversation(event.currentTarget.value)}>
             <option value="">{historyLoading ? 'Loading conversations…' : 'Choose a conversation'}</option>
             {#each savedConversations as conversation (conversation.id)}
               <option value={conversation.id}>{conversation.title}</option>
             {/each}
           </select>
-          <button type="button" disabled={loading} onclick={newConversation}>New chat</button>
-          <button type="button" disabled={historyLoading || loading} onclick={() => refreshHistory()}>Refresh</button>
           {#if historyError}<p role="alert">{historyError}</p>
           {:else if !historyLoading && savedConversations.length === 0}<p>No saved conversations yet.</p>{/if}
         </div>
-        <div class="scholar-scopes" role="group" aria-label="Assistant context">
-          <button type="button" class:selected={contextScope === 'none'} aria-pressed={contextScope === 'none'} disabled={loading} onclick={() => switchContext('none')}>None</button>
-          <button type="button" class:selected={contextScope === 'manuscript'} aria-pressed={contextScope === 'manuscript'} disabled={loading || !editor} onclick={() => switchContext('manuscript')}>Manuscript</button>
-          <button type="button" class:selected={contextScope === 'source_library'} aria-pressed={contextScope === 'source_library'} disabled={loading} onclick={() => switchContext('source_library')}>Source Library</button>
-        </div>
-        <div class="scholar-context">Context: {contextScope === 'none' ? 'None — no document context used' : contextScope === 'manuscript' ? 'Manuscript — current text, including unsaved edits' : selectedSourceIds === null ? 'Source Library — all indexed sources' : `Source Library — ${selectedSourceIds.length} selected`}</div>
-        {#if contextScope === 'source_library'}
-          <div class="source-picker">
-            <button type="button" onclick={openSources} disabled={loading} aria-expanded={pickerOpen}>Select sources</button>
-            {#if pickerOpen}
-              {#if sourcesLoading}<p role="status">Loading sources…</p>
-              {:else if sourcesError}<p role="alert">{sourcesError}</p><button type="button" onclick={() => { pickerOpen = false; openSources(); }}>Retry</button>
-              {:else}
-                <label><input type="checkbox" checked={selectedSourceIds === null} disabled={loading} onchange={(event) => selectedSourceIds = event.currentTarget.checked ? null : []} />All library sources</label>
-                <div class="source-options">
-                  {#each sources as source (source.id)}
-                    <label><input type="checkbox" checked={selectedSourceIds === null || selectedSourceIds.includes(source.id)} disabled={loading} onchange={(event) => selectSource(source.id, event.currentTarget.checked)} />{source.title}</label>
-                  {:else}<p>No sources in this project. Add sources in the Source Library.</p>{/each}
-                </div>
-                <p>Only indexed content can be used in replies. Changing sources starts a separate conversation.</p>
-              {/if}
-            {/if}
-          </div>
-        {/if}
+        {#each unavailableSources as source (source.id)}
+          <p class="scholar-unavailable" role="status">{source.title} is unavailable and was left out of the selection.</p>
+        {/each}
         {#if messages.length === 0}
         <!-- LOCAL ONLY: quick prompts fill the composer. They do not send requests. -->
         <div class="scholar-prompts" aria-label="Suggested prompts">{#each prompts as prompt (prompt.label)}<button type="button" onclick={() => fillPrompt(prompt.text)}><span aria-hidden="true">✧</span>{prompt.label}</button>{/each}</div>
@@ -308,8 +276,13 @@
                 <!-- renderMarkdown() sanitizes the HTML with DOMPurify before it is rendered. -->
                 <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                 <div class="scholar-bubble markdown-body">{@html renderMarkdown(m.text)}</div>
+                {#if m.citations?.length}
+                  <ul class="scholar-citations" aria-label="Sources cited">
+                    {#each m.citations as citation (citation.key)}<li>[{citation.key}] {citation.title || "Untitled source"}{citation.location ? ` (${citation.location})` : ""}</li>{/each}
+                  </ul>
+                {/if}
               {:else}
-                <div class="scholar-bubble">{m.text}</div>
+                <div class="scholar-bubble">{#if m.quote}<blockquote class="scholar-quote">{m.quote}</blockquote>{/if}{m.text}</div>
               {/if}
               {#if m.isError && m.retryText}<div class="scholar-reply-actions"><button type="button" onclick={() => retryMessage(m)} disabled={loading}>Try again</button></div>{/if}
               {#if m.role === 'assistant' && !m.isError}<div class="scholar-reply-actions"><button type="button" onclick={() => copyReply(m.text)}>Copy</button><button type="button" onclick={() => insertReply(m.text)} disabled={!editor}>Use in manuscript</button></div>{/if}
@@ -318,7 +291,8 @@
           {#if loading}<div class="scholar-thinking" role="status"><span class="tiny-avatar" aria-hidden="true">t</span>Theseus is thinking<span class="thinking-dots" aria-hidden="true">…</span></div>{/if}
         </div>
         <div class="scholar-composer-area">
-          {#if selectionQuote}<div class="scholar-selection"><span class="selection-tag">SELECTION</span><span class="selection-excerpt" title={selectionQuote}>{selectionQuote}</span><button type="button" onclick={useQuote}>Quote</button><button type="button" onclick={() => selectionQuote = ''} aria-label="Dismiss selected passage">×</button></div>{/if}
+          <ContextDropdown {projectId} bind:selection manuscriptAvailable={!!editor} />
+          {#if selectionQuote}<div class="scholar-selection"><span class="selection-tag">QUOTED</span><span class="selection-excerpt" title={selectionQuote}>{selectionQuote}</span><button type="button" onclick={() => selectionQuote = ''} aria-label="Dismiss selected passage">×</button></div>{/if}
           <div class="scholar-composer-tools"><select aria-label="Writing tools" onchange={writingTool}><option value="">Writing tools</option><option value="Rewrite the current manuscript passage in a formal academic tone.">Academic tone</option><option value="Explain the current manuscript in clear, concise language.">Clear and concise</option><option value="Review the current manuscript for structure, clarity, and unsupported claims.">Review writing</option></select>
             {#if hasSelection && !selectionQuote}<button type="button" onclick={quoteSelection}>Quote selection</button>{/if}
             <!-- TODO(API): Source picker, citation lookup, and source verification need
@@ -335,13 +309,12 @@
   .conversation-history { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px; }
   .conversation-history label, .conversation-history p { width: 100%; font-size: 11px; margin: 0; }
   .conversation-history select { width: 100%; min-width: 0; }
-  .conversation-history button, .conversation-history select { padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: inherit; }
+  .conversation-history[hidden] { display: none; }
+  .history-actions { display: flex; width: 100%; gap: 6px; }
+  .history-actions button, .conversation-history select { padding: 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: inherit; }
+  .history-actions button { font-size: 11px; }
+  .history-actions button:last-child { margin-left: auto; }
 
-  .source-picker { padding: 8px 14px; font-size: 11px; border-bottom: 1px solid var(--border); }
-  .source-picker button { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; }
-  .source-picker label { display: flex; align-items: center; gap: 7px; padding: 5px 0; overflow-wrap: anywhere; }
-  .source-picker p { color: var(--text-muted); line-height: 1.5; }
-  .source-options { max-height: 160px; overflow-y: auto; }
   .scholar-chat, .scholar-chat * { box-sizing: border-box; }
   button, select, textarea { font: inherit; color: inherit; margin: 0; }
   button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; line-height: 1.3; }
@@ -349,16 +322,11 @@
   button:not(:disabled):hover { background: #e9ede9; }
   button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
   .chat.scholar-chat { width: 370px; min-width: 0; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); font-family: var(--sans); }
-  .scholar-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px; gap: 10px; }
+  .scholar-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 14px 14px 10px; gap: 10px; }
   .scholar-identity { display: flex; gap: 9px; align-items: center; min-width: 0; }.scholar-identity > div { min-width: 0; }.scholar-identity h3 { font-family: var(--sans); font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; margin: 0 0 3px; }
   .scholar-avatar { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 10px; background: var(--accent); color: white; font: 600 17px var(--sans); flex-shrink: 0; position: relative; }.scholar-avatar > span { position: absolute; width: 7px; height: 7px; background: #bed1cb; border: 2px solid var(--surface); border-radius: 50%; right: -2px; top: 0; }.scholar-close { background: transparent; border: 0; padding: 3px; color: var(--text-muted); }
 
   .scholar-prompts { display: flex; gap: 5px; overflow-x: auto; padding: 9px 12px; background: var(--surface-muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); scrollbar-width: thin; flex-shrink: 0; }.scholar-prompts button { white-space: nowrap; border: 1px solid #c9d5cc; border-radius: 999px; background: #e7eee8; color: var(--accent); padding: 5px 9px; font-size: 9px; font-weight: 500; }.scholar-prompts button span { color: var(--accent); }
-  .scholar-scopes { display: flex; margin: 0 14px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-muted); gap: 3px; flex-shrink: 0; }
-  .scholar-scopes button { flex: 1; padding: 7px 3px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: 10px var(--sans); white-space: nowrap; }
-  .scholar-scopes button:disabled { opacity: 1; cursor: default; }
-  .scholar-scopes .selected { background: var(--accent); color: white; font-weight: 600; }
-  .scholar-context { padding: 8px 15px 10px; font: 9px var(--sans); color: var(--text-muted); flex-shrink: 0; border-bottom: 1px solid var(--border); }
   .scholar-composer-tools select { max-width: 145px; padding: 4px 5px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font: 9px var(--sans); }
   .scholar-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 17px 12px; display: flex; flex-direction: column; gap: 19px; scrollbar-width: thin; scrollbar-color: #bac9be transparent; }
   .scholar-welcome { margin: auto 0; padding: 24px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }.welcome-label { font: 8px var(--mono); letter-spacing: .06em; color: var(--accent); }.scholar-welcome h4 { font: 600 19px/1.3 var(--sans); margin: 10px 0; }.scholar-welcome p { font-size: 11px; line-height: 1.7; color: var(--text-muted); margin: 0 0 18px; }.welcome-note { font: 8px/1.5 var(--mono); color: var(--text-muted); }
@@ -382,5 +350,8 @@
   .scholar-composer-tools { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }.scholar-composer-tools button { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font: 8px var(--mono); padding: 4px 5px; }.scholar-composer-tools button:disabled { color: #8b968f; }
   .scholar-input { position: relative; border: 1px solid #bdccbf; border-radius: 15px; background: var(--paper); padding: 10px; display: flex; align-items: flex-end; gap: 7px; }.scholar-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px #3b5b4f12; }.scholar-input textarea { width: 100%; min-width: 0; flex: 1; resize: vertical; max-height: 180px; min-height: 56px; border: 0; background: transparent; font: 11px/1.6 var(--sans); color: var(--text); outline: none; }.scholar-input textarea::placeholder { color: #87948a; }.scholar-send { display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; flex-shrink: 0; padding: 0; background: var(--accent); color: white; border: 0; border-radius: 10px; }.scholar-send:not(:disabled):hover { background: var(--accent-hover); }.scholar-send:disabled { opacity: .45; cursor: default; }.scholar-input-hint { display: flex; justify-content: space-between; gap: 5px; color: var(--text-muted); font-size: 7px; margin: 6px 3px 0; }
   @media (max-width: 1023px) { .chat.scholar-chat { width: 100%; height: 600px; border-left: 0; border-top: 1px solid var(--border); } }
+  .scholar-unavailable { margin: 6px 14px 0; font-size: 10px; color: var(--text-muted); overflow-wrap: anywhere; }
+  .scholar-citations { list-style: none; margin: 6px 2px 0; padding: 0; font: 9px var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+  .scholar-quote { margin: 0 0 6px; padding: 2px 0 2px 8px; border-left: 2px solid currentColor; opacity: .8; white-space: pre-wrap; }
   @media (prefers-reduced-motion: reduce) { .thinking-dots { animation: none; } }
 </style>
