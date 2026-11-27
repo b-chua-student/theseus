@@ -133,8 +133,13 @@ def test_s079_scheduled_report(tmp_path, monkeypatch, evidence) -> None:
     config = workflow()
     assert config["on"]["schedule"] == [{"cron": "0 16 * * 6"}]
     assert SATURDAY.astimezone(ZoneInfo("Asia/Manila")).strftime("%A %H:%M") == "Sunday 00:00"
-    assert config["permissions"] == dict.fromkeys(("contents", "pull-requests", "issues"), "read")
-    steps = config["jobs"]["report"]["steps"]
+    assert config["permissions"] == {}
+    report_job = config["jobs"]["report"]
+    assert report_job["permissions"] == dict.fromkeys(
+        ("contents", "pull-requests", "issues"), "read"
+    )
+    assert config["jobs"]["summary"]["permissions"] == {"contents": "read"}
+    steps = report_job["steps"]
     assert (
         sum("python -m scripts.dora_scheduled_report report" in s.get("run", "") for s in steps)
         == 1
