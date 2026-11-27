@@ -653,18 +653,24 @@ def load_report(now: datetime) -> tuple[list[Arrival], list[Incident], list[str]
     return arrivals, incidents, gaps
 
 
+def build_report(now: datetime) -> str:
+    """Render the read-only change failure rate report."""
+    try:
+        arrivals, incidents, gaps = load_report(now)
+    except EvidenceError as error:
+        arrivals, incidents, gaps = [], [], [str(error)]
+    return format_report(now, arrivals, incidents, gaps)
+
+
 def main(mode: str, now: datetime | None = None) -> int:
     """Run the report or the scheduled writer."""
     if now is None:
         started = os.getenv("DORA_REPORT_STARTED_AT") if mode == "report" else None
         now = dora_evidence.timestamp(started) if started else datetime.now(UTC)
     if mode == "report":
-        try:
-            arrivals, incidents, gaps = load_report(now)
-        except EvidenceError as error:
-            arrivals, incidents, gaps = [], [], [str(error)]
+        report = build_report(now)
         with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:
-            output.write(format_report(now, arrivals, incidents, gaps))
+            output.write(report)
         return 0
     try:
         github, service, token, first = configuration()

@@ -163,13 +163,8 @@ def format_result(deployments: set[str], evidence: IncidentEvidence) -> str:
     )
 
 
-def main() -> int:
-    """Use the captured UTC report start and append the result to the job summary."""
-    try:
-        end = dora_evidence.timestamp(os.environ["DORA_REPORT_STARTED_AT"])
-    except (KeyError, ValueError):
-        sys.stderr.write("The UTC report start is missing or invalid.\n")
-        return 1
+def build_report(end: datetime) -> str:
+    """Render the rework rate for the existing half-open reporting window."""
     start = end - timedelta(days=30)
     service = os.getenv("DORA_RENDER_SERVICE_ID", "")
     token = os.getenv("RENDER_API_KEY", "")
@@ -188,13 +183,24 @@ def main() -> int:
         evidence = read_incidents(service, deployments) if deployments else IncidentEvidence()
         result = format_result(deployments, evidence)
 
+    return (
+        "## DORA deployment rework rate\n\n"
+        f"Window start (UTC): `{start.isoformat()}`\n"
+        f"Window end (UTC, exclusive): `{end.isoformat()}`\n\n"
+        f"{result}\n"
+    )
+
+
+def main() -> int:
+    """Use the captured UTC report start and append the result to the job summary."""
+    try:
+        end = dora_evidence.timestamp(os.environ["DORA_REPORT_STARTED_AT"])
+    except (KeyError, ValueError):
+        sys.stderr.write("The UTC report start is missing or invalid.\n")
+        return 1
+    report = build_report(end)
     with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:
-        output.write(
-            "## DORA deployment rework rate\n\n"
-            f"Window start (UTC): `{start.isoformat()}`\n"
-            f"Window end (UTC, exclusive): `{end.isoformat()}`\n\n"
-            f"{result}\n"
-        )
+        output.write(report)
     return 0
 
 
