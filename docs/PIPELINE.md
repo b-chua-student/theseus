@@ -1,5 +1,22 @@
 # Theseus pipeline
 
+```mermaid
+flowchart TD
+    PR["Pull request"] --> CI["Parallel frontend and backend CI"]
+    PR --> Specs["Spec checks when matching files change"]
+    PR --> Image["Docker build validation"]
+    CI --> Merge["Required checks and teammate review"]
+    Specs --> Merge
+    Image --> Merge
+    Merge --> Main["Merge to main"]
+    Main --> MainCI["Main push CI and image build"]
+    Main -.-> Render["Render production deployment"]
+    Render --> Smoke["Verify live SHA, health, and smoke checks"]
+    Render --> Reports["DORA deployment and incident reporting"]
+```
+
+The diagram shows the intended release path. Confirm which checks are required and whether Render waits for main CI in the repository and hosting settings. See the [deploy and rollback runbook](deploy-and-rollback.md).
+
 ## Continuous integration
 
 [CI](../.github/workflows/ci.yml) runs on pushes and pull requests. Its two jobs run independently on GitHub-hosted Ubuntu runners.
@@ -8,6 +25,8 @@
 | --- | --- | --- |
 | Frontend | Node.js 24 | Install locked dependencies, run ESLint and `svelte-check`, run unit and component tests, and build the production frontend. |
 | Backend | Python 3.12 and Node.js 24 | Run the Ruff lint and formatting hooks and the mypy hook, run pytest unit and integration suites, then run Playwright end-to-end tests in Chromium. |
+
+CI caches npm and pip dependencies and the MiniLM snapshot. Lint and type checks give feedback before later test and build steps. The frontend and backend jobs run in parallel.
 
 Open the pull request’s **Checks** tab or the workflow run under **Actions** to inspect failures. Expand the failed step for command output.
 
@@ -26,17 +45,13 @@ Open the pull request’s **Checks** tab or the workflow run under **Actions** t
 
 The [Dockerfile](../Dockerfile) builds the Svelte frontend and packages it with the Flask backend. The [Docker image workflow](../.github/workflows/docker.yml) builds the image on pushes, pull requests, and manual dispatch.
 
-### Failed deployment recovery time
+## Failed deployment recovery time
 
 Run [DORA failed deployment recovery time](../.github/workflows/dora-failed-deployment-recovery-time.yml) from **Actions → Run workflow**. Open the run’s job summary for the UTC run time, per-incident durations or statuses, median completed recovery time, and counts of completed, unresolved, and restored incidents with a missing timestamp.
 
 The workflow reads open and closed issues labelled `dora-recovery-incident` across all recorded dates. Use the [production incident template](../.github/ISSUE_TEMPLATE/production-incident.md) to record maintainer confirmation, degradation and restoration evidence, and any corrective deployment links. Add recovery evidence to the original incident issue when a correction is already recorded elsewhere.
 
 The report uses the workflow’s GitHub token and repository identifier. For Render Live evidence, it reads the maintainer-confirmed timestamp from the incident. If label lookup or incident loading fails, the summary marks the evidence as incomplete. A successful run with no completed durations displays “No completed recoveries with known timestamps.”
-
-### Planned deployment and recovery work
-
-The [Docker image workflow](../.github/workflows/docker.yml) runs on pushes, pull requests, and manual dispatch. It builds the [Dockerfile](../Dockerfile), which packages the Svelte frontend with the Flask backend, and tags the image locally as `theseus:<commit SHA>`. Its only job is the image build.
 
 ## DORA production reporting
 
@@ -45,8 +60,10 @@ The DORA workflows read deployment history for the Render production service. Co
 | Workflow | Trigger | Output |
 | --- | --- | --- |
 | [Deployment frequency](../.github/workflows/dora-deployment-frequency.yml) | PR merged into `main` | Publishes deployment frequency to the job summary. |
-| [Feature PR merge-to-production lead time](../.github/workflows/dora-lead-time.yml) | Manual dispatch or Sunday at 00:00 Manila time when `DORA_WEEKLY_ENABLED` is `true` | Publishes median time from feature PR merge to first live deployment. `DORA_FEATURE_LABEL` identifies feature PRs. |
+| [Feature PR merge-to-production lead time](../.github/workflows/dora-lead-time.yml) | Manual dispatch | Publishes median time from feature PR merge to first live deployment. `DORA_FEATURE_LABEL` identifies feature PRs. |
 | [Change failure rate](../.github/workflows/dora-change-failure-rate.yml) | PR merged into `main` or manual dispatch | Publishes the change failure rate and flags pending incident attribution in the job summary. |
 | [Production incident reconciliation](../.github/workflows/dora-production-incidents.yml) | Hourly at minute 17 | Creates or updates GitHub issues for detected production rollbacks and hotfixes. |
+| [Deployment rework rate](../.github/workflows/dora-deployment-rework-rate.yml) | Manual dispatch | Reports corrective production deployments. |
+| [Consolidated DORA report](../.github/workflows/dora-scheduled-report.yml) | Manual dispatch or Sunday at 00:00 Manila time | Publishes a job summary and uploads the full `dora-report` artifact. |
 
 For configuration and verification steps, see the [lead time runbook](../specs/devops/dora-change-lead-time/operations.md) and the [change failure rate runbook](../specs/devops/dora-change-failure-rate/operations.md).
