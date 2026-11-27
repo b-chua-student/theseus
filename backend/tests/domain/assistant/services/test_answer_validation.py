@@ -69,7 +69,7 @@ class BlockingValidator(AcceptingValidator):
         return Verdict()
 
 
-def test_s009_a_blocking_check_is_abandoned_at_the_deadline_and_its_result_ignored() -> None:
+def test_s106_a_blocking_check_is_abandoned_at_the_deadline_and_its_result_ignored() -> None:
     validator = BlockingValidator()
     validate = ValidateAnswer(validator, EvidenceRetriever(), time.monotonic, deadline_seconds=0.2)
     started = time.monotonic()
@@ -126,7 +126,7 @@ def test_abandoned_calls_are_bounded_and_new_work_is_rejected_until_they_finish(
 
 
 @pytest.mark.parametrize("arrival", [30.0, 31.0])
-def test_s009_late_review_cannot_verify_or_release_unanchored_claims(arrival: float) -> None:
+def test_s106_late_review_cannot_verify_or_release_unanchored_claims(arrival: float) -> None:
     clock = FakeClock(0.0)
     validator = ScriptedValidator(
         [CheckStep(Verdict(verified=(Finding("Late finding", 1),)), at=arrival)], [], clock

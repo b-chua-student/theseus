@@ -1,4 +1,4 @@
-"""Request-wide acceptance tests for S-014 to S-017 using an offline Gemini SDK spy."""
+"""Request-wide acceptance tests for S-111 to S-114 using an offline Gemini SDK spy."""
 
 import json
 from collections.abc import Iterator

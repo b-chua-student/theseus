@@ -19,7 +19,7 @@ def reviser(revisions: list[str]) -> tuple[ReviseDraft, ScriptedValidator]:
     return ReviseDraft(validator), validator
 
 
-def test_s004_a_corrected_citation_resolves_to_the_passage_that_supports_it() -> None:
+def test_s101_a_corrected_citation_resolves_to_the_passage_that_supports_it() -> None:
     corrected = "The pilot started in May [1] and ended in July [2]."
     verdict = Verdict(verified=(MAY,), unresolved=("July end cites P1, not P2",))
     revise, validator = reviser([corrected])
@@ -39,7 +39,7 @@ def test_s004_a_corrected_citation_resolves_to_the_passage_that_supports_it() ->
     assert [p.chunk_id for p in call.passages] == [P1.chunk_id, P2.chunk_id]
 
 
-def test_s003_a_revision_that_drops_a_claim_drops_its_citation() -> None:
+def test_s100_a_revision_that_drops_a_claim_drops_its_citation() -> None:
     revise, _ = reviser(["The pilot started in May [1]."])
 
     revised = revise.execute(
@@ -52,7 +52,7 @@ def test_s003_a_revision_that_drops_a_claim_drops_its_citation() -> None:
     assert [c.key for c in revised.citations] == [1]
 
 
-def test_s005_a_revision_after_a_new_search_cites_retained_and_new_passages() -> None:
+def test_s102_a_revision_after_a_new_search_cites_retained_and_new_passages() -> None:
     revise, validator = reviser(["The pilot started in May [1] and ended in July [2]."])
     evidence = Evidence((P1,)).merge([P2, P1], limit=5)
 
@@ -80,7 +80,7 @@ def test_a_revision_citing_a_passage_that_was_not_admitted_does_not_cite_it() ->
     assert [c.key for c in revised.citations] == [1]
 
 
-def test_s012_the_manuscript_text_reaches_the_validator() -> None:
+def test_s109_the_manuscript_text_reaches_the_validator() -> None:
     revise, validator = reviser(["The manuscript says July 12; the report gives July [1]."])
 
     revise.execute(
@@ -94,7 +94,7 @@ def test_s012_the_manuscript_text_reaches_the_validator() -> None:
     assert validator.revisions[0].manuscript_text == "The pilot ended on July 12."
 
 
-def test_s009_the_remaining_time_reaches_the_validator() -> None:
+def test_s106_the_remaining_time_reaches_the_validator() -> None:
     revise, validator = reviser(["The pilot started in May [1]."])
 
     revise.execute(

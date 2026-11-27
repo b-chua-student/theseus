@@ -13,13 +13,13 @@ def locations(evidence: Evidence) -> list[str]:
     return [p.location for p in evidence.passages]
 
 
-def test_s005_new_passages_are_added_after_retained_ones() -> None:
+def test_s102_new_passages_are_added_after_retained_ones() -> None:
     merged = Evidence((P1,)).merge([P2, P1], limit=5)
 
     assert locations(merged) == ["P1", "P2"]
 
 
-def test_s005_a_retained_passage_keeps_its_key_when_the_search_ranks_it_differently() -> None:
+def test_s102_a_retained_passage_keeps_its_key_when_the_search_ranks_it_differently() -> None:
     merged = Evidence((P1,)).merge([P2, P1], limit=5)
 
     assert [c.key for c in merged.citations_for("May [1], July [2]")] == [1, 2]
@@ -44,7 +44,7 @@ def test_the_evidence_budget_still_admits_new_passages_while_room_remains() -> N
     assert locations(merged) == ["P1", "P2"]
 
 
-def test_s004_citations_resolve_to_the_admitted_passages_in_order_of_appearance() -> None:
+def test_s101_citations_resolve_to_the_admitted_passages_in_order_of_appearance() -> None:
     evidence = Evidence((P1, P2))
 
     citations = evidence.citations_for("July [2], and May [1]. Again July [2].")
@@ -64,13 +64,13 @@ def test_text_without_citation_keys_has_no_citations() -> None:
     assert Evidence((P1,)).citations_for("No citations here.") == ()
 
 
-def test_s005_a_full_evidence_set_gives_up_an_uncited_passage_for_a_new_one() -> None:
+def test_s102_a_full_evidence_set_gives_up_an_uncited_passage_for_a_new_one() -> None:
     merged = Evidence((P1, P2, P3)).merge([P4], limit=3, keep=[1])
 
     assert locations(merged) == ["P1", "P2", "P4"]
 
 
-def test_s005_a_cited_passage_is_never_given_up_and_keeps_its_key() -> None:
+def test_s102_a_cited_passage_is_never_given_up_and_keeps_its_key() -> None:
     merged = Evidence((P1, P2, P3)).merge([P4], limit=3, keep=[1, 3])
 
     assert locations(merged) == ["P1", "P4", "P3"]

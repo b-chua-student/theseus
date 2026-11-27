@@ -78,13 +78,13 @@ def test_search_without_retrieval_ports_finds_nothing() -> None:
     assert retriever.search(ProjectId.from_str(str(uuid4())), QUESTION) == []
 
 
-def test_s010_an_empty_result_is_not_a_failed_lookup() -> None:
+def test_s107_an_empty_result_is_not_a_failed_lookup() -> None:
     setup = Setup([QueryStep([])])
 
     assert setup.retriever.search(setup.project_id, QUESTION) == []
 
 
-def test_s011_a_failed_lookup_raises_a_retrieval_error() -> None:
+def test_s108_a_failed_lookup_raises_a_retrieval_error() -> None:
     setup = Setup([QueryStep(error=RuntimeError("vector store down"))])
 
     with pytest.raises(RetrievalError) as raised:
@@ -93,7 +93,7 @@ def test_s011_a_failed_lookup_raises_a_retrieval_error() -> None:
     assert isinstance(raised.value.__cause__, RuntimeError)
 
 
-def test_s005_find_more_searches_for_the_original_question_and_the_missing_evidence() -> None:
+def test_s102_find_more_searches_for_the_original_question_and_the_missing_evidence() -> None:
     setup = Setup([QueryStep([P2, P1])])
 
     setup.retriever.find_more(setup.project_id, Query(QUESTION), Evidence((P1,)), MISSING)
@@ -103,7 +103,7 @@ def test_s005_find_more_searches_for_the_original_question_and_the_missing_evide
     assert MISSING in text
 
 
-def test_s005_find_more_uses_the_same_source_scope_as_the_first_search() -> None:
+def test_s102_find_more_uses_the_same_source_scope_as_the_first_search() -> None:
     setup = Setup([QueryStep([P1]), QueryStep([P2, P1])])
     selected = [str(setup.first.doc_ref_id.value)]
 
@@ -114,7 +114,7 @@ def test_s005_find_more_uses_the_same_source_scope_as_the_first_search() -> None
     assert first_scope == second_scope == [setup.first.doc_ref_id]
 
 
-def test_s005_find_more_keeps_retained_passages_and_adds_the_new_one() -> None:
+def test_s102_find_more_keeps_retained_passages_and_adds_the_new_one() -> None:
     setup = Setup([QueryStep([P2, P1])])
 
     evidence = setup.retriever.find_more(
@@ -142,7 +142,7 @@ def test_find_more_without_a_missing_evidence_description_searches_the_question(
     assert setup.embedder.texts == [QUESTION]
 
 
-def test_s011_find_more_raises_a_retrieval_error_and_leaves_the_evidence_untouched() -> None:
+def test_s108_find_more_raises_a_retrieval_error_and_leaves_the_evidence_untouched() -> None:
     setup = Setup([QueryStep(error=RuntimeError("vector store down"))])
     evidence = Evidence((P1,))
 
@@ -152,7 +152,7 @@ def test_s011_find_more_raises_a_retrieval_error_and_leaves_the_evidence_untouch
     assert evidence.passages == (P1,)
 
 
-def test_s005_a_full_first_search_still_admits_the_missing_end_date() -> None:
+def test_s102_a_full_first_search_still_admits_the_missing_end_date() -> None:
     start = passage("P1", "The pilot started in May.")
     unrelated_a = passage("P4", "The pilot site was a hospital.")
     unrelated_b = passage("P5", "The pilot enrolled forty patients.")

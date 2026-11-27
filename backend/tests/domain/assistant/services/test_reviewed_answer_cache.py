@@ -20,7 +20,7 @@ from tests.domain.assistant.generation_support import (
 from tests.domain.assistant.validation_support import QUESTION
 
 
-def test_s014_repeat_rechecks_evidence_and_reuses_the_full_answer() -> None:
+def test_s111_repeat_rechecks_evidence_and_reuses_the_full_answer() -> None:
     with exchange([[START, END], [START, END]], reviewed_months(), 2) as env:
         first = env.service.ask(env.conversation_id, QUESTION)
         assert env.provider.calls == 2
@@ -30,7 +30,7 @@ def test_s014_repeat_rechecks_evidence_and_reuses_the_full_answer() -> None:
 
 
 @pytest.mark.parametrize("change", ["question", "selection", "evidence", "context", "conversation"])
-def test_s020_changed_inputs_require_a_fresh_review(change: str) -> None:
+def test_s117_changed_inputs_require_a_fresh_review(change: str) -> None:
     second = [START, END, "New evidence."] if change == "evidence" else [START, END]
     with exchange([[START, END], second], reviewed_months() * 2, 4) as env:
         env.service.ask(env.conversation_id, QUESTION)
@@ -48,7 +48,7 @@ def test_s020_changed_inputs_require_a_fresh_review(change: str) -> None:
 
 
 @pytest.mark.parametrize("outcome", ["partial", "error", "timeout"])
-def test_s021_only_fully_reviewed_answers_can_be_reused(outcome: str) -> None:
+def test_s118_only_fully_reviewed_answers_can_be_reused(outcome: str) -> None:
     from google.genai import errors as genai_errors
 
     review: str | Exception
@@ -79,7 +79,7 @@ def test_s021_only_fully_reviewed_answers_can_be_reused(outcome: str) -> None:
         assert "July" in second.text and second.citations
 
 
-def test_s022_previously_reviewed_answer_cannot_override_an_empty_search() -> None:
+def test_s119_previously_reviewed_answer_cannot_override_an_empty_search() -> None:
     with exchange([[START, END], [], [], []], reviewed_months(), 2) as env:
         first = env.service.ask(env.conversation_id, QUESTION)
         assert first.citations

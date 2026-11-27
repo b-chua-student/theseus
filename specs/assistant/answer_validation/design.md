@@ -16,7 +16,7 @@
 
 1. Resolve authorized project, conversation and source scope for every request. A retrieval exception follows the interruption flow. A successful empty search ends with an insufficient-evidence explanation. Neither dispatches generation or serves an old answer.
 2. Look up the exact inputs. On a valid hit return the reviewed answer with citations through the normal exchange lifecycle. On a miss, call the draft stage once with the question and evidence. Draft failure consumes that attempt and ends the exchange.
-3. Start the validation deadline when the draft is ready. If recovery is needed, fetch evidence within the same selected sources before the review call. Send Gemini the original question, admitted passages and draft. Treat passage content as data. A finding must address the question, identify the correct entity or group, and carry a valid supporting citation. Keep supplied manuscript attribution separate in S-012.
+3. Start the validation deadline when the draft is ready. If recovery is needed, fetch evidence within the same selected sources before the review call. Send Gemini the original question, admitted passages and draft. Treat passage content as data. A finding must address the question, identify the correct entity or group, and carry a valid supporting citation. Keep supplied manuscript attribution separate in S-109.
 4. Finalize from reviewed findings. Once the review attempt is spent, narrowing and formatting can use only what that review supports. There is no further Gemini revision or recheck. Pre-deadline service failure follows the interruption rule. A failure at the cutoff uses the deadline rule.
 
 ## Data and Interfaces
@@ -29,4 +29,4 @@ Keep the terminal answer text and verified citation list separate from optional 
 
 ## Evidence Outcomes
 
-A review can correct the group size of 25 to the reviewed enrollment total of 75 with the matching passage (S-015). A passage giving only a month cannot support an end year (S-016). At timeout prefer verified findings, otherwise offer only eligible pending claims, otherwise use the timeout message (S-008, S-009, S-013, S-018, S-019). A fully reviewed hit uses zero calls; a fresh success uses two; a failed draft consumes one and a failed review consumes the second. Changed evidence or an ineligible previous outcome cannot authorize reuse (S-014, S-017, S-020, S-021).
+A review can correct the group size of 25 to the reviewed enrollment total of 75 with the matching passage (S-112). A passage giving only a month cannot support an end year (S-113). At timeout prefer verified findings, otherwise offer only eligible pending claims, otherwise use the timeout message (S-105, S-106, S-110, S-115, S-116). A fully reviewed hit uses zero calls; a fresh success uses two; a failed draft consumes one and a failed review consumes the second. Changed evidence or an ineligible previous outcome cannot authorize reuse (S-111, S-114, S-117, S-118).

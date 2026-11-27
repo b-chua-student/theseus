@@ -63,7 +63,7 @@ beforeEach(() => {
 });
 
 describe('ChatPanel answer validation', () => {
-  it('S-007: shows no progress until the server reports it, then removes it with the answer', async () => {
+  it('S-104: shows no progress until the server reports it, then removes it with the answer', async () => {
     const options = await sendQuestion();
 
     expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
@@ -80,7 +80,7 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByText(/July 12/)).not.toBeInTheDocument();
   });
 
-  it('S-007: never displays an unchecked draft while validation is pending', async () => {
+  it('S-104: never displays an unchecked draft while validation is pending', async () => {
     const options = await sendQuestion();
     options.onStatus(PROGRESS);
     await screen.findByText(PROGRESS);
@@ -89,7 +89,7 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByText(/ended on July 12/)).not.toBeInTheDocument();
   });
 
-  it('S-018: reveals pending text with an unverified label only when selected', async () => {
+  it('S-115: reveals pending text with an unverified label only when selected', async () => {
     const text = 'The pilot ended in July.';
     const offer = { name: 'View unverified draft' };
     const options = await sendQuestion();
@@ -112,10 +112,10 @@ describe('ChatPanel answer validation', () => {
   });
 
   it.each([
-    ['S-008', PARTIAL, /could not be checked in time/],
-    ['S-019', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
-    ['S-009', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
-    ['S-013', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
+    ['S-105', PARTIAL, /could not be checked in time/],
+    ['S-116', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
+    ['S-106', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
+    ['S-110', TIMEOUT, /couldn’t verify an answer within 30 seconds/],
   ])('%s: shows the deadline response as the answer and clears progress', async (_id, text, pattern) => {
     const options = await sendQuestion();
     options.onStatus(PROGRESS);
@@ -128,7 +128,7 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
   });
 
-  it('S-004/S-014: shows the direct answer and its sources without a progress event', async () => {
+  it('S-101/S-111: shows the direct answer and its sources without a progress event', async () => {
     await sendQuestion();
 
     pending.resolve({
@@ -146,7 +146,7 @@ describe('ChatPanel answer validation', () => {
     expect(screen.queryByText(PROGRESS)).not.toBeInTheDocument();
   });
 
-  it('S-015: shows only accepted pilot findings and citations after progress', async () => {
+  it('S-112: shows only accepted pilot findings and citations after progress', async () => {
     const options = await sendQuestion();
     options.onStatus(PROGRESS);
     await screen.findByText(PROGRESS);
@@ -173,7 +173,7 @@ describe('ChatPanel answer validation', () => {
     expect(await screen.findByText(/couldn’t verify an answer/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Sources cited')).not.toBeInTheDocument();
   });
-  it('S-004: a reopened conversation lists the sources each answer cited', async () => {
+  it('S-101: a reopened conversation lists the sources each answer cited', async () => {
     vi.mocked(listConversations).mockResolvedValue([{ id: 'c9', title: 'Earlier chat' }]);
     vi.mocked(getConversation).mockResolvedValue({
       context_scope: 'source_library',
@@ -200,7 +200,7 @@ describe('ChatPanel answer validation', () => {
     expect(lists[0]).toHaveTextContent('[2] Pilot report, P2');
     expect(screen.getByText('Older answer')).toBeInTheDocument();
   });
-  it('S-011/S-017: shows one interruption and does not resubmit the question', async () => {
+  it('S-108/S-114: shows one interruption and does not resubmit the question', async () => {
     const options = await sendQuestion();
     options.onStatus(PROGRESS);
     await screen.findByText(PROGRESS);

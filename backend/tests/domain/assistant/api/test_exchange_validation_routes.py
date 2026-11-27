@@ -1,6 +1,6 @@
 """Route tests for validated exchanges: JSON response, progress and terminal stream events.
 
-Covers S-004, S-007, S-008, S-009, S-011 and S-013 through the exchange endpoint, with a real
+Covers S-101, S-104, S-105, S-106, S-108 and S-110 through the exchange endpoint, with a real
 ``ChatService`` wired to the scripted fakes in ``validation_support``. The stream is negotiated
 with ``Accept: application/x-ndjson``. Records are ``{"type": "status", "message"}``,
 ``{"type": "answer", "answer", "citations"}`` and ``{"type": "error", "error"}``. Without that
@@ -118,7 +118,7 @@ formats = pytest.mark.parametrize("fmt", ["json", "stream"])
 
 
 @formats
-@pytest.mark.parametrize("draft", [END, None], ids=["s018-eligible", "s019-ineligible"])
+@pytest.mark.parametrize("draft", [END, None], ids=["s115-eligible", "s116-ineligible"])
 def test_deadline_route_separates_optional_draft_from_answer(
     fmt: str, draft: str | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -140,7 +140,7 @@ def test_deadline_route_separates_optional_draft_from_answer(
 
 
 @formats
-@pytest.mark.parametrize("reuse", [False, True], ids=["fresh", "s014-repeat"])
+@pytest.mark.parametrize("reuse", [False, True], ids=["fresh", "s111-repeat"])
 def test_checked_answer_and_citations_across_generation_paths(
     fmt: str,
     reuse: bool,  # noqa: FBT001
@@ -158,14 +158,14 @@ def test_checked_answer_and_citations_across_generation_paths(
 
 
 @formats
-def test_s017_interrupted_generation_returns_one_error_without_a_draft(fmt: str) -> None:
+def test_s114_interrupted_generation_returns_one_error_without_a_draft(fmt: str) -> None:
     with exchange([[START, END, FOLLOW_UP]], RuntimeError("provider unavailable"), 1) as env:
         result = outcome(env, fmt)
     assert result == Outcome("error", INTERRUPTED_MESSAGE, [], [])
 
 
 @formats
-def test_s004_success_carries_only_the_corrected_answers_citations(fmt: str) -> None:
+def test_s101_success_carries_only_the_corrected_answers_citations(fmt: str) -> None:
     mismatched = "The pilot started in May [1] and ended in July [1]."
     corrected = "The pilot started in May [1] and ended in July [2]."
     env = build(
@@ -184,7 +184,7 @@ def test_s004_success_carries_only_the_corrected_answers_citations(fmt: str) -> 
 
 
 @formats
-def test_s008_returns_verified_findings_at_the_deadline(fmt: str) -> None:
+def test_s105_returns_verified_findings_at_the_deadline(fmt: str) -> None:
     env = build(
         drafts=[OVERSTATED],
         searches=[QueryStep([P1]), QueryStep([P1, P2], at=DEADLINE + 1)],
@@ -205,7 +205,7 @@ def test_s008_returns_verified_findings_at_the_deadline(fmt: str) -> None:
 
 
 @formats
-def test_s009_reports_a_timeout_when_nothing_was_verified(fmt: str) -> None:
+def test_s106_reports_a_timeout_when_nothing_was_verified(fmt: str) -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep([P1, P2])],
@@ -218,7 +218,7 @@ def test_s009_reports_a_timeout_when_nothing_was_verified(fmt: str) -> None:
 
 
 @formats
-def test_s011_reports_an_interrupted_validation_as_an_error(fmt: str) -> None:
+def test_s108_reports_an_interrupted_validation_as_an_error(fmt: str) -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep([P1, P2])],
@@ -230,7 +230,7 @@ def test_s011_reports_an_interrupted_validation_as_an_error(fmt: str) -> None:
     assert result == Outcome("error", INTERRUPTED_MESSAGE, [], [])
 
 
-def test_s011_json_error_uses_an_error_status() -> None:
+def test_s108_json_error_uses_an_error_status() -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep([P1, P2])],
@@ -245,7 +245,7 @@ def test_s011_json_error_uses_an_error_status() -> None:
 
 @pytest.mark.parametrize("fmt", ["json", "stream"])
 @pytest.mark.parametrize("with_findings", [True, False], ids=["findings", "no-findings"])
-def test_s013_a_service_error_at_the_deadline_gets_the_deadline_response(
+def test_s110_a_service_error_at_the_deadline_gets_the_deadline_response(
     fmt: str,
     with_findings: bool,  # noqa: FBT001
 ) -> None:
@@ -269,7 +269,7 @@ def test_s013_a_service_error_at_the_deadline_gets_the_deadline_response(
         assert (result.message, result.citations) == (TIMEOUT_MESSAGE, [])
 
 
-def test_s007_progress_arrives_after_five_seconds_while_validation_is_pending() -> None:
+def test_s104_progress_arrives_after_five_seconds_while_validation_is_pending() -> None:
     env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(Verdict())])
     check = env.validator.check
 
@@ -299,7 +299,7 @@ def test_s007_progress_arrives_after_five_seconds_while_validation_is_pending() 
     assert "pilot" not in json.dumps(status)
 
 
-def test_s004_json_citations_name_the_source_and_location() -> None:
+def test_s101_json_citations_name_the_source_and_location() -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep([P1, P2])],
@@ -343,7 +343,7 @@ def test_a_stream_reports_a_request_error_as_a_terminal_record_with_status_and_c
     assert record["error"]
 
 
-def test_s007_progress_counts_from_when_the_draft_is_ready_not_from_the_request(
+def test_s104_progress_counts_from_when_the_draft_is_ready_not_from_the_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("domain.assistant.api.routes.PROGRESS_DELAY_SECONDS", 0.3)
@@ -362,7 +362,7 @@ def test_s007_progress_counts_from_when_the_draft_is_ready_not_from_the_request(
     assert result.kind == "answer"
 
 
-def test_s007_slow_validation_after_a_ready_draft_reports_progress_once(
+def test_s104_slow_validation_after_a_ready_draft_reports_progress_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("domain.assistant.api.routes.PROGRESS_DELAY_SECONDS", 0.3)
@@ -399,7 +399,7 @@ def test_a_failure_building_the_answer_record_ends_the_stream_with_one_error_rec
     assert SUPPORTED not in response.get_data(as_text=True)
 
 
-def test_s004_a_reopened_conversation_lists_the_citations_of_each_answer() -> None:
+def test_s101_a_reopened_conversation_lists_the_citations_of_each_answer() -> None:
     env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(Verdict())])
     client = make_client(env)
     client.post(**exchange_request(env, "json"))

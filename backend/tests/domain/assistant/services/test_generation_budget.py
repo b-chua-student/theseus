@@ -1,4 +1,4 @@
-"""Count all provider attempts through a source-backed exchange (S-014 to S-023)."""
+"""Count all provider attempts through a source-backed exchange (S-111 to S-120)."""
 
 import json
 from unittest.mock import patch
@@ -11,7 +11,7 @@ from tests.domain.assistant.generation_support import END, START, exchange, prop
 from tests.domain.assistant.validation_support import INTERRUPTED_MESSAGE, QUESTION, TIMEOUT_MESSAGE
 
 
-def test_s015_review_corrects_group_size_to_total() -> None:
+def test_s112_review_corrects_group_size_to_total() -> None:
     excerpt = "There were 75 schools overall and 25 schools in each group."
     wrong = "There were 25 schools overall."
     corrected = "There were 75 schools overall."
@@ -26,7 +26,7 @@ def test_s015_review_corrects_group_size_to_total() -> None:
         assert [(c.key, c.location) for c in answer.citations] == [(1, "P1")]
 
 
-def test_s016_year_is_withheld_after_recovery_and_review() -> None:
+def test_s113_year_is_withheld_after_recovery_and_review() -> None:
     draft = json.loads(proposal("The pilot ended in 2025.", END))
     draft["missing_evidence"] = "pilot end year"
     review = json.loads(reviewed((START, 1, START), (END, 2, END)))
@@ -40,7 +40,7 @@ def test_s016_year_is_withheld_after_recovery_and_review() -> None:
 
 
 @pytest.mark.parametrize("stage", ["draft", "review"])
-def test_s017_failed_stage_is_never_resent(stage: str) -> None:
+def test_s114_failed_stage_is_never_resent(stage: str) -> None:
     failure = genai_errors.APIError(503, {"error": {"status": "UNAVAILABLE"}})
     steps: list[str | Exception] = [failure]
     if stage == "review":
@@ -50,7 +50,7 @@ def test_s017_failed_stage_is_never_resent(stage: str) -> None:
     assert str(error.value) == INTERRUPTED_MESSAGE
 
 
-def test_s018_review_timeout_returns_pending_text_without_a_third_attempt() -> None:
+def test_s115_review_timeout_returns_pending_text_without_a_third_attempt() -> None:
     failure = genai_errors.APIError(504, {"error": {"status": "DEADLINE_EXCEEDED"}})
     with exchange([[START, END]], [proposal(END, END), failure], 2) as env:
         answer = env.service.ask(env.conversation_id, QUESTION)
@@ -58,7 +58,7 @@ def test_s018_review_timeout_returns_pending_text_without_a_third_attempt() -> N
         assert "July" not in answer.text and not answer.citations
 
 
-def test_s022_empty_search_explains_insufficient_evidence_without_generation() -> None:
+def test_s119_empty_search_explains_insufficient_evidence_without_generation() -> None:
     with exchange([[], [], []], [], 0) as env:
         answer = env.service.ask(env.conversation_id, QUESTION)
         assert not answer.citations and not answer.unverified_draft
@@ -66,7 +66,7 @@ def test_s022_empty_search_explains_insufficient_evidence_without_generation() -
         assert answer.text not in (INTERRUPTED_MESSAGE, TIMEOUT_MESSAGE)
 
 
-def test_s023_initial_search_failure_is_an_interruption_without_generation() -> None:
+def test_s120_initial_search_failure_is_an_interruption_without_generation() -> None:
     with (
         exchange([[START]], [], 0) as env,
         patch.object(env.embedder, "generate", side_effect=RuntimeError("search unavailable")),

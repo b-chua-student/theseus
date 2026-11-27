@@ -113,7 +113,7 @@ def answered_conversation(citations: tuple[Citation, ...]) -> Conversation:
     return conversation
 
 
-def test_s004_citations_survive_a_save_and_load() -> None:
+def test_s101_citations_survive_a_save_and_load() -> None:
     repository, collection = make_repository()
     citation = Citation(1, ChunkId.new(), DocumentRefId.new(), "P1")
     conversation = answered_conversation((citation,))

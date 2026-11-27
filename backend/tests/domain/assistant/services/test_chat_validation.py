@@ -1,4 +1,4 @@
-"""Scenario tests for validating source-backed answers (gherkin.feature S-001 to S-013).
+"""Scenario tests for validating source-backed answers (gherkin.feature S-098 to S-110).
 
 The validation contract these tests assume is documented in ``validation_support``.
 """
@@ -47,7 +47,7 @@ def recorded(env: Env) -> list[str]:
     return [e.answer.text for e in conversation.history if e.answer is not None]
 
 
-def test_s001_displays_a_supported_answer_after_checking_it() -> None:
+def test_s098_displays_a_supported_answer_after_checking_it() -> None:
     env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(PASS)])
 
     answer = ask(env)
@@ -61,7 +61,7 @@ def test_s001_displays_a_supported_answer_after_checking_it() -> None:
     assert recorded(env) == [SUPPORTED]
 
 
-def test_s002_withholds_a_draft_that_answers_a_different_question() -> None:
+def test_s099_withholds_a_draft_that_answers_a_different_question() -> None:
     sponsor_only = "The pilot was sponsored by the university [1]."
     p3 = passage("P3", "The pilot was sponsored by the university.")
     env = build(
@@ -78,7 +78,7 @@ def test_s002_withholds_a_draft_that_answers_a_different_question() -> None:
     assert recorded(env) == [answer.text]
 
 
-def test_s003_revises_an_overstated_claim_and_checks_the_revision() -> None:
+def test_s100_revises_an_overstated_claim_and_checks_the_revision() -> None:
     overstated = "The pilot started in May [1] and ended on July 12 [2]."
     revised = "The pilot started in May [1] and ended in July [2]."
     unsupported = Verdict(verified=(MAY,), unresolved=("ended on July 12",))
@@ -99,7 +99,7 @@ def test_s003_revises_an_overstated_claim_and_checks_the_revision() -> None:
     assert recorded(env) == [revised]
 
 
-def test_s004_corrects_a_mismatched_citation_and_checks_the_correction() -> None:
+def test_s101_corrects_a_mismatched_citation_and_checks_the_correction() -> None:
     mismatched = "The pilot started in May [1] and ended in July [1]."
     corrected = "The pilot started in May [1] and ended in July [2]."
     wrong_target = Verdict(verified=(MAY,), unresolved=("July end cites P1, not P2",))
@@ -118,7 +118,7 @@ def test_s004_corrects_a_mismatched_citation_and_checks_the_correction() -> None
     assert recorded(env) == [corrected]
 
 
-def test_s005_searches_again_for_missing_evidence_and_checks_against_all_passages() -> None:
+def test_s102_searches_again_for_missing_evidence_and_checks_against_all_passages() -> None:
     first_draft = "The pilot started in May [1]."
     missing_end = Verdict(
         verified=(MAY,), unresolved=("end date",), missing_evidence="when the pilot ended"
@@ -145,7 +145,7 @@ def test_s005_searches_again_for_missing_evidence_and_checks_against_all_passage
     assert env.validator.checks[-1].text == SUPPORTED
 
 
-def test_s006_stops_at_the_retry_limit_and_explains_the_remaining_gap() -> None:
+def test_s103_stops_at_the_retry_limit_and_explains_the_remaining_gap() -> None:
     overstated = "The pilot started in May [1] and ended on July 12 [1]."
     still_wrong = "The pilot started in May [1] and probably ended on July 12 [1]."
     no_end_date = Verdict(
@@ -177,7 +177,7 @@ def test_s006_stops_at_the_retry_limit_and_explains_the_remaining_gap() -> None:
     assert recorded(env) == [answer.text]
 
 
-def test_s008_returns_verified_findings_when_the_deadline_cuts_a_retry_short() -> None:
+def test_s105_returns_verified_findings_when_the_deadline_cuts_a_retry_short() -> None:
     draft = "The pilot started in May [1] and ended on July 12 [1]."
     unresolved_end = Verdict(
         verified=(MAY,), unresolved=("end date",), missing_evidence="when the pilot ended"
@@ -200,7 +200,7 @@ def test_s008_returns_verified_findings_when_the_deadline_cuts_a_retry_short() -
     assert recorded(env) == [answer.text]
 
 
-def test_s009_reports_a_timeout_when_no_check_finishes_in_time() -> None:
+def test_s106_reports_a_timeout_when_no_check_finishes_in_time() -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep([P1, P2])],
@@ -214,7 +214,7 @@ def test_s009_reports_a_timeout_when_no_check_finishes_in_time() -> None:
     assert recorded(env) == [TIMEOUT_MESSAGE]
 
 
-def test_s009_the_deadline_starts_when_the_first_draft_is_ready() -> None:
+def test_s106_the_deadline_starts_when_the_first_draft_is_ready() -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep([P1, P2])],
@@ -227,7 +227,7 @@ def test_s009_the_deadline_starts_when_the_first_draft_is_ready() -> None:
     assert answer.text == SUPPORTED
 
 
-def test_s010_reports_off_topic_drafts_without_claiming_a_source_gap() -> None:
+def test_s107_reports_off_topic_drafts_without_claiming_a_source_gap() -> None:
     sponsor_only = "The pilot was sponsored by the university [1]."
     off_topic = Verdict(relevant=False)
     env = build(
@@ -246,7 +246,7 @@ def test_s010_reports_off_topic_drafts_without_claiming_a_source_gap() -> None:
     assert recorded(env) == [OFF_TOPIC_MESSAGE]
 
 
-def test_s011_withholds_the_draft_when_a_service_error_interrupts_the_check() -> None:
+def test_s108_withholds_the_draft_when_a_service_error_interrupts_the_check() -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep([P1, P2])],
@@ -260,7 +260,7 @@ def test_s011_withholds_the_draft_when_a_service_error_interrupts_the_check() ->
     assert env.service.get(env.project_id, env.conversation_id).exchanges == []
 
 
-def test_s012_attributes_the_manuscript_claim_and_flags_the_unverified_day() -> None:
+def test_s109_attributes_the_manuscript_claim_and_flags_the_unverified_day() -> None:
     manuscript = "The pilot ended on July 12."
     contradiction = "The report contradicts the manuscript, which says July 12 [1]."
     revised = (
@@ -292,7 +292,7 @@ def test_s012_attributes_the_manuscript_claim_and_flags_the_unverified_day() -> 
         pytest.param((), id="without-verified-findings"),
     ],
 )
-def test_s013_a_service_error_at_the_deadline_gets_the_deadline_response(
+def test_s110_a_service_error_at_the_deadline_gets_the_deadline_response(
     verified: tuple[Finding, ...],
 ) -> None:
     draft = "The pilot started in May [1] and ended on July 12 [1]."
@@ -321,7 +321,7 @@ def test_s013_a_service_error_at_the_deadline_gets_the_deadline_response(
     assert recorded(env) == [answer.text]
 
 
-def test_s011_a_failed_first_lookup_is_a_service_error_not_an_empty_search() -> None:
+def test_s108_a_failed_first_lookup_is_a_service_error_not_an_empty_search() -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep(error=RuntimeError("vector store down"))],
@@ -337,7 +337,7 @@ def test_s011_a_failed_first_lookup_is_a_service_error_not_an_empty_search() -> 
     assert env.service.get(env.project_id, env.conversation_id).exchanges == []
 
 
-def test_s006_a_successful_empty_first_search_is_still_validated() -> None:
+def test_s103_a_successful_empty_first_search_is_still_validated() -> None:
     no_evidence = "The sources do not say when the pilot started."
     env = build(
         drafts=[no_evidence],
@@ -360,7 +360,7 @@ OFF_TOPIC_WITH_FINDINGS = Verdict(
 NO_END_DATE = Verdict(verified=(MAY,), unresolved=("end date",), gaps=("end date",))
 
 
-def test_s010_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_exhaustion() -> None:
+def test_s107_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_exhaustion() -> None:
     env = build(
         drafts=["The pilot was sponsored by the university [1]."],
         searches=[QueryStep([P1, P2])],
@@ -378,7 +378,7 @@ def test_s010_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_exhausti
     assert cited(answer) == [(1, "P1")]
 
 
-def test_s008_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_the_deadline() -> None:
+def test_s105_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_the_deadline() -> None:
     env = build(
         drafts=["The pilot was sponsored by the university [1]."],
         searches=[QueryStep([P1, P2])],
@@ -399,7 +399,7 @@ def test_s008_an_off_topic_drafts_findings_and_gaps_are_not_reported_at_the_dead
     assert "in time" in text
 
 
-def test_s008_findings_that_come_only_from_an_off_topic_draft_give_the_timeout_message() -> None:
+def test_s105_findings_that_come_only_from_an_off_topic_draft_give_the_timeout_message() -> None:
     env = build(
         drafts=["The pilot was sponsored by the university [1]."],
         searches=[QueryStep([P1])],
@@ -410,7 +410,7 @@ def test_s008_findings_that_come_only_from_an_off_topic_draft_give_the_timeout_m
     assert ask(env).text == TIMEOUT_MESSAGE
 
 
-def test_s005_a_gap_that_a_later_check_resolved_is_not_reported() -> None:
+def test_s102_a_gap_that_a_later_check_resolved_is_not_reported() -> None:
     july = Finding("The pilot ended in July", 2)
     needs_end_date = Verdict(
         verified=(MAY,),
@@ -434,7 +434,7 @@ def test_s005_a_gap_that_a_later_check_resolved_is_not_reported() -> None:
     assert "July" in answer.text
 
 
-def test_s005_the_remaining_deadline_budget_is_passed_to_each_validator_call() -> None:
+def test_s102_the_remaining_deadline_budget_is_passed_to_each_validator_call() -> None:
     env = build(
         drafts=["The pilot started in May [1] and ended on July 12 [2]."],
         searches=[QueryStep([P1, P2])],
@@ -455,7 +455,7 @@ def test_s005_the_remaining_deadline_budget_is_passed_to_each_validator_call() -
 STILL_LOOKING = Verdict(verified=(MAY,), missing_evidence="the pilot end date")
 
 
-def test_s006_an_outstanding_evidence_request_is_reported_as_unverified_not_as_a_gap() -> None:
+def test_s103_an_outstanding_evidence_request_is_reported_as_unverified_not_as_a_gap() -> None:
     env = build(
         drafts=["The pilot started in May [1]."],
         searches=[QueryStep([P1]), QueryStep([P1]), QueryStep([P1])],
@@ -479,7 +479,7 @@ def test_s006_an_outstanding_evidence_request_is_reported_as_unverified_not_as_a
     assert recorded(env) == [answer.text]
 
 
-def test_s008_an_outstanding_evidence_request_is_reported_as_unchecked_at_the_deadline() -> None:
+def test_s105_an_outstanding_evidence_request_is_reported_as_unchecked_at_the_deadline() -> None:
     env = build(
         drafts=["The pilot started in May [1]."],
         searches=[QueryStep([P1]), QueryStep([P1])],
@@ -499,7 +499,7 @@ GAP_AND_OPEN_QUESTION = Verdict(
 )
 
 
-def test_s006_an_established_gap_and_an_open_question_are_both_reported_at_exhaustion() -> None:
+def test_s103_an_established_gap_and_an_open_question_are_both_reported_at_exhaustion() -> None:
     env = build(
         drafts=["The pilot started in May [1]."],
         searches=[QueryStep([P1]), QueryStep([P1]), QueryStep([P1])],
@@ -518,7 +518,7 @@ def test_s006_an_established_gap_and_an_open_question_are_both_reported_at_exhau
     assert "do not establish: the pilot's july day" not in text
 
 
-def test_s008_an_established_gap_and_an_open_question_are_both_reported_at_the_deadline() -> None:
+def test_s105_an_established_gap_and_an_open_question_are_both_reported_at_the_deadline() -> None:
     env = build(
         drafts=["The pilot started in May [1]."],
         searches=[QueryStep([P1]), QueryStep([P1])],
@@ -543,7 +543,7 @@ SAME_ITEM = Verdict(
 )
 
 
-def test_s006_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once() -> None:
+def test_s103_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once() -> None:
     env = build(
         drafts=["The pilot started in May [1]."],
         searches=[QueryStep([P1]), QueryStep([P1]), QueryStep([P1])],
@@ -558,7 +558,7 @@ def test_s006_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once()
     assert "unverified" not in text
 
 
-def test_s008_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once() -> None:
+def test_s105_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once() -> None:
     env = build(
         drafts=["The pilot started in May [1]."],
         searches=[QueryStep([P1]), QueryStep([P1])],
@@ -573,7 +573,7 @@ def test_s008_an_item_that_is_both_a_gap_and_an_open_question_is_reported_once()
     assert "in time" in text
 
 
-def test_s007_the_draft_ready_signal_fires_once_after_the_draft_and_before_the_first_check() -> (
+def test_s104_the_draft_ready_signal_fires_once_after_the_draft_and_before_the_first_check() -> (
     None
 ):
     env = build(drafts=[SUPPORTED], searches=[QueryStep([P1, P2])], checks=[CheckStep(PASS)])
@@ -589,7 +589,7 @@ def test_s007_the_draft_ready_signal_fires_once_after_the_draft_and_before_the_f
     assert seen == [(1, 0)]
 
 
-def test_s007_the_draft_ready_signal_does_not_fire_when_no_draft_is_validated() -> None:
+def test_s104_the_draft_ready_signal_does_not_fire_when_no_draft_is_validated() -> None:
     env = build(
         drafts=[SUPPORTED],
         searches=[QueryStep(error=RuntimeError("vector store down"))],
@@ -608,7 +608,7 @@ def test_s007_the_draft_ready_signal_does_not_fire_when_no_draft_is_validated() 
     assert seen == []
 
 
-def test_s007_the_draft_ready_signal_does_not_fire_for_unvalidated_scopes() -> None:
+def test_s104_the_draft_ready_signal_does_not_fire_for_unvalidated_scopes() -> None:
     env = build(drafts=["An answer."], searches=[], checks=[])
     seen: list[str] = []
 
@@ -622,7 +622,7 @@ def test_s007_the_draft_ready_signal_does_not_fire_for_unvalidated_scopes() -> N
     assert seen == []
 
 
-def test_s010_a_later_check_that_disputes_a_finding_removes_it_but_keeps_absent_ones() -> None:
+def test_s107_a_later_check_that_disputes_a_finding_removes_it_but_keeps_absent_ones() -> None:
     july = Finding("The pilot ended in July", 2)
     site = Finding("The pilot site was a hospital", 1)
     first = Verdict(verified=(MAY, july, site), unresolved=("ended on July 12",))
@@ -641,7 +641,7 @@ def test_s010_a_later_check_that_disputes_a_finding_removes_it_but_keeps_absent_
     assert cited(answer) == [(1, "P1")]
 
 
-def test_s008_a_disputed_finding_is_not_reported_at_the_deadline() -> None:
+def test_s105_a_disputed_finding_is_not_reported_at_the_deadline() -> None:
     july = Finding("The pilot ended in July", 2)
     first = Verdict(verified=(MAY, july), unresolved=("ended on July 12",))
     second = Verdict(verified=(MAY,), unresolved=("The pilot ended in July",))

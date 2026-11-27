@@ -4,7 +4,7 @@ Feature: Validate source-backed answers before display
   Background:
     Given the user can access the selected Source Library report
 
-  @S-001 @criterion-1
+  @S-098 @criterion-1
   Scenario: Display a supported answer
     Given the writer asks when the pilot started and ended
     And passages P1 and P2 give May as the start and July as the end
@@ -12,7 +12,7 @@ Feature: Validate source-backed answers before display
     Then the user sees that answer
     And the answer was checked for relevance, claims, and citations before it was displayed
 
-  @S-003 @criterion-3
+  @S-100 @criterion-3
   Scenario: Revise an overstated claim
     Given passage P2 in the Source Library gives July as the end month without an exact day
     And a retry is available
@@ -21,7 +21,7 @@ Feature: Validate source-backed answers before display
     And the review confirms the narrower claim before display
     And the displayed answer states July as the end month without a day
 
-  @S-004 @criterion-1 @criterion-3
+  @S-101 @criterion-1 @criterion-3
   Scenario: Correct a mismatched citation
     Given only retrieved passage P2 establishes that the pilot ended in July
     And a retry is available
@@ -30,7 +30,7 @@ Feature: Validate source-backed answers before display
     And the review confirms that P2 supports the corrected finding
     And the displayed answer cites P2 for July
 
-  @S-005 @criterion-4
+  @S-102 @criterion-4
   Scenario: Retrieve missing evidence
     Given P1 gives the May start and the draft needs additional evidence for the end date before review
     When the Assistant detects the missing evidence
@@ -38,21 +38,21 @@ Feature: Validate source-backed answers before display
     And the resulting answer is checked against P1 and P2 before it is displayed
     And the displayed answer cites P1 for May and P2 for July
 
-  @S-002 @criterion-2 @edge
+  @S-099 @criterion-2 @edge
   Scenario: Withhold an answer to a different question
     Given the writer asks for the pilot dates and P3 names the sponsor
     When the Assistant drafts an answer that only names the sponsor citing P3
     Then the relevance check fails
     And the user never sees that draft as the answer
 
-  @S-006 @criterion-5 @edge
+  @S-103 @criterion-5 @edge
   Scenario: Explain a remaining gap after evidence recovery
     Given P1 gives the May start and two further searches find no end date
     When the review confirms the start and the gap in the retrieved evidence
     Then the answer cites P1 for May and explains that the passages do not establish the end date
     And the request ends after one draft attempt and one review attempt
 
-  @S-007 @criterion-6
+  @S-104 @criterion-6
   Scenario: Show progress only when validation exceeds five seconds
     Given the first draft is ready to check
     When validation continues past five seconds
@@ -60,7 +60,7 @@ Feature: Validate source-backed answers before display
     And the user now sees “Checking the answer against your sources…”
     And the unchecked draft stays hidden throughout validation
 
-  @S-008 @criterion-7 @edge
+  @S-105 @criterion-7 @edge
   Scenario: Return verified partial findings at the deadline
     Given the Assistant has verified the May start against P1
     And the checked passages leave the end date unresolved
@@ -71,7 +71,7 @@ Feature: Validate source-backed answers before display
     And the user sees the verified May start citing P1 and an explanation of the missing end date
     And no unverified draft is offered
 
-  @S-009 @criterion-7 @edge
+  @S-106 @criterion-7 @edge
   Scenario: Reach the deadline before any validation completes
     Given the first draft is waiting for its initial check to finish
     And no eligible draft text remains to offer
@@ -79,7 +79,7 @@ Feature: Validate source-backed answers before display
     Then the user sees “I couldn’t verify an answer within 30 seconds. Please try again.”
     And the unchecked draft stays hidden
 
-  @S-010 @criterion-8 @edge
+  @S-107 @criterion-8 @edge
   Scenario: Withhold an entirely off-topic draft after review
     Given the writer asks for dates and the draft only identifies the sponsor
     When the review finds the draft off-topic
@@ -87,14 +87,14 @@ Feature: Validate source-backed answers before display
     And no sponsor claim or evidence gap is displayed
     And no further generation is attempted
 
-  @S-011 @criterion-9 @edge
+  @S-108 @criterion-9 @edge
   Scenario: Explain an interrupted validation
     Given a draft is awaiting validation
     When a service error prevents the check from completing before the deadline
     Then the user sees “I couldn’t finish checking this answer. Please try again.”
     And the unchecked draft stays hidden
 
-  @S-012 @criterion-3 @edge
+  @S-109 @criterion-3 @edge
   Scenario: Distinguish the manuscript claim from what the selected report establishes
     Given the manuscript says the pilot ended on July 12
     And the retrieved report gives July without specifying a day
@@ -103,7 +103,7 @@ Feature: Validate source-backed answers before display
     Then the displayed answer attributes July 12 to the manuscript
     And it explains that the report leaves the exact day unverified
 
-  @S-013 @criterion-7 @edge
+  @S-110 @criterion-7 @edge
   Scenario Outline: Apply the deadline response when validation fails at exactly 30 seconds
     Given no eligible unchecked draft text is available
     And the findings verified so far are <findings>
@@ -116,7 +116,7 @@ Feature: Validate source-backed answers before display
       | the May start from P1 | the May start citing P1 and an explanation that the end date could not be checked in time |
       | no verified findings  | “I couldn’t verify an answer within 30 seconds. Please try again.”                        |
 
-  @S-014 @criterion-10
+  @S-111 @criterion-10
   Scenario: Reuse an exact fully reviewed answer
     Given a fully reviewed answer with citations is available in this authorized conversation
     And the selected sources, evidence, citation details, context used and review configuration are unchanged
@@ -124,7 +124,7 @@ Feature: Validate source-backed answers before display
     Then the writer receives the reviewed answer with the same citations
     And the request uses zero Gemini generation attempts
 
-  @S-015 @criterion-11
+  @S-112 @criterion-11
   Scenario: Review which group a number describes
     Given the writer asks how many schools enrolled in total
     And P1 reports 75 schools overall and 25 schools per group
@@ -133,7 +133,7 @@ Feature: Validate source-backed answers before display
     Then the displayed finding gives the reviewed total of 75 citing P1
     And the request uses one draft attempt and one review attempt
 
-  @S-016 @criterion-11 @criterion-12 @edge
+  @S-113 @criterion-11 @criterion-12 @edge
   Scenario: Withhold an unsupported year even when the quote is genuine
     Given the user also asks for the year the pilot ended
     And the only end-date excerpt is "The pilot ended in July."
@@ -143,7 +143,7 @@ Feature: Validate source-backed answers before display
     And the proposed year is never displayed as a finding
     And the request uses one draft attempt and one review attempt
 
-  @S-017 @criterion-9 @criterion-12 @edge
+  @S-114 @criterion-9 @criterion-12 @edge
   Scenario Outline: Count failed attempts without automatic retries
     Given a new question with retrieved passages
     When the <stage> fails before the deadline
@@ -155,7 +155,7 @@ Feature: Validate source-backed answers before display
       | draft  | 1     |
       | review | 2     |
 
-  @S-018 @criterion-7 @edge
+  @S-115 @criterion-7 @edge
   Scenario: Offer pending claims on request when validation runs out of time
     Given Gemini returned a draft before the validation deadline
     And no finding is verified and one draft claim still awaits a check
@@ -166,7 +166,7 @@ Feature: Validate source-backed answers before display
     And the July 12 claim is absent
     And the entire exchange made one Gemini generation call
 
-  @S-019 @criterion-7 @edge
+  @S-116 @criterion-7 @edge
   Scenario: Withhold a draft with no eligible claims
     Given Gemini returned a draft whose claims were all found unsupported or off-topic
     And no finding is verified
@@ -174,7 +174,7 @@ Feature: Validate source-backed answers before display
     Then the writer sees “I couldn’t verify an answer within 30 seconds. Please try again.”
     And no unverified draft is offered
 
-  @S-020 @criterion-10 @edge
+  @S-117 @criterion-10 @edge
   Scenario Outline: Require fresh review when reuse conditions change
     Given a fully reviewed answer is available for an earlier question
     And the current authorized search finds evidence
@@ -191,7 +191,7 @@ Feature: Validate source-backed answers before display
       | authorized conversation |
       | review configuration   |
 
-  @S-021 @criterion-10 @edge
+  @S-118 @criterion-10 @edge
   Scenario Outline: Retry an exchange that had no fully reviewed success
     Given the previous exchange ended with <outcome>
     When the writer retries the question and the search finds evidence
@@ -205,14 +205,14 @@ Feature: Validate source-backed answers before display
       | a timeout        |
       | an unverified draft |
 
-  @S-022 @criterion-13
+  @S-119 @criterion-13
   Scenario: Explain an empty search without generation
     Given the selected report previously supported an answer
     When the current search succeeds and returns no passages
     Then the writer learns that the search found insufficient evidence
     And the request uses zero Gemini generation attempts
 
-  @S-023 @criterion-9 @criterion-13 @edge
+  @S-120 @criterion-9 @criterion-13 @edge
   Scenario: Distinguish a failed search from an empty search
     Given the writer asks about a selected report
     When the initial search fails

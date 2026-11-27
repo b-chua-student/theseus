@@ -51,7 +51,7 @@ describe('askConversation', () => {
     expect(init.headers.Accept).toContain('application/x-ndjson');
   });
 
-  it('S-004: returns only the corrected answer and its citations from a plain JSON response', async () => {
+  it('S-101: returns only the corrected answer and its citations from a plain JSON response', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ answer: CORRECTED, citations: CITATIONS }), {
         status: 201,
@@ -66,13 +66,13 @@ describe('askConversation', () => {
     expect(onStatus).not.toHaveBeenCalled();
   });
 
-  it('S-004: returns only the corrected answer and its citations from a stream', async () => {
+  it('S-101: returns only the corrected answer and its citations from a stream', async () => {
     fetchMock.mockResolvedValue(ndjson(line({ type: 'answer', answer: CORRECTED, citations: CITATIONS })));
 
     expect(await ask()).toEqual({ answer: CORRECTED, citations: CITATIONS });
   });
 
-  it('S-007: reports the progress message once and then resolves with the final answer', async () => {
+  it('S-104: reports the progress message once and then resolves with the final answer', async () => {
     const answer = line({ type: 'answer', answer: CORRECTED, citations: CITATIONS });
     // Split the records across chunks to cover partial lines.
     const status = line({ type: 'status', message: PROGRESS });
@@ -86,7 +86,7 @@ describe('askConversation', () => {
     expect(result).toEqual({ answer: CORRECTED, citations: CITATIONS });
   });
 
-  it.each(['json', 'stream'])('S-018: preserves the optional draft separately in %s', async (format) => {
+  it.each(['json', 'stream'])('S-115: preserves the optional draft separately in %s', async (format) => {
     const payload = { answer: 'Checking timed out.', citations: [], unverified_draft: 'The pilot ended in July.' };
     const onStatus = vi.fn();
     const response = format === 'stream'
@@ -98,14 +98,14 @@ describe('askConversation', () => {
     expect(onStatus.mock.calls).toEqual(format === 'stream' ? [[PROGRESS]] : []);
   });
 
-  it('S-011: rejects with the server message when the stream ends in an error record', async () => {
+  it('S-108: rejects with the server message when the stream ends in an error record', async () => {
     const message = 'I couldn’t finish checking this answer. Please try again.';
     fetchMock.mockResolvedValue(ndjson(line({ type: 'error', error: message })));
 
     await expect(ask()).rejects.toThrow(message);
   });
 
-  it('S-011: keeps the status and code on a plain JSON error', async () => {
+  it('S-108: keeps the status and code on a plain JSON error', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ error: 'The assistant couldn’t answer right now.', code: 'assistant.model_error' }), {
         status: 502,

@@ -51,6 +51,8 @@ The retry, timing, and progress decisions are recorded above. No open questions 
 - Gherkin: `specs/assistant/answer_validation/gherkin.feature`
 - Spec files: `requirements.md`, `design.md`, and `tasks.md` in `specs/assistant/answer_validation/`.
 
+Use scenario IDs S-098 through S-120 for answer-validation coverage so they stay unique within the Assistant context.
+
 ## Definition of Done
 
 - [ ] Intake generated and approved
