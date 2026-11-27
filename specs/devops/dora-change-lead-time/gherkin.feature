@@ -5,13 +5,11 @@ Feature: Report feature PR merge-to-production lead time
   Scenario: Trace several feature pull requests through one staging promotion
     Given three feature pull requests merge into staging 2, 6, and 10 hours before their first successful production deployment
     And one of those pull requests contains multiple commits
-    And one staging promotion carries all three changes into main
-    And that deployment falls within the rolling 30-day reporting period
+    And one staging promotion carries all three changes into main before that deployment
     When a maintainer requests the report on demand in GitHub Actions
     Then the report is labeled "Feature PR merge-to-production lead time"
-    And the report shows the UTC bounds of the rolling 30-day reporting period
-    And the report counts 3 included feature pull requests
-    And the median lead time is 6 hours
+    And the report shows the rolling 30-day period's UTC bounds, which contain the deployment
+    And the report counts 3 included feature pull requests with a median lead time of 6 hours
     And no production deployment starts as a result of the report run
 
   @S-008 @criterion-9
@@ -100,7 +98,8 @@ Feature: Report feature PR merge-to-production lead time
 
   @edge @S-075 @criterion-7
   Scenario: Include the UTC start boundary and exclude the UTC end boundary
-    Given an enhancement pull request first went live on the designated Render production service at 00:00 UTC on November 1, 2026, 4 hours after merging
+    Given an enhancement pull request first went live on the designated Render production service 4 hours after merging
+    And that first live timestamp was 00:00 UTC on November 1, 2026
     And another enhancement pull request first went live on that service at 00:00 UTC on December 1, 2026, 8 hours after merging
     When a maintainer starts the on-demand report at 00:00 UTC on December 1, 2026
     Then the report shows a UTC start of November 1, 2026 at 00:00 and a UTC end of December 1, 2026 at 00:00
