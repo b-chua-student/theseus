@@ -18,6 +18,10 @@ flowchart TD
     T010["T-010 Verify component scenarios"]
     T011["T-011 Verify service scenarios"]
     T012["T-012 Verify acceptance scenarios"]
+    T013["T-013 Bind context-switch regressions"]
+    T014["T-014 Implement and verify Web fallback"]
+    T009 --> T014
+    T013 --> T014
     T001 --> T002
     T001 --> T003
     T001 --> T004
@@ -63,3 +67,5 @@ Use IDs from [requirements.md](requirements.md) and [design.md](design.md) in Re
 | T-010 | Verify the picker, exchange payloads and conversation restoration. | D-001, D-005, D-006, D-009 | T-002, T-006, T-007 | Run the component bindings with `npm --prefix frontend run test:components`, using keyboard input and captured exchanges. Check bulk selection across filters, failed sends, all legacy scopes and the legacy null-ID snapshot. After implementation, rerun and confirm every scenario in this group passes. | S-063, S-064, S-065, S-066, S-067, S-071, S-074, S-076, S-080, S-081, S-082, S-083, S-086, S-087, S-089, S-090, S-091 | 5 |
 | T-011 | Verify quote boundaries, source isolation, snapshot selection and retrieval budgets. | D-002, D-003, D-004, D-006, D-007 | T-005, T-006, T-007, T-008, T-009 | Run the service bindings with `pytest backend/`. Check all 1,001 selected IDs, exact quote boundaries, the inclusive cutoff, first-pass coverage and the measured request size. Distinguish failed searches, below-cutoff results and capacity omissions. For S-096, when its outcome record fits, check the model request marks the omitted source and contains none of its passages. After implementation, rerun and confirm every scenario in this group passes. | S-070, S-075, S-077, S-079, S-088, S-092, S-093, S-094, S-095, S-096, S-097 | 7 |
 | T-012 | Verify combined answers, attribution and handling of evidence gaps. | D-004, D-007, D-008 | T-006, T-007, T-008, T-009 | Automated: run the acceptance bindings with `pytest backend/` and assert the inputs the recording model receives (draft, quote, selected IDs, per-source outcomes, admitted passages). After implementation, rerun and confirm every scenario in this group passes. Manual or eval, outside CI and needing a Gemini key: check source titles, figures, labelled general knowledge and explanations for evidence gaps. | S-068, S-069, S-072, S-073, S-078, S-084, S-085 | 7 |
+| T-013 | Bind the approved context-switch scenarios and exercise the provider instruction. | D-010 | - | Confirm the regression fails before implementation. | S-121, S-122, S-123 | 1 |
+| T-014 | Implement and verify the Web fallback and current-turn scope. | D-010 | T-009, T-013 | Run all three scenario bindings and the combined-context suite. | S-121, S-122, S-123 | 7 |

@@ -114,6 +114,10 @@ def build_prompt(
         rules.append(EVIDENCE_RULES)
     if outcomes and not excerpts:
         rules.append(UNVERIFIED_RULE)
+        if web:
+            rules.append(
+                "Answer general questions from general knowledge even without a source match."
+            )
     if rules:
         sections.insert(0, "Instructions:\n" + "\n".join(f"- {rule}" for rule in rules))
     return "\n\n".join([*sections, f"Question: {question}"]) if sections else question
@@ -215,13 +219,22 @@ class GeminiChatModel(ChatModel):
             )
         )
 
+        config = self._config
+        if history and web and not (context or outcomes or quote) and manuscript_text is None:
+            instruction = (
+                "The current question uses Web alone. Answer general questions from general "
+                "knowledge. Source restrictions and gap reports from earlier turns no longer apply."
+            )
+            config = config.model_copy(
+                update={"system_instruction": f"{config.system_instruction or ''}\n{instruction}"}
+            )
         self._ensure_fits(contents)
 
         try:
             response = self._client.models.generate_content(
                 model=self._model,
                 contents=contents,
-                config=self._config,
+                config=config,
             )
         except genai_errors.APIError as exc:
             if exc.code == 429:

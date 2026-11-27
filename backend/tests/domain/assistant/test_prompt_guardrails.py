@@ -134,3 +134,15 @@ def test_s002_plain_question_and_history(offline_provider: Mock) -> None:
         ("model", "Offline reply."),
         ("user", "Next question?"),
     ]
+
+
+def test_web_followup_sets_current_scope(offline_provider: Mock) -> None:
+    service = ChatService(InMemoryConversationRepository(), GeminiChatModel())
+    conversation = str(service.start(str(uuid4())).value)
+    service.ask(
+        conversation, "Summarize this.", context_scope="manuscript", manuscript_text="Draft"
+    )
+    service.ask(conversation, "How many legs does a bee have?", context_scope="none")
+    request = offline_provider.return_value.models.generate_content.call_args.kwargs
+    assert "Web alone" in request["config"].system_instruction
+    assert len(request["contents"]) == 3

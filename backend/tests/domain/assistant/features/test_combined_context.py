@@ -641,3 +641,93 @@ def gap_report(ctx: CombinedContextHarness) -> None:
     for title in CAPACITY_SOURCES:
         assert any(title in line and ("space" in line or "fit" in line) for line in lines), title
         assert str(ctx.ref(title).value) not in cited
+
+
+COLORS = "What colors are honeybees typically?"
+LEGS = "How many legs does a honeybee have?"
+
+
+def prepare_architecture(ctx: CombinedContextHarness) -> None:
+    ctx.add_source("Architecture")
+    ctx.no_match("Architecture")
+    ctx.options["answer_validator"] = None
+    ctx.model.answers.update(
+        {
+            COLORS: "Honeybees are typically golden brown with dark bands.",
+            LEGS: "A honeybee has six legs.",
+        }
+    )
+
+
+@given(
+    "I asked a question with Web alone and then another with Web and Manuscript in the same chat"
+)
+def previous_web_turns(ctx: CombinedContextHarness) -> None:
+    prepare_architecture(ctx)
+    ctx.ask("What is a manuscript?")
+    ctx.check_only(["Web", "Manuscript"])
+    ctx.ask("Summarize my manuscript.")
+
+
+@given(
+    "I uncheck Manuscript and select a library source about architecture while keeping Web checked"
+)
+def select_architecture(ctx: CombinedContextHarness) -> None:
+    ctx.check_only(["Web", "Architecture"])
+
+
+@given("I selected only a library source about architecture with Web unchecked")
+def only_architecture(ctx: CombinedContextHarness) -> None:
+    prepare_architecture(ctx)
+    ctx.check_only(["Architecture"])
+
+
+@when(
+    "I ask what colors honeybees typically are and the selected source yields no matching passage"
+)
+def ask_colors(ctx: CombinedContextHarness) -> None:
+    ctx.ask(COLORS)
+
+
+@then("the answer describes typical honeybee colors as general knowledge")
+def answers_colors(ctx: CombinedContextHarness) -> None:
+    assert "**General knowledge**" in str(ctx.last.json["answer"])
+    assert ctx.model.answers[COLORS] in str(ctx.last.json["answer"])
+    assert ctx.model.last.web and not ctx.model.last.excerpts
+
+
+@then("it names the source that yielded no match and includes no library citation")
+@then("the answer names the source and says the selection could not verify the answer")
+def names_architecture_gap(ctx: CombinedContextHarness) -> None:
+    assert "Architecture: was searched and no relevant passage was found" in str(
+        ctx.last.json["answer"]
+    )
+    assert not ctx.cited_sources()
+
+
+@given("I received a general answer and a named source gap in the same chat")
+def prior_library_turn(ctx: CombinedContextHarness) -> None:
+    previous_web_turns(ctx)
+    select_architecture(ctx)
+    ask_colors(ctx)
+    answers_colors(ctx)
+    names_architecture_gap(ctx)
+
+
+@when("I uncheck that source and ask how many legs a honeybee has in the same chat")
+def back_to_web(ctx: CombinedContextHarness) -> None:
+    ctx.check_only(["Web"])
+    ctx.ask(LEGS)
+
+
+@then("the answer says a honeybee has six legs without a library citation or a source gap report")
+def answers_legs(ctx: CombinedContextHarness) -> None:
+    assert ctx.last.json["answer"] == ctx.model.answers[LEGS]
+    assert not ctx.cited_sources()
+    assert ctx.model.last.web and not ctx.model.last.outcomes
+
+
+@then("it supplies no general-knowledge answer or library citation")
+def no_general_answer(ctx: CombinedContextHarness) -> None:
+    assert not ctx.model.calls
+    assert not ctx.cited_sources()
