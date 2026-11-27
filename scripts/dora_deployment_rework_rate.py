@@ -117,7 +117,7 @@ def read_incident(
     if incomplete or len(posts) - 1 < expected:
         scope = correction_scope(posts, service)
         evidence.scoped_gaps.update(scope)
-        evidence.unknown_gap |= not scope
+        evidence.unknown_gap = True
 
 
 def read_incidents(service: str, deployments: set[str]) -> IncidentEvidence:

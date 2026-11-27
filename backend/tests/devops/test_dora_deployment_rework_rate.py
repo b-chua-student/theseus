@@ -196,44 +196,43 @@ def test_s072_template() -> None:
     assert "/dora rework <service-id> <deploy-id>" in section
 
 
-@pytest.mark.parametrize("scoped", [True, False], ids=["S-073", "S-074"])
-def test_unavailable_comments_preserve_confirmations(run_report, scoped) -> None:
-    total, affected = (3, 1) if scoped else (4, 3)
-    marker = "<!-- dora-correction srv-prod/dep-2 -->" if scoped else ""
+def test_s074_unavailable_comments_preserve_confirmations(run_report) -> None:
     report = run_report(
-        [deploy(i) for i in range(1, total + 1)],
-        [incident(1, 1, marker), incident(2, 1), incident(3, 1, marker)],
+        [deploy(1), deploy(2), deploy(3), deploy(4)],
+        [incident(1, 1), incident(2, 1)],
         {2: [comment(1)]},
     )
     assert "Incomplete evidence" in report
-    assert f"Production deployments: {total}\n" in report
+    assert "Production deployments: 4\n" in report
     assert "Confirmed rework deployments: 1\n" in report
-    assert f"Deployments affected by the evidence gap: {affected}\n" in report
+    assert "Deployments affected by the evidence gap: 3\n" in report
     assert "%" not in report
 
 
-def test_partial_thread_keeps_confirmation_and_scopes_gap(run_report) -> None:
+def test_s074_partial_thread_can_confirm_deployments_beyond_marker(run_report) -> None:
     report = run_report(
-        [deploy(1), deploy(2), deploy(3)],
-        [incident(1, 2, "<!-- dora-correction srv-prod/dep-2 -->")],
+        [deploy(1), deploy(2)],
+        [incident(1, 2, "<!-- dora-correction srv-prod/dep-1 -->")],
         {1: [comment(1)]},
         partial=(1,),
     )
+    assert "Incomplete evidence" in report
+    assert "Production deployments: 2\n" in report
     assert "Confirmed rework deployments: 1\n" in report
     assert "Deployments affected by the evidence gap: 1\n" in report
     assert "%" not in report
 
 
-def test_gap_cannot_change_a_confirmed_deployment(run_report) -> None:
+def test_incomplete_thread_keeps_rate_when_all_deployments_confirmed(run_report) -> None:
     report = run_report(
         [deploy(1), deploy(2)],
-        [incident(1, 1, "<!-- dora-correction srv-prod/dep-1 -->"), incident(2, 1)],
-        {2: [comment(1)]},
+        [incident(1, 3, "<!-- dora-correction srv-prod/dep-1 -->")],
+        {1: [comment(1), comment(2)]},
     )
-    assert_rate(report, 1, 2, "50%")
+    assert_rate(report, 2, 2, "100%")
 
 
-def test_permission_gap_is_scoped_to_the_command(run_report) -> None:
+def test_s073_permission_gap_is_scoped_to_the_command(run_report) -> None:
     report = run_report(
         [deploy(1), deploy(2), deploy(3)],
         [incident(1, 2)],
