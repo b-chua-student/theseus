@@ -32,7 +32,7 @@ Git history confirms that the AI Research Assistant PR (#96) and the staging-to-
 
 ## Rules / Constraints
 
-- The `enhancement` label identifies feature pull requests, including historical feature pull requests in scope.
+- Maintainers configure the feature pull request label as a GitHub Actions repository variable. For Theseus, set it to `enhancement`. Use the configured label for historical pull requests in scope as well.
 - Use the 30 days before the report starts. Include the UTC start boundary and exclude the UTC end boundary.
 - Establish each feature pull request's first successful live deployment across verified history on the designated Render production service. Use that timestamp to determine window membership, even if the pull request merged before the window opened.
 - Use deployment history from before the reporting window when needed to distinguish a first live deployment from a redeploy.

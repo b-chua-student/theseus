@@ -4,7 +4,7 @@
 
 | ID | Decision | Components | Requirements |
 | --- | --- | --- | --- |
-| D-001 | Resolve original feature PR identity and merge time using GitHub metadata, revision ancestry, and maintainer-reviewed evidence for obscured promotions. | GitHub, provenance resolver | R-002 |
+| D-001 | Classify feature PRs using the repository-configured label. Resolve original feature PR identity and merge time using GitHub metadata, revision ancestry, and maintainer-reviewed evidence for obscured promotions. | GitHub, provenance resolver | R-002 |
 | D-002 | Validate production history, deduplicate by earliest live timestamp, and calculate metrics within a half-open UTC window. | Render history reader, report calculator | R-001, R-003 |
 | D-003 | Use a report-only workflow triggered solely by manual dispatch. Production deploys start through a maintainer’s manual action. | GitHub Actions, Render production service | R-001, R-005, R-006 |
 | D-004 | Publish metrics after evidence validation and sanitize errors and logs. | Workflow, evidence readers, report renderer | R-004 |
@@ -17,7 +17,8 @@ A maintainer initiates a production deployment manually. Manually triggered repo
 
 | Input | Data used |
 | --- | --- |
-| GitHub PR metadata | Stable PR identity, base branch, original UTC merge timestamp, and the enhancement label |
+| GitHub Actions repository variable `DORA_FEATURE_LABEL` | Feature PR label for current and historical PRs. Configure it as `enhancement` for Theseus. |
+| GitHub PR metadata | Stable PR identity, base branch, original UTC merge timestamp, and labels matched against the configured feature PR label |
 | Git history and promotion evidence | Deployed revision ancestry and the set of original PRs carried by each promotion, including where squash or rebase rewrites SHAs |
 | Render deployment history | Designated production service ID, deployment ID, deployed SHA, successful live outcome, and UTC live timestamp |
 
@@ -38,4 +39,4 @@ Proposed implementation is a repository-local reporting script called by a dedic
 
 Use manual dispatch and a GitHub Actions job summary as the on-demand report surface. The report uses read-only Render history operations.
 
-Grant the workflow read access to the necessary GitHub data and pass the Render API credential through an Actions secret. On failure, emit a concise diagnostic describing the evidence gap or retrieval failure. Keep authorization headers, raw API responses, and secret values out of logs. Write the report only after validation and calculation succeed.
+Grant the workflow read access to the necessary GitHub data and pass the Render API credential through an Actions secret. Pass `vars.DORA_FEATURE_LABEL` to the script as `DORA_FEATURE_LABEL`. If the label setting is missing or blank, emit a sanitized configuration diagnostic and withhold the count and median. On failure, emit a concise diagnostic describing the evidence gap or retrieval failure. Keep authorization headers, raw API responses, and secret values out of logs. Write the report only after validation and calculation succeed.
