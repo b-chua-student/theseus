@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import io
+import json
 import logging
 import os
 import secrets
@@ -21,6 +22,7 @@ from flask import Flask, jsonify, redirect, render_template_string, request, sen
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import make_server
+from werkzeug.wrappers import Request, Response
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
@@ -82,18 +84,19 @@ def authorize():
     return response
 
 
-token_api = Flask("fixture_token", static_folder=None)
+client_secret = secrets.token_urlsafe()
 
 
-@token_api.post("/", strict_slashes=False)
-def token():
-    auth = codes.pop(request.form["code"], None)
+def token(form):
+    if not secrets.compare_digest(form.get("client_secret", "").encode(), client_secret.encode()):
+        return {"error": "invalid_client"}, 401
+    auth = codes.pop(form.get("code"), None)
     if not auth:
-        return jsonify(error="invalid_grant"), 400
-    verifier = request.form["code_verifier"].encode()
+        return {"error": "invalid_grant"}, 400
+    verifier = form.get("code_verifier", "").encode()
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier).digest()).decode().rstrip("=")
-    if challenge != auth["code_challenge"] or auth["redirect_uri"] != request.form["redirect_uri"]:
-        return jsonify(error="invalid_grant"), 400
+    if challenge != auth["code_challenge"] or auth["redirect_uri"] != form.get("redirect_uri"):
+        return {"error": "invalid_grant"}, 400
     now = int(time.time())
     signed = jwt.encode(
         dict(
@@ -113,7 +116,7 @@ def token():
     )
     access = secrets.token_urlsafe()
     tokens.extend([signed, access])
-    return jsonify(id_token=signed, access_token=access)
+    return {"id_token": signed, "access_token": access}, 200
 
 
 @provider.get("/keys")
@@ -129,7 +132,7 @@ configs = {
         token_endpoint=ISSUER + "/token",
         jwks_uri=ISSUER + "/keys",
         client_id="theseus",
-        client_secret="fixture",
+        client_secret=client_secret,
         redirect_uri=CALLBACK,
     )
 }
@@ -145,13 +148,20 @@ app.view_functions["frontend_fallback"] = lambda path: (
 )
 
 
-exposure_api = Flask("fixture_exposure", static_folder=None)
-
-
-@exposure_api.post("/", strict_slashes=False)
-def check_exposure():
-    evidence = request.get_data(as_text=True) + log.getvalue()
-    return jsonify(issued=bool(tokens), exposed=any(t in evidence for t in tokens))
+@Request.application
+def fixture_api(req):
+    if req.path != "/":
+        return Response(status=404)
+    if req.method != "POST":
+        return Response(status=405, headers={"Allow": "POST"})
+    if req.script_root == "/token":
+        payload, status = token(req.form)
+    elif req.headers.get("X-Fixture-Audit") == "1":
+        evidence = req.get_data(as_text=True) + log.getvalue()
+        payload, status = dict(issued=bool(tokens), exposed=any(t in evidence for t in tokens)), 200
+    else:
+        return Response(status=403)
+    return Response(json.dumps(payload), status=status, mimetype="application/json")
 
 
 if __name__ == "__main__":
@@ -164,7 +174,7 @@ if __name__ == "__main__":
         os.environ["REQUESTS_CA_BUNDLE"] = str(ca_file)
         os.environ["SSL_CERT_FILE"] = str(ca_file)
         fixture = DispatcherMiddleware(
-            provider, {"/token": token_api, "/check-exposure": exposure_api}
+            provider, {"/token": fixture_api, "/check-exposure": fixture_api}
         )
         server = make_server("127.0.0.1", 5119, fixture, threaded=True, ssl_context=tls)
         Thread(target=server.serve_forever, daemon=True).start()

@@ -34,7 +34,9 @@ test('S-008 S-020 S-021 S-022 S-025 restore the workspace and session securely',
   expect(cookie).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax' })
   const data = await page.evaluate(() => JSON.stringify([location.href, document.cookie,
     document.body.innerText, localStorage, sessionStorage, performance.getEntriesByType('resource').map(e => e.name)]))
-  const audit = await page.request.post('https://127.0.0.1:5119/check-exposure', { data })
+  const audit = await page.request.post('https://127.0.0.1:5119/check-exposure', {
+    data, headers: { 'X-Fixture-Audit': '1' },
+  })
   expect(await audit.json()).toEqual({ issued: true, exposed: false })
   await button(page, 'Account').click()
   await page.getByLabel('Display name').fill('Alex')
@@ -99,14 +101,16 @@ test('S-024 S-033 explicitly link Google after password authentication', async (
 
 for (const reachedServer of [true, false]) {
   test('S-022 ambiguous logout, reached server ' + reachedServer, async ({ page }) => {
-    await page.goto('/')
-    const address = email()
-    await login(page, address)
     await page.route('**/api/auth/logout', async route => {
       if (reachedServer) await page.request.post('/api/auth/logout')
       await route.abort()
     })
-    await logout(page)
+    await page.goto('/')
+    const address = email()
+    await login(page, address)
+    await button(page, 'Account').click()
+    await expect(page.getByText('Google connected', { exact: true })).toBeVisible()
+    await button(page, 'Sign Out').click()
     if (reachedServer) {
       await expect(button(page, 'Continue with ' + address)).toBeVisible()
     } else {
