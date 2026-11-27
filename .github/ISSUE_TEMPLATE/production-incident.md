@@ -1,6 +1,6 @@
 ---
 name: Production incident
-about: Record a deployment-caused production incident for DORA reporting.
+about: Record a production incident for DORA reporting.
 title: "[Production incident] "
 ---
 
