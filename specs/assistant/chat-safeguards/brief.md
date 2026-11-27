@@ -19,7 +19,7 @@ Protect the Theseus AI assistant and its provider quota before model calls by bl
 - Screen incoming chat questions for high-confidence direct prompt-injection override and system-prompt extraction attempts before calling the chat model.
 - Reject flagged prompt-injection inputs with a clear error without invoking the chat model or saving the attack into conversation history.
 - Allow benign academic questions that merely discuss prompt injection or system prompts to proceed normally.
-- Enforce a per-minute burst rate limit on submitting chat questions while keeping automated test runs unaffected unless rate limiting is explicitly enabled.
+- Enforce a default burst limit of ten questions per minute on submitting chat questions while keeping automated test runs unaffected unless rate limiting is explicitly enabled.
 - Cap the conversation history forwarded to the model to the most recent ten completed exchanges by default while preserving full stored conversation history.
 - Verify all safeguard behaviors through offline automated tests without live external credentials.
 
@@ -39,28 +39,25 @@ Protect the Theseus AI assistant and its provider quota before model calls by bl
 
 ## Known Touchpoints
 
-- Assistant chat service query intake and error definitions.
-- Assistant conversation API route rate-limit configuration.
-- Assistant chat model adapter history assembly.
-- Assistant offline unit and API test suites.
+- Incoming chat questions, conversation history, and offline safeguard checks.
 
 ## Assumptions
 
-- Ten completed exchanges is an appropriate default history window for multi-turn context without excessive token usage.
-- Ten requests per minute is an appropriate default burst limit for submitting chat questions.
+- None beyond the ticket.
 
 ## Open Questions
 
-- Should the burst rate limit or history window be configurable per project? Deferred: use fixed safe defaults with optional constructor overrides for the current deadline.
+- Should the burst rate limit or history window be configurable per project? Deferred: this release uses the stated defaults.
 
 ## Success Criteria
 
 1. High-confidence direct prompt-injection override and instruction-disclosure queries are rejected before calling the model, without polluting conversation history, while benign questions about AI security still succeed.
-2. Submitting chat questions faster than the per-minute burst limit is rejected with a rate-limit error when rate limiting is enabled.
-3. Conversations longer than the configured history cap forward only the most recent completed exchanges in order while keeping full history stored.
+2. With limiting enabled, the first ten ordinary questions in a fresh minute succeed and the eleventh receives a rate-limit error before a model call. Automated runs accept the same burst unless limiting is explicitly enabled.
+3. Conversations longer than the default ten-exchange history cap forward only the most recent completed exchanges in order while keeping full history stored.
 4. Automated offline tests verify input blocking, benign pass-through, burst rate limiting, and history capping without live external calls.
 
 ## Reference Links
 
+- Source ticket: [assistant-safeguards.md](../../../tickets/assistant-safeguards.md)
 - Prior guardrail spec: specs/assistant/prompt-guardrails/brief.md
 - Repository SDD workflow: AGENTS.md
