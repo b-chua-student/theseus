@@ -32,3 +32,11 @@ Keep `PORT=5000` or leave it unset for this mapping, and leave `SESSION_COOKIE_S
 With the app running, sign in or register a disposable test account. Create a project named **Demo workspace**, then create **Demo manuscript** and add a section titled **Introduction**. Give it a sample paragraph and save a revision. Reload the project and verify that the manuscript and revision are still available. If using MongoDB, restart the backend and repeat the verification.
 
 These steps work with either the native dev server or the Docker container.
+
+## Verify the writing assistant
+
+Set `GEMINI_API_KEY` in `backend/.env` and restart the app. For Docker, start it with the `--env-file` command above. Use sample text you can send to Gemini.
+
+1. In **Demo workspace**, open **Source Library** and choose **+ Add text**. Title the source **Trial notes**, paste “The greenhouse trial used 37 basil seedlings. The team watered them every Tuesday.” into **Content**, and choose **Create**.
+2. Open **Demo manuscript** and launch **Theseus Scholar AI**. Open the context dropdown, select **Trial notes** when it appears among the indexed sources, and clear **Web** and **Manuscript**.
+3. Ask “How many basil seedlings did the greenhouse trial use?” Check that the answer gives **37** and that any source citation points to **Trial notes**. If the source is unavailable in the dropdown, check its indexing status in **Source Library**.
