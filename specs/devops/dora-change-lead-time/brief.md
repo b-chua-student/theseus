@@ -1,7 +1,7 @@
 # Brief: Report feature PR merge-to-production lead time
 
 - Origin: issue #140
-- Scope: trace merged feature PRs through staging to production.
+- Scope: trace feature PRs from their original merge into staging or main to production.
 
 ## Goal
 
@@ -20,7 +20,8 @@ Give Theseus maintainers a baseline for how long a merged feature PR takes to go
 ## Constraints
 
 - Only deployments that successfully go live on the designated Render production service qualify.
-- A PR's first successful production deployment determines window membership, including for PRs merged before the window.
+- A PR's first successful production deployment determines window membership, including for PRs merged before the window. Use verified history from before the window when needed to distinguish a first live deployment from a redeploy.
+- If a promotion rewrites history and obscures the original feature PRs, require maintainer-reviewed evidence identifying the PRs it carried.
 - Keep credentials out of reports and logs. Fail with a sanitized diagnostic if the available evidence cannot establish the result.
 
 ## Known Touchpoints
@@ -29,8 +30,9 @@ GitHub PR metadata supplies feature PR identities and merge timestamps. Git hist
 
 ## Open Questions
 
-- Which Render service is production, and how far back can its deployment history be verified?
-- Which merge strategies are enabled on `staging` and `main`, and what evidence links feature PRs to the deployed revision when history is rewritten?
+- Which Render service is production, and how far back can maintainers verify its deployment history?
+- Which merge strategies are enabled on `staging` and `main`, and do the historical promotion records cover every rewritten promotion in scope?
+- Does the maintainer-approved feature classification cover historical pull requests?
 
 ## Success Criteria
 
