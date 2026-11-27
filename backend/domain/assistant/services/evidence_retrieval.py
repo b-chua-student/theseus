@@ -13,7 +13,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
 from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.aggregates import IndexedDocument
-from domain.assistant.models.errors import InvalidDocumentRefIdError
+from domain.assistant.models.errors import InvalidDocumentRefIdError, RetrievalError
 from domain.assistant.models.value_objects import (
     Chunk,
     ChunkId,
@@ -42,14 +42,15 @@ class Evidence:
     excerpts: list[RetrievedChunk]
     outcomes: list[SourceOutcome]
     reported: list[SourceOutcome]
+    searchable_scope: tuple[str, ...] = ()
 
-    def gap_report(self) -> str:
+    def gap_report(self, *, include_reported: bool = False) -> str:
         """Return a named line for every source that supplied no evidence, if any is unreported.
 
         The model is told only the records that fit in its window. When some did not, this report
         names every source and the reason, so none is lost from the answer.
         """
-        if len(self.reported) >= len(self.outcomes):
+        if not self.outcomes or (not include_reported and len(self.reported) >= len(self.outcomes)):
             return ""
         records = "\n".join(f"- {outcome.record()}" for outcome in self.outcomes)
         return f"**Selected sources not used as evidence**\n{records}"
@@ -123,6 +124,7 @@ class EvidenceRetriever:
         draft: str | None = None,
         fixed_texts: Sequence[str] = (),
         known_titles: Mapping[str, str] | None = None,
+        strict: bool = False,
     ) -> Evidence:
         """Return the evidence for ``question`` from the selected sources of the project.
 
@@ -155,11 +157,30 @@ class EvidenceRetriever:
             if refs:
                 text = build_search_text(question, quote=quote, draft=draft)
                 searches = self._search_all(refs, documents, text)
-            return self._admit(searches, self._budget(fixed_texts), gone)
-        except Exception:
+            searchable = tuple(
+                sorted(
+                    str(ref.value)
+                    for ref in refs
+                    if ref in documents and documents[ref].is_searchable
+                )
+            )
+            if strict and searchable and not any(not search.unavailable for search in searches):
+                raise RetrievalError("Searching the sources failed.")
+            return replace(
+                self._admit(searches, self._budget(fixed_texts), gone),
+                searchable_scope=searchable,
+            )
+        except Exception as exc:
+            if strict:
+                raise RetrievalError("Searching the sources failed.") from exc
             # Retrieval is best-effort: an outage shouldn't block chat.
             logger.exception("EvidenceRetriever: retrieval failed; answering without context")
             return Evidence.empty()
+
+    def fits(self, excerpts: Sequence[RetrievedChunk], fixed_texts: Sequence[str]) -> bool:
+        """Check that a merged set of excerpts still fits the configured evidence window."""
+        budget = self._budget(fixed_texts)
+        return budget is None or sum(self._excerpt_tokens(chunk) for chunk in excerpts) <= budget
 
     def _selected_refs(
         self, project_id: ProjectId, selected: Sequence[str] | None

@@ -70,7 +70,7 @@
       conversationId = id;
       messages = conversation.exchanges.flatMap(e => [
         { id: nextMessageId++, role: 'user', text: e.query, timestamp: e.asked_at },
-        { id: nextMessageId++, role: 'assistant', text: e.answer, timestamp: e.asked_at },
+        { id: nextMessageId++, role: 'assistant', text: e.answer, citations: e.citations ?? [], timestamp: e.asked_at },
       ]);
       input = '';
       selectionQuote = '';
@@ -91,6 +91,8 @@
   let nextMessageId = 0;
   let input = $state("");
   let loading = $state(false);
+  // Progress text from the server while an answer is being checked. It never holds draft text.
+  let progress = $state("");
   let log = $state();
 
 
@@ -166,13 +168,14 @@
     if (!conversationId) {
       conversationId = await startConversation(projectId);
     }
+    const options = { onStatus: (message) => { progress = message; } };
     try {
-      return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked);
+      return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked, options);
     } catch (e) {
       // The conversation is gone (e.g. the server restarted): start a fresh one once.
       if (e.status === 404 && e.code === "assistant.conversation_not_found") {
         conversationId = await startConversation(projectId);
-        return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked);
+        return await askConversation(projectId, conversationId, text, contextScope, sourceIds, manuscriptText, quote, checked, options);
       }
       throw e;
     }
@@ -192,10 +195,11 @@
       selectionQuote = "";
     }
     loading = true;
+    progress = "";
     scrollDown();
     try {
-      const { answer, citations } = await ask(text, quote);
-      messages.push({ id: nextMessageId++, role: "assistant", text: answer, citations, timestamp: Date.now() });
+      const { answer, citations, unverified_draft } = await ask(text, quote);
+      messages.push({ id: nextMessageId++, role: "assistant", text: answer, citations, unverified_draft, draftOpen: false, timestamp: Date.now() });
       refreshHistory();
     } catch (e) {
       messages.push({
@@ -208,6 +212,7 @@
         retryQuote: quote,
       });
     }
+    progress = "";
     loading = false;
     scrollDown();
   }
@@ -278,17 +283,27 @@
                 <div class="scholar-bubble markdown-body">{@html renderMarkdown(m.text)}</div>
                 {#if m.citations?.length}
                   <ul class="scholar-citations" aria-label="Sources cited">
-                    {#each m.citations as citation (citation.key)}<li>[{citation.key}] {citation.title || "Untitled source"}{citation.location ? ` (${citation.location})` : ""}</li>{/each}
+                    {#each m.citations as citation (citation.key)}<li>[{citation.key}] {citation.title || "Untitled source"}{citation.location ? `, ${citation.location}` : ""}</li>{/each}
                   </ul>
                 {/if}
               {:else}
                 <div class="scholar-bubble">{#if m.quote}<blockquote class="scholar-quote">{m.quote}</blockquote>{/if}{m.text}</div>
               {/if}
+              {#if m.unverified_draft}
+                <div class="scholar-reply-actions">
+                  <button type="button" aria-expanded={m.draftOpen} onclick={() => m.draftOpen = !m.draftOpen}>
+                    {m.draftOpen ? 'Hide unverified draft' : 'View unverified draft'}
+                  </button>
+                </div>
+                {#if m.draftOpen}
+                  <div class="scholar-bubble"><strong>Unverified draft</strong><p>{m.unverified_draft}</p></div>
+                {/if}
+              {/if}
               {#if m.isError && m.retryText}<div class="scholar-reply-actions"><button type="button" onclick={() => retryMessage(m)} disabled={loading}>Try again</button></div>{/if}
               {#if m.role === 'assistant' && !m.isError}<div class="scholar-reply-actions"><button type="button" onclick={() => copyReply(m.text)}>Copy</button><button type="button" onclick={() => insertReply(m.text)} disabled={!editor}>Use in manuscript</button></div>{/if}
             </article>
           {/each}
-          {#if loading}<div class="scholar-thinking" role="status"><span class="tiny-avatar" aria-hidden="true">t</span>Theseus is thinking<span class="thinking-dots" aria-hidden="true">…</span></div>{/if}
+          {#if loading}<div class="scholar-thinking" role="status"><span class="tiny-avatar" aria-hidden="true">t</span>{#if progress}<span class="scholar-progress">{progress}</span>{:else}Theseus is thinking<span class="thinking-dots" aria-hidden="true">…</span>{/if}</div>{/if}
         </div>
         <div class="scholar-composer-area">
           <ContextDropdown {projectId} bind:selection manuscriptAvailable={!!editor} />
@@ -345,13 +360,13 @@
   .markdown-body :global(a) { color: var(--accent); text-decoration: underline; }
   .markdown-body :global(table) { border-collapse: collapse; margin: 0 0 8px; }
   .markdown-body :global(th), .markdown-body :global(td) { border: 1px solid #cbd6cd; padding: 3px 7px; }.from-user .scholar-bubble { border: 0; background: var(--accent); color: white; border-radius: 13px 13px 3px 13px; line-height: 1.6; }.reply-error .scholar-bubble { background: #fcf6ef; border-color: #dfcdb8; }.scholar-reply-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }.scholar-reply-actions button { font-size: 8px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-muted); color: var(--accent); }
+  .scholar-citations { list-style: none; margin: 6px 2px 0; padding: 0; font: 8px/1.6 var(--mono); color: var(--text-muted); }
   .scholar-thinking { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); padding: 4px 0; }.thinking-dots { animation: scholar-pulse 1s ease-in-out infinite; }@keyframes scholar-pulse { 50% { opacity: .3; } }
   .scholar-composer-area { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--surface-muted); padding: 10px; }.scholar-selection { display: flex; gap: 6px; align-items: center; padding: 7px 0 9px; min-width: 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }.selection-tag { font: 7px var(--mono); background: var(--accent); color: white; padding: 3px; border-radius: 3px; }.selection-excerpt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; flex: 1; min-width: 0; font-style: italic; }.scholar-selection button { border: 1px solid var(--border); background: var(--surface); border-radius: 4px; font-size: 8px; padding: 3px 5px; }
   .scholar-composer-tools { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }.scholar-composer-tools button { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font: 8px var(--mono); padding: 4px 5px; }.scholar-composer-tools button:disabled { color: #8b968f; }
   .scholar-input { position: relative; border: 1px solid #bdccbf; border-radius: 15px; background: var(--paper); padding: 10px; display: flex; align-items: flex-end; gap: 7px; }.scholar-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px #3b5b4f12; }.scholar-input textarea { width: 100%; min-width: 0; flex: 1; resize: vertical; max-height: 180px; min-height: 56px; border: 0; background: transparent; font: 11px/1.6 var(--sans); color: var(--text); outline: none; }.scholar-input textarea::placeholder { color: #87948a; }.scholar-send { display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; flex-shrink: 0; padding: 0; background: var(--accent); color: white; border: 0; border-radius: 10px; }.scholar-send:not(:disabled):hover { background: var(--accent-hover); }.scholar-send:disabled { opacity: .45; cursor: default; }.scholar-input-hint { display: flex; justify-content: space-between; gap: 5px; color: var(--text-muted); font-size: 7px; margin: 6px 3px 0; }
   @media (max-width: 1023px) { .chat.scholar-chat { width: 100%; height: 600px; border-left: 0; border-top: 1px solid var(--border); } }
   .scholar-unavailable { margin: 6px 14px 0; font-size: 10px; color: var(--text-muted); overflow-wrap: anywhere; }
-  .scholar-citations { list-style: none; margin: 6px 2px 0; padding: 0; font: 9px var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
   .scholar-quote { margin: 0 0 6px; padding: 2px 0 2px 8px; border-left: 2px solid currentColor; opacity: .8; white-space: pre-wrap; }
   @media (prefers-reduced-motion: reduce) { .thinking-dots { animation: none; } }
 </style>

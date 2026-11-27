@@ -10,6 +10,7 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
 from domain.assistant.infrastructure.adapters.in_process_index_job_queue import (
     InProcessIndexJobQueue,
 )
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.document_chunker import DocumentChunker
@@ -52,6 +53,7 @@ class AssistantModule:
     embedding_generator: EmbeddingGenerator | None = None
     vector_store: VectorStore | None = None
     chat: ChatService | None = None
+    answer_validator: AnswerValidator | None = None
     indexing_status: GetIndexingStatusService | None = None
     reindex: ReindexDocumentsService | None = None
     indexed_sources: ListIndexedSourcesService | None = None
@@ -68,6 +70,7 @@ def build_assistant_module(
     vector_store: VectorStore | None = None,
     conversation_repo: ConversationRepository | None = None,
     chat_model: ChatModel | None = None,
+    answer_validator: AnswerValidator | None = None,
     source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
     relevance_threshold: float | None = None,
     token_counter: TokenCounter | None = None,
@@ -142,6 +145,8 @@ def build_assistant_module(
             embedding_generator=embedding_generator,
             vector_store=vector_store,
             document_repository=indexed_document_repo,
+            validator=answer_validator,
+            require_source_review=answer_validator is None,
             relevance_threshold=relevance_threshold,
             token_counter=token_counter,
             context_window=context_window,
@@ -156,6 +161,7 @@ def build_assistant_module(
         embedding_generator=embedding_generator,
         vector_store=vector_store,
         chat=chat,
+        answer_validator=answer_validator,
         indexing_status=GetIndexingStatusService(repository=indexed_document_repo),
         reindex=ReindexDocumentsService(repository=indexed_document_repo, queue=index_job_queue),
         indexed_sources=ListIndexedSourcesService(

@@ -6,7 +6,15 @@ from domain.assistant.infrastructure.adapters.mongodb_conversation_repository im
     MongoConversationRepository,
 )
 from domain.assistant.models.aggregates import Conversation
-from domain.assistant.models.value_objects import ProjectId, SelectedSource
+from domain.assistant.models.value_objects import (
+    Answer,
+    ChunkId,
+    Citation,
+    DocumentRefId,
+    ProjectId,
+    Query,
+    SelectedSource,
+)
 
 
 def make_repository() -> tuple[MongoConversationRepository, MagicMock]:
@@ -96,3 +104,40 @@ def test_a_legacy_all_library_record_keeps_a_null_source_list() -> None:
 
     assert loaded.context_scope == "source_library"
     assert loaded.source_ids is None
+
+
+def answered_conversation(citations: tuple[Citation, ...]) -> Conversation:
+    conversation = Conversation.start(ProjectId.new())
+    exchange = conversation.ask(Query("When did it start?"))
+    conversation.answer(exchange.id, Answer("It started in May [1].", citations=citations))
+    return conversation
+
+
+def test_s101_citations_survive_a_save_and_load() -> None:
+    repository, collection = make_repository()
+    citation = Citation(1, ChunkId.new(), DocumentRefId.new(), "P1")
+    conversation = answered_conversation((citation,))
+
+    repository.save(conversation)
+    collection.find_one.return_value = collection.replace_one.call_args.args[1]
+    loaded = repository.get(conversation.id)
+
+    assert loaded is not None
+    [exchange] = loaded.exchanges
+    assert exchange.answer is not None
+    assert exchange.answer.citations == (citation,)
+
+
+def test_an_exchange_stored_before_citations_existed_loads_without_sources() -> None:
+    repository, collection = make_repository()
+    conversation = answered_conversation(())
+    repository.save(conversation)
+    stored = collection.replace_one.call_args.args[1]
+    del stored["exchanges"][0]["citations"]
+    collection.find_one.return_value = stored
+
+    loaded = repository.get(conversation.id)
+
+    assert loaded is not None
+    assert loaded.exchanges[0].answer == Answer("It started in May [1].")
+    assert loaded.exchanges[0].answer.citations == ()  # type: ignore[union-attr]

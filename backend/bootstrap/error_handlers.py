@@ -5,6 +5,7 @@ from flask import Flask, Response, jsonify
 from werkzeug.exceptions import HTTPException
 
 from domain.assistant.models.errors import (
+    AnswerValidationError,
     ChatModelError,
     ChatModelRateLimitedError,
     ChatRequestTooLargeError,
@@ -126,6 +127,11 @@ def register_error_handlers(app: Flask) -> None:
         )
         response.headers["Retry-After"] = "30"
         return response, 429
+
+    @app.errorhandler(AnswerValidationError)
+    def handle_validation_interrupted(e: AnswerValidationError) -> tuple[Response, int]:
+        logger.warning("Answer validation interrupted: %s", e)
+        return jsonify(error=str(e), code=e.code), 502
 
     @app.errorhandler(ChatRequestTooLargeError)
     def handle_request_too_large(e: ChatRequestTooLargeError) -> tuple[Response, int]:

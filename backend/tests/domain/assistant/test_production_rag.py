@@ -44,6 +44,7 @@ from domain.src_lib.infrastructure.adapters.in_memory_source_repository import (
     InMemorySourceRepository,
 )
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
+from tests.domain.assistant.validation_support import AcceptingValidator
 
 pytestmark = pytest.mark.integration
 BIKE = "Bicycle maintenance: patch the punctured inner tube and inflate the tire."
@@ -98,6 +99,9 @@ def production(monkeypatch, chat_model) -> Callable[[], Container]:
     # production composition root and vector store while replacing external Mongo I/O.
     monkeypatch.setattr("bootstrap.mongo.create_database", MagicMock())
     monkeypatch.setattr("bootstrap.app._build_chat_model", lambda _evidence: chat_model)
+    monkeypatch.setattr(
+        "bootstrap.app._build_answer_validator", lambda _evidence: AcceptingValidator()
+    )
     adapters = "domain.assistant.infrastructure.adapters"
     for target, repo in [
         (
@@ -134,6 +138,7 @@ def rag_container(request, production, model_snapshot, chat_model) -> Container:
         document_chunker=TokenWindowChunker(model_snapshot),
         embedding_generator=OnnxEmbeddingGenerator(model_snapshot),
         chat_model=chat_model,
+        answer_validator=AcceptingValidator(),
     )
 
 
@@ -203,7 +208,9 @@ def test_s021_search_after_restart(
 
 def test_s022_scoped_removal(chat_model) -> None:
     store = InMemoryVectorStore()
-    container = build_container(vector_store=store, chat_model=chat_model)
+    container = build_container(
+        vector_store=store, chat_model=chat_model, answer_validator=AcceptingValidator()
+    )
     project = uuid4()
     bike = add(container, project, BIKE + "\n\nCheck the wheel rim.")
     bread = add(container, project, BREAD)

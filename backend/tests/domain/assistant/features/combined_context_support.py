@@ -68,6 +68,7 @@ from domain.src_lib.infrastructure.adapters.in_memory_source_repository import (
 )
 from domain.src_lib.models.aggregates import Source
 from domain.src_lib.models.value_objects import SourceTitle, TextBody
+from tests.domain.assistant.validation_support import AcceptingValidator
 
 RELEVANT = 0.9
 IRRELEVANT = 0.1
@@ -414,6 +415,7 @@ class CombinedContextHarness:
                 indexed_document_repo=self.documents,
                 vector_store=self.vectors,
                 chat_model=self.model,
+                answer_validator=AcceptingValidator(),
                 **self.options,
             )
             app = create_app({"TESTING": True}, container=container)

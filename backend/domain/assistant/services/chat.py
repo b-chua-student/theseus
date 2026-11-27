@@ -1,10 +1,12 @@
 import builtins
 import logging
 import re
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Collection
 from dataclasses import replace
 from typing import Literal
 
+from domain.assistant.infrastructure.ports.answer_validator import AnswerProposer, AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
@@ -16,28 +18,35 @@ from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.entities import Exchange
 from domain.assistant.models.errors import (
+    AnswerValidationError,
     ChatModelError,
     ConversationNotFoundError,
     PromptInjectionError,
+    RetrievalError,
 )
 from domain.assistant.models.value_objects import (
     Answer,
-    Citation,
     ConversationId,
     DocumentRefId,
+    Evidence,
     ExchangeContext,
     ProjectId,
     Query,
-    RetrievedChunk,
     SelectedSource,
 )
-from domain.assistant.services.evidence_retrieval import Evidence, EvidenceRetriever
+from domain.assistant.services.answer_validation import INTERRUPTED_MESSAGE, ValidateAnswer
+from domain.assistant.services.evidence_retrieval import Evidence as RetrievedEvidence
+from domain.assistant.services.evidence_retrieval import EvidenceRetriever
+from domain.assistant.services.evidence_retriever import EvidenceRetriever as ValidationRetriever
+from domain.assistant.services.reviewed_answer_cache import (
+    Recovery,
+    ReviewedAnswer,
+    ReviewedAnswerCache,
+    evidence_key,
+    fingerprint,
+)
 
 logger = logging.getLogger(__name__)
-
-# The model cites an excerpt by its number in square brackets, such as [1].
-_CITED_KEY = re.compile(r"\[(\d+)\]")
-
 
 _HISTORY_LIMIT = 10
 
@@ -74,6 +83,10 @@ class ChatService:
         token_counter: TokenCounter | None = None,
         context_window: int | None = None,
         response_reserve: int = 0,
+        validator: AnswerValidator | None = None,
+        clock: Callable[[], float] | None = None,
+        *,
+        require_source_review: bool = False,
     ) -> None:
         """Configure conversation storage, the chat model, and optional retrieval.
 
@@ -94,6 +107,19 @@ class ChatService:
             token_counter=token_counter,
             context_window=context_window,
             response_reserve=response_reserve,
+        )
+
+        self._validation_retriever = ValidationRetriever(
+            embedding_generator, vector_store, document_repository, source_ids, top_k
+        )
+        self._top_k = top_k
+        self._reviewed_cache = ReviewedAnswerCache()
+        self._proposer = validator if isinstance(validator, AnswerProposer) else None
+        self._review_sources = require_source_review or self._proposer is not None
+        self._validate_answer = (
+            ValidateAnswer(validator, self._validation_retriever, clock or time.monotonic)
+            if validator is not None or self._review_sources
+            else None
         )
 
     def start(self, project_id: str) -> ConversationId:
@@ -123,6 +149,7 @@ class ChatService:
         project_id: str | None = None,
         quote: str | None = None,
         context: ExchangeContext | None = None,
+        on_draft_ready: Callable[[], None] | None = None,
     ) -> Answer:
         """Answer ``text`` within a conversation and return the answer.
 
@@ -151,7 +178,11 @@ class ChatService:
         history = conversation.history[-_HISTORY_LIMIT:]
         exchange = conversation.ask(query)
 
+        cache_write: tuple[str, ReviewedAnswer] | None = None
         try:
+            if context.search_library and self._validate_answer is None:
+                raise AnswerValidationError(INTERRUPTED_MESSAGE)
+            fixed_texts = self._fixed_texts(history, query, context)
             evidence = (
                 self._retriever.retrieve(
                     conversation.project_id,
@@ -159,21 +190,45 @@ class ChatService:
                     context.source_ids,
                     quote=context.quote,
                     draft=context.manuscript_text,
-                    fixed_texts=self._fixed_texts(history, query, context),
+                    fixed_texts=fixed_texts,
+                    strict=True,
                     known_titles={s.id: s.title for s in conversation.sources if s.title},
                 )
                 if context.search_library
-                else Evidence.empty()
+                else RetrievedEvidence.empty()
             )
-            answer = self._model.reply(
-                history,
-                query,
-                evidence.excerpts,
-                manuscript_text=context.manuscript_text,
-                quote=context.quote,
-                outcomes=evidence.reported,
-                web=context.web,
-            )
+            if context.search_library and self._review_sources:
+                answer, cache_write = self._source_answer(
+                    conversation, query, text, context, evidence, fixed_texts, on_draft_ready
+                )
+            else:
+                answer = self._model.reply(
+                    history,
+                    query,
+                    evidence.excerpts,
+                    manuscript_text=context.manuscript_text,
+                    quote=context.quote,
+                    outcomes=evidence.reported,
+                    web=context.web,
+                )
+                if context.search_library and self._validate_answer is not None:
+                    if on_draft_ready is not None:
+                        on_draft_ready()
+                    answer = self._validate_answer.execute(
+                        question=query,
+                        draft=answer,
+                        evidence=Evidence(tuple(evidence.excerpts)),
+                        project_id=conversation.project_id,
+                        source_ids=list(context.source_ids)
+                        if context.source_ids is not None
+                        else None,
+                        manuscript_text=context.manuscript_text or "",
+                    )
+                else:
+                    answer = replace(answer, citations=())
+        except RetrievalError as exc:
+            conversation.discard_pending()
+            raise AnswerValidationError(INTERRUPTED_MESSAGE) from exc
         except ChatModelError:
             # Don't leave the exchange pending, or every later question would be rejected.
             conversation.discard_pending()
@@ -184,10 +239,9 @@ class ChatService:
             raise ChatModelError("The assistant failed to answer.") from exc
 
         try:
-            citations = self._citations(answer, evidence.excerpts)
-            report = evidence.gap_report()
+            report = evidence.gap_report(include_reported=self._review_sources)
             text = f"{answer.text}\n\n{report}" if report else answer.text
-            answer = replace(answer, text=text, citations=citations)
+            answer = replace(answer, text=text)
             conversation.context_scope = context.scope
             conversation.web = context.web
             conversation.manuscript = context.manuscript
@@ -203,7 +257,85 @@ class ChatService:
             # question would be rejected.
             conversation.discard_pending()
             raise
+        if cache_write is not None:
+            self._reviewed_cache.put(*cache_write)
         return answer
+
+    def _source_answer(  # noqa: PLR0913
+        self,
+        conversation: Conversation,
+        query: Query,
+        exact_question: str,
+        context: ExchangeContext,
+        retrieved: RetrievedEvidence,
+        fixed_texts: builtins.list[str],
+        on_draft_ready: Callable[[], None] | None,
+    ) -> tuple[Answer, tuple[str, ReviewedAnswer] | None]:
+        evidence = Evidence(tuple(retrieved.excerpts))
+        if not evidence.passages:
+            return Answer("The search found insufficient evidence in your selected sources."), None
+
+        source_ids = list(context.source_ids) if context.source_ids is not None else None
+        manuscript = context.manuscript_text or ""
+        key = fingerprint(
+            str(conversation.project_id.value),
+            str(conversation.id.value),
+            exact_question,
+            sorted(set(source_ids)) if source_ids is not None else None,
+            retrieved.searchable_scope,
+            evidence_key(evidence),
+            context.manuscript_text,
+            context.quote,
+            context.web,
+            [outcome.record() for outcome in retrieved.reported],
+        )
+
+        def recover(current: Evidence, hint: str, keep: Collection[int]) -> Evidence:
+            # Keep the original excerpt keys and admit new passages within the same window.
+            found = self._retriever.retrieve(
+                conversation.project_id,
+                f"{query.text}\n{hint}",
+                retrieved.searchable_scope,
+                quote=context.quote,
+                draft=context.manuscript_text,
+                fixed_texts=fixed_texts,
+                strict=True,
+            )
+            merged = current.merge(found.excerpts, max(self._top_k, len(current.passages)), keep)
+            return merged if self._retriever.fits(merged.passages, fixed_texts) else current
+
+        cached = self._reviewed_cache.get(key)
+        if cached is not None:
+            replay = evidence
+            for step in cached.recovery:
+                replay = recover(replay, step.query, step.keep)
+                if evidence_key(replay) != step.evidence_key:
+                    break
+            else:
+                return cached.answer, None
+
+        proposer = self._proposer
+        validator = self._validate_answer
+        if proposer is None or validator is None:
+            raise AnswerValidationError(INTERRUPTED_MESSAGE)
+        try:
+            draft = proposer.draft(query.text, evidence, manuscript, quote=context.quote)
+        except ChatModelError as exc:
+            raise AnswerValidationError(INTERRUPTED_MESSAGE) from exc
+        recovery: list[Recovery] = []
+        answer, complete = validator.review_draft(
+            query,
+            draft,
+            evidence,
+            conversation.project_id,
+            source_ids,
+            manuscript,
+            recovery,
+            on_draft_ready,
+            recover=recover,
+            quote=context.quote,
+        )
+        return answer, (key, ReviewedAnswer(answer, tuple(recovery))) if complete else None
 
     @staticmethod
     def _fixed_texts(
@@ -217,21 +349,6 @@ class ChatService:
                 texts.append(exchange.answer.text)
         texts.extend(t for t in (context.manuscript_text, context.quote) if t)
         return texts
-
-    @staticmethod
-    def _citations(answer: Answer, excerpts: builtins.list[RetrievedChunk]) -> tuple[Citation, ...]:
-        """Resolve the excerpt keys cited in ``answer`` against the excerpts supplied.
-
-        A key that matches no supplied excerpt is discarded, so only supplied library evidence
-        is cited.
-        """
-        resolved: builtins.list[Citation] = []
-        for key in dict.fromkeys(_CITED_KEY.findall(answer.text)):
-            position = int(key)
-            if 1 <= position <= len(excerpts):
-                chunk = excerpts[position - 1]
-                resolved.append(Citation(key, chunk.doc_ref_id, chunk.title, chunk.location))
-        return tuple(resolved)
 
     def _selected_sources(
         self, conversation: Conversation, source_ids: tuple[str, ...] | None

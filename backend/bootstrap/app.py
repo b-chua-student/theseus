@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from flask import Flask, Response, abort, send_from_directory
 
 from domain.assistant.api.routes import conversation_bp, indexing_bp, library_bp
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.embedding_generator import EmbeddingGenerator
 from domain.assistant.infrastructure.ports.token_counter import TokenCounter
@@ -93,6 +94,17 @@ def _build_chat_model(evidence: _EvidenceSettings) -> ChatModel | None:
     )
 
 
+def _build_answer_validator(evidence: _EvidenceSettings) -> AnswerValidator | None:
+    if evidence.gemini_chat_model is None:
+        return None
+
+    from domain.assistant.infrastructure.adapters.gemini_answer_validator import (
+        GeminiAnswerValidator,
+    )
+
+    return GeminiAnswerValidator(model=evidence.gemini_chat_model)
+
+
 def create_app(
     config: Mapping[str, object] | None = None,
     container: Container | None = None,
@@ -116,12 +128,14 @@ def create_app(
         embedding_generator = None if app.testing else _build_embedding_generator()
         evidence = _EvidenceSettings() if app.testing else _build_evidence_settings()
         chat_model = None if app.testing else _build_chat_model(evidence)
+        answer_validator = None if app.testing else _build_answer_validator(evidence)
         if not app.testing and (uri := app.config["MONGODB_URI"]):
             if not app.secret_key:
                 raise RuntimeError("Set SECRET_KEY when running with MongoDB.")
             container = build_mongo_container(
                 uri=uri,
                 db_name=app.config["MONGODB_DB"],
+                answer_validator=answer_validator,
                 chat_model=chat_model,
                 embedding_generator=embedding_generator,
                 relevance_threshold=evidence.relevance_threshold,
@@ -132,6 +146,7 @@ def create_app(
         else:
             container = build_container(
                 chat_model=chat_model,
+                answer_validator=answer_validator,
                 embedding_generator=embedding_generator,
                 relevance_threshold=evidence.relevance_threshold,
                 token_counter=evidence.token_counter,

@@ -1,17 +1,34 @@
+import json
+import logging
+import threading
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import UTC
+from typing import Any
 
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    jsonify,
+    request,
+    session,
+    stream_with_context,
+)
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
 from bootstrap.extensions import limiter
 from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.errors import ChatUnavailableError
+from domain.assistant.models.value_objects import Answer, Citation, DocumentRefId
 from domain.assistant.services.chat import ChatService
 from domain.identity.api.auth.routes import login_required
 from domain.manuscript.api.errors import ManuscriptNotFoundError
 
 from .requests import AskRequest
+
+logger = logging.getLogger(__name__)
 
 
 def _chat() -> ChatService:
@@ -20,6 +37,11 @@ def _chat() -> ChatService:
         raise ChatUnavailableError("The assistant is not configured.")
     return chat
 
+
+# Seconds of validation, counted from when the draft is ready, before progress is reported.
+PROGRESS_DELAY_SECONDS = 5.0
+NDJSON = "application/x-ndjson"
+PROGRESS_MESSAGE = "Checking the answer against your sources\u2026"
 
 conversation_bp = Blueprint("conversation", __name__)
 indexing_bp = Blueprint("indexing", __name__)
@@ -63,6 +85,7 @@ def _conversation_json(
                 id=str(e.id.value),
                 query=e.query.text,
                 answer=e.answer.text if e.answer else None,
+                citations=[_citation_json(c) for c in e.answer.citations] if e.answer else [],
                 asked_at=e.asked_at.replace(tzinfo=UTC).isoformat(),
             )
             for e in conversation.history
@@ -95,11 +118,104 @@ def start_conversation(project_id: str) -> ResponseReturnValue:
     return jsonify(id=str(conversation_id.value)), 201
 
 
+def _citation_json(citation: Citation) -> dict[str, object]:
+    """A cited passage with its source, title and location."""
+    if citation.title:
+        return dict(
+            key=citation.key,
+            source_id=str(citation.doc_ref_id.value),
+            title=citation.title,
+            location=citation.location,
+        )
+    assistant = current_app.extensions["container"].assistant
+    documents = getattr(assistant, "indexed_document_repository", None)
+    document = (
+        documents.get_by_doc_ref_id(DocumentRefId(citation.doc_ref_id.value))
+        if documents is not None
+        else None
+    )
+    return dict(
+        key=citation.key,
+        source_id=str(citation.doc_ref_id.value),
+        title=document.title.value if document is not None else None,
+        location=citation.location,
+    )
+
+
+def _answer_json(answer: Answer) -> dict[str, object]:
+    payload: dict[str, object] = dict(
+        answer=answer.text, citations=[_citation_json(c) for c in answer.citations]
+    )
+    if answer.unverified_draft:
+        payload["unverified_draft"] = answer.unverified_draft
+    return payload
+
+
+def _record(record: dict[str, object]) -> str:
+    return json.dumps(record) + "\n"
+
+
+def _error_record(error: Exception) -> dict[str, object]:
+    """Describe ``error`` as the error handlers would, for a stream that has started."""
+    try:
+        response = current_app.make_response(current_app.handle_user_exception(error))
+        body = response.get_json(silent=True) or {}
+        status = response.status_code
+    except Exception:
+        logger.exception("Could not describe the exchange error")
+        body, status = {}, 500
+    return dict(
+        type="error",
+        error=body.get("error") or "The assistant failed to answer.",
+        code=body.get("code"),
+        status=status,
+    )
+
+
+def _stream_exchange(chat: ChatService, arguments: dict[str, Any]) -> Response:
+    """Answer on a worker thread and stream progress and the final result as NDJSON.
+
+    One ``status`` record is sent if validation is still running ``PROGRESS_DELAY_SECONDS``
+    after the draft is ready. It never carries draft text. The stream ends with one
+    ``answer`` or ``error`` record.
+    """
+    draft_ready = threading.Event()
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(lambda: chat.ask(**arguments, on_draft_ready=draft_ready.set))
+    future.add_done_callback(lambda _: draft_ready.set())
+    executor.shutdown(wait=False)
+
+    def records() -> Iterator[str]:
+        draft_ready.wait()
+        if not wait([future], timeout=PROGRESS_DELAY_SECONDS).done:
+            yield _record(dict(type="status", message=PROGRESS_MESSAGE))
+        error = future.exception()
+        if error is not None:
+            yield _record(_error_record(error if isinstance(error, Exception) else Exception()))
+            return
+        try:
+            record = dict(type="answer", **_answer_json(future.result()))
+        except Exception as exc:
+            logger.exception("Could not build the answer record")
+            record = _error_record(exc)
+        yield _record(record)
+
+    return Response(
+        stream_with_context(records()),
+        mimetype=NDJSON,
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @conversation_bp.post("/<conversation_id>/exchanges")
 @limiter.limit("10 per minute", override_defaults=False)
 @login_required
 def ask(project_id: str, conversation_id: str) -> ResponseReturnValue:
-    """Submit a query to a conversation and return the assistant's answer."""
+    """Submit a query to a conversation and return the assistant's answer.
+
+    A client that accepts ``application/x-ndjson`` gets a stream of records instead of one JSON
+    body (see ``_stream_exchange``).
+    """
     try:
         body = AskRequest.model_validate(request.get_json(silent=True) or {})
     except ValidationError as e:
@@ -107,23 +223,17 @@ def ask(project_id: str, conversation_id: str) -> ResponseReturnValue:
             error="Invalid request", details=e.errors(include_url=False, include_context=False)
         ), 400
 
-    answer = _chat().ask(
+    arguments: dict[str, Any] = dict(
         project_id=project_id,
         conversation_id=conversation_id,
         text=body.query,
         context=body.context(),
     )
+    chat = _chat()
+    if request.accept_mimetypes.best_match(["application/json", NDJSON]) == NDJSON:
+        return _stream_exchange(chat, arguments)
 
-    citations = [
-        dict(
-            key=citation.key,
-            source_id=str(citation.doc_ref_id.value),
-            title=citation.title,
-            location=citation.location,
-        )
-        for citation in answer.citations
-    ]
-    return jsonify(answer=answer.text, citations=citations), 201
+    return jsonify(**_answer_json(chat.ask(**arguments))), 201
 
 
 @indexing_bp.get("/<manuscript_id>/indexing-status")
