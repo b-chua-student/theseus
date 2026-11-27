@@ -28,6 +28,7 @@ from domain.assistant.services.handlers.on_manuscript_saved import OnManuscriptS
 from domain.assistant.services.handlers.on_source_added import OnSourceAdded
 from domain.assistant.services.handlers.on_source_removed import OnSourceRemoved
 from domain.assistant.services.handlers.on_source_updated import OnSourceUpdated
+from domain.assistant.services.indexing_state import IndexingState
 from domain.assistant.services.ingestion_worker import IngestionWorker
 from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
@@ -85,7 +86,8 @@ def build_assistant_module(
         queue=index_job_queue,
         provider=source_content_provider,
     )
-    on_source_removed = OnSourceRemoved(repository=indexed_document_repo)
+    indexing_state = IndexingState()
+    on_source_removed = OnSourceRemoved(indexed_document_repo, vector_store, indexing_state)
     on_manuscript_saved = OnManuscriptSaved(
         repository=indexed_document_repo,
         queue=index_job_queue,
@@ -109,6 +111,7 @@ def build_assistant_module(
         ingestion_worker = IngestionWorker(
             repository=indexed_document_repo,
             source_provider=source_content_provider,
+            indexing_state=indexing_state,
             parser=document_parser,
             chunker=document_chunker,
             embedding_generator=embedding_generator,

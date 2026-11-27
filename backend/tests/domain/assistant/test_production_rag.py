@@ -28,6 +28,8 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
     InMemoryIndexedDocumentRepository,
 )
 from domain.assistant.infrastructure.adapters.in_memory_vector_store import InMemoryVectorStore
+from domain.assistant.infrastructure.adapters.onnx_embedding_generator import OnnxEmbeddingGenerator
+from domain.assistant.infrastructure.adapters.token_window_chunker import TokenWindowChunker
 from domain.assistant.models.value_objects import (
     Answer,
     Chunk,
@@ -130,6 +132,17 @@ def production(monkeypatch, chat_model) -> Callable[[], Container]:
     return start
 
 
+@pytest.fixture(params=["adapters", "startup"])
+def rag_container(request, production, model_snapshot, chat_model) -> Container:
+    if request.param == "startup":
+        return production()
+    return build_container(
+        document_chunker=TokenWindowChunker(model_snapshot),
+        embedding_generator=OnnxEmbeddingGenerator(model_snapshot),
+        chat_model=chat_model,
+    )
+
+
 def add(container: Container, project: UUID, text: str) -> DocumentRefId:
     source = container.source.add_text.execute("Test passage", text, project)
     return DocumentRefId(source.value)
@@ -145,8 +158,8 @@ def ask(
     return [hit.doc_ref_id for hit in model.reply.call_args.args[2]]
 
 
-def test_s019_token_windows(production, model_snapshot) -> None:
-    chunker = production().assistant.document_chunker
+def test_s019_token_windows(rag_container, model_snapshot) -> None:
+    chunker = rag_container.assistant.document_chunker
     tokenizer = Tokenizer.from_file(str(model_snapshot / "tokenizer.json"))
     tokenizer.no_truncation()
     tokenizer.no_padding()
@@ -170,8 +183,8 @@ def test_s019_token_windows(production, model_snapshot) -> None:
     assert recovered == ids
 
 
-def test_s020_embeddings_preserve_order(production) -> None:
-    assistant = production().assistant
+def test_s020_embeddings_preserve_order(rag_container) -> None:
+    assistant = rag_container.assistant
     chunks = assistant.document_chunker.chunk(BIKE) + assistant.document_chunker.chunk(BREAD)
     generator = assistant.embedding_generator
     embeddings = generator.generate(chunks)
@@ -216,8 +229,8 @@ def test_s023_offline_index_search_and_cleanup(production, chat_model) -> None:
 
 
 @pytest.mark.parametrize("text", ["", " \t\n "])
-def test_s024_blank_text(production, text) -> None:
-    assert production().assistant.document_chunker.chunk(text) == []
+def test_s024_blank_text(rag_container, text) -> None:
+    assert rag_container.assistant.document_chunker.chunk(text) == []
 
 
 def test_s025_test_startup_stays_in_memory(tmp_path) -> None:
@@ -244,8 +257,8 @@ def test_s026_remove_never_indexed(monkeypatch, caplog) -> None:
     assert not [record for record in caplog.records if record.exc_info]
 
 
-def test_s027_semantic_ranking(production, chat_model, monkeypatch) -> None:
-    container = production()
+def test_s027_semantic_ranking(rag_container, chat_model, monkeypatch) -> None:
+    container = rag_container
     generator = container.assistant.embedding_generator
     generate = Mock(wraps=generator.generate)
     monkeypatch.setattr(generator, "generate", generate)
@@ -292,3 +305,16 @@ def test_s028_removal_during_indexing(monkeypatch) -> None:
     assert final is not None and final.status is IndexStatus.PENDING
     assert status_at_removal is IndexStatus.PENDING
     assert not vectors_at_removal and not store.store.get(ref)
+
+
+def test_s022_cleanup_can_retry_after_vector_store_failure(monkeypatch) -> None:
+    store = InMemoryVectorStore()
+    container = build_container(vector_store=store)
+    ref = add(container, uuid4(), BIKE)
+    with monkeypatch.context() as patch:
+        patch.setattr(store, "delete", Mock(side_effect=OSError("unavailable")))
+        with pytest.raises(ExceptionGroup, match="Source removal cleanup failed"):
+            container.source.remove.execute(str(ref.value))
+    assert store.store[ref]
+    container.source.remove.execute(str(ref.value))
+    assert not store.store.get(ref)

@@ -1,46 +1,36 @@
-import logging
-
 from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
 )
-from domain.assistant.models.value_objects import DocumentRefId, IndexStatus
+from domain.assistant.infrastructure.ports.vector_store import VectorStore
+from domain.assistant.models.value_objects import DocumentRefId
+from domain.assistant.services.indexing_state import IndexingState
 from domain.src_lib.models.events import SourceRemoved
-
-logger = logging.getLogger(__name__)
 
 
 class OnSourceRemoved:
-    """Mark an IndexedDocument stale when its source is removed.
+    """Invalidate active indexing and clean up the removed document's vectors."""
 
-    Cross-context event handler: reacts to a SourceRemoved event from the Source Library
-    context so the document is excluded from future search results.
-    """
-
-    def __init__(self, repository: IndexedDocumentRepository) -> None:
-        """Set the repository used to mark removed sources as stale."""
+    def __init__(
+        self,
+        repository: IndexedDocumentRepository,
+        vector_store: VectorStore | None = None,
+        indexing_state: IndexingState | None = None,
+    ) -> None:
+        """Use the same commit guard as the ingestion worker."""
         self._repository = repository
+        self._vector_store = vector_store
+        self._indexing_state = indexing_state or IndexingState()
 
     def __call__(self, event: SourceRemoved) -> None:
-        """Mark the source's document stale, unless it is unknown or currently being indexed."""
-        doc_ref_id = DocumentRefId(event.source_id.value)
-        indexed = self._repository.get_by_doc_ref_id(doc_ref_id)
-
-        if indexed is None:
-            # Source was removed before it was ever indexed — nothing to do.
-            logger.debug(
-                "OnSourceRemoved: no IndexedDocument found for source_id=%s", event.source_id
-            )
-            return
-
-        if indexed.status is IndexStatus.INDEXING:
-            # Can't transition from INDEXING; the running job will call fail_indexing()
-            # or complete_indexing() itself — skip.
-            logger.debug(
-                "OnSourceRemoved: document is currently being indexed, skipping for source_id=%s",
-                event.source_id,
-            )
-            return
-
-        # Mark the document pending (stale) so it is no longer treated as searchable.
-        indexed.mark_stale()
-        self._repository.save(indexed)
+        """Mark a known source stale and delete its vectors, including on retry."""
+        ref = DocumentRefId(event.source_id.value)
+        state = self._indexing_state.for_document(ref)
+        with state.lock:
+            state.active_job = None
+            doc = self._repository.get_by_doc_ref_id(ref)
+            if doc is None:
+                return
+            doc.mark_stale()
+            self._repository.save(doc)
+            if self._vector_store is not None:
+                self._vector_store.delete(ref)
