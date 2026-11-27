@@ -35,3 +35,18 @@ Feature: Scheduled DORA metrics report
     When the scheduled report is generated
     Then the unavailable metric's section identifies the evidence gap
     And the other four results are visible in the report
+
+  @S-082 @criterion-5
+  Scenario: Recover a dropped scheduled run manually
+    Given a scheduled report run was dropped
+    When a Theseus maintainer checks for a recovery run
+    Then no automatic recovery run has started
+    When the maintainer manually starts a consolidated report run
+    Then the run displays the report and makes it available for download
+
+  @S-083 @criterion-2
+  Scenario: Display a report that exceeds the size of one display section
+    Given the consolidated Markdown exceeds the run page's limit for a single display section
+    When the report is published
+    Then the run page displays the full report across multiple sections in order
+    And the combined displayed content matches the single downloadable Markdown file

@@ -11,13 +11,13 @@ Theseus reports deployment frequency, feature PR merge-to-production lead time, 
 ## Scope
 
 - Generate a consolidated report automatically every Sunday at 00:00 Manila time (Saturday at 16:00 UTC).
-- Allow Theseus maintainers to run the same consolidated report on demand.
-- Publish one downloadable Markdown file per run under `reports/dora/` and display its contents on the run page.
+- Allow Theseus maintainers to run the same consolidated report on demand. If a scheduled run is dropped, recovery is manual only.
+- Publish one downloadable Markdown file per run under `reports/dora/` and display its full contents on the run page, split across display sections when needed to fit the per-section size limit.
 - Include all five existing metrics and the report generation time in UTC.
 
 ## Expected Outcomes
 
-- [ ] A run starts every Sunday at 00:00 Manila time without maintainer action and publishes the Markdown report.
+- [ ] The report is scheduled for Sunday at 00:00 Manila time and publishes without maintainer action when the scheduled run starts.
 - [ ] A maintainer can manually start a run outside the scheduled time and get the same report format and publication options.
 - [ ] The displayed report and the downloaded file contain the same five metric sections and the UTC generation time.
 - [ ] If evidence for one metric is unavailable, its section explains the gap and the report still shows results available for the other metrics.

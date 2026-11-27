@@ -15,10 +15,10 @@ Publish one Markdown report per run, both weekly and on demand, so maintainers c
 
 ## In Scope
 
-- Start the report automatically every Sunday at 00:00 Manila time (Saturday at 16:00 UTC).
-- Let Theseus maintainers start the same report manually.
+- Schedule the report to run automatically every Sunday at 00:00 Manila time (Saturday at 16:00 UTC).
+- Let Theseus maintainers start the same report manually, including after a dropped scheduled run.
 - Generate a report for deployment frequency, feature PR merge-to-production lead time, change failure rate, failed deployment recovery time, and deployment rework rate.
-- Display the report on the run page and make the same Markdown available for download.
+- Display the full report on the run page, splitting it across display sections as needed, and make the same Markdown available for download.
 - Identify unavailable metrics and publish results available for the other metrics.
 
 ## Non-Goals
@@ -46,11 +46,11 @@ Publish one Markdown report per run, both weekly and on demand, so maintainers c
 
 ## Success Criteria
 
-1. The scheduled run starts every Sunday at 00:00 Manila time (Saturday at 16:00 UTC) without maintainer action and publishes a consolidated report.
-2. The displayed report and downloadable Markdown have matching content with all five metric sections and the UTC generation timestamp. The downloadable output contains one Markdown report under `reports/dora/`. The report contains no credentials.
+1. The report is scheduled for every Sunday at 00:00 Manila time (Saturday at 16:00 UTC) and publishes without maintainer action when the scheduled run starts.
+2. The displayed report and downloadable Markdown have matching content, even when the run page needs multiple display sections. Both show all five metric sections and the UTC generation timestamp. The downloadable output contains one Markdown report under `reports/dora/`. The report contains no credentials.
 3. A metric with unavailable evidence identifies its gap while the other available results remain visible.
 4. Both scheduled and manual runs use the existing metric rules, preserve individual reports, and leave deployments, incident records, and repository files unchanged.
-5. A Theseus maintainer can manually start a run outside the scheduled time and get the same report format and publication options.
+5. A Theseus maintainer can manually start a run outside the scheduled time and get the same report format and publication options. A dropped scheduled run can only be recovered manually.
 
 ## Reference Links
 
