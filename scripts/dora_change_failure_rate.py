@@ -4,7 +4,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -80,13 +80,16 @@ class GitHub:
 
     def pages(self, path: str, **params: str) -> list[dict[str, Any]]:
         """Read all pages in creation order."""
-        result = []
+        return list(self.iter_rows(path, **params))
+
+    def iter_rows(self, path: str, **params: str) -> Iterator[dict[str, Any]]:
+        """Yield available rows even if a later page cannot be read."""
         for page in range(1, 10001):
             query = urlencode(dict(params, per_page=100, page=page))
             rows, link = dora_evidence.request(f"{self.base}/{path}?{query}", self.token, "GitHub")
-            result.extend(rows)
+            yield from rows
             if 'rel="next"' not in link:
-                return result
+                return
         raise EvidenceError("GitHub issue pagination did not terminate.")
 
     def issues(self, **filters: str) -> list[dict[str, Any]]:
