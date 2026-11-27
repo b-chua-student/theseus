@@ -218,18 +218,20 @@ def build_report(github: cfr.GitHub, now: datetime) -> str:
     return heading(now) + "\n".join(lines) + "\n"
 
 
+def report_from_environment(now: datetime) -> str:
+    """Render recovery evidence using the workflow repository and token."""
+    repo = os.getenv("GITHUB_REPOSITORY")
+    token = os.getenv("GH_TOKEN")
+    if repo and token:
+        return build_report(cfr.GitHub(repo, token), now)
+    return heading(now) + "Incident evidence is incomplete. GitHub configuration is missing.\n"
+
+
 def main() -> int:
     """Read GitHub evidence and publish the report in the job summary."""
     started = os.getenv("DORA_REPORT_STARTED_AT")
     now = timestamp(started) if started else datetime.now(UTC)
-    repo = os.getenv("GITHUB_REPOSITORY")
-    token = os.getenv("GH_TOKEN")
-    if repo and token:
-        report = build_report(cfr.GitHub(repo, token), now)
-    else:
-        report = heading(now) + (
-            "Incident evidence is incomplete. GitHub configuration is missing.\n"
-        )
+    report = report_from_environment(now)
     with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as output:
         output.write(report)
     return 0
