@@ -15,9 +15,11 @@ class User:
     id: UserId
     display_name: DisplayName
     email: Email
-    password_hash: PasswordHash = field(repr=False)
+    password_hash: PasswordHash | None = field(repr=False)
     verified: bool = False
     created_at: datetime = field(default_factory=now)
+
+    status: str = "active"
 
     def __eq__(self, other: object) -> bool:
         """Compare users by their IDs."""

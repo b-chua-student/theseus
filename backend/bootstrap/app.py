@@ -9,6 +9,7 @@ from flask import Flask, Response, abort, send_from_directory
 
 from domain.assistant.api.routes import conversation_bp, indexing_bp
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
+from domain.identity.api.auth.oauth import configure as configure_oauth
 from domain.identity.api.auth.routes import auth_bp
 from domain.manuscript.api.routes import manuscript_bp
 from domain.project.api.routes import project_bp
@@ -63,6 +64,7 @@ def create_app(
         app.secret_key = token_hex(32)
 
     app.extensions["container"] = container
+    configure_oauth(app, container.identity.repository)
     limiter.init_app(app)
     register_error_handlers(app)
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
