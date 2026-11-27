@@ -51,6 +51,7 @@ class _EvidenceSettings:
     token_counter: TokenCounter | None = None
     context_window: int | None = None
     response_reserve: int = 0
+    gemini_chat_model: str | None = None
 
 
 def _build_evidence_settings() -> _EvidenceSettings:
@@ -65,25 +66,30 @@ def _build_evidence_settings() -> _EvidenceSettings:
     if not os.getenv("GEMINI_API_KEY"):
         return _EvidenceSettings(relevance_threshold=relevance_threshold)
 
+    from domain.assistant.infrastructure.adapters.gemini_chat_model import DEFAULT_MODEL
     from domain.assistant.infrastructure.adapters.gemini_token_counter import GeminiTokenCounter
 
+    model = (os.getenv("GEMINI_CHAT_MODEL") or "").strip() or DEFAULT_MODEL
     return _EvidenceSettings(
         relevance_threshold=relevance_threshold,
-        token_counter=GeminiTokenCounter(),
+        token_counter=GeminiTokenCounter(model=model),
         context_window=int(os.getenv("ASSISTANT_CONTEXT_WINDOW") or DEFAULT_CONTEXT_WINDOW),
         response_reserve=int(os.getenv("ASSISTANT_RESPONSE_RESERVE") or DEFAULT_RESPONSE_RESERVE),
+        gemini_chat_model=model,
     )
 
 
 def _build_chat_model(evidence: _EvidenceSettings) -> ChatModel | None:
     """Use Gemini when a key is set. It counts each request against the same context window."""
-    if not os.getenv("GEMINI_API_KEY"):
+    if evidence.gemini_chat_model is None:
         return None
 
     from domain.assistant.infrastructure.adapters.gemini_chat_model import GeminiChatModel
 
     return GeminiChatModel(
-        token_counter=evidence.token_counter, context_window=evidence.context_window
+        model=evidence.gemini_chat_model,
+        token_counter=evidence.token_counter,
+        context_window=evidence.context_window,
     )
 
 
