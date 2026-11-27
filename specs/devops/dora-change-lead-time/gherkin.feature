@@ -16,8 +16,9 @@ Feature: Report feature PR merge-to-production lead time
   @S-002 @criterion-2
   Scenario: Publish the verified report weekly
     Given a maintainer has verified the on-demand report
+    And the maintainer has enabled weekly publication
     When the weekly reporting time arrives
-    Then the report is published
+    Then a fresh report is published for the rolling 30-day period before that run started
 
   @S-008 @criterion-9
   Scenario: Keep credentials out of the report and logs
@@ -25,11 +26,25 @@ Feature: Report feature PR merge-to-production lead time
     When a maintainer requests the report
     Then the credentials are absent from the report output and logs
 
+  @S-011 @criterion-3
+  Scenario: Include a feature pull request merged directly into main
+    Given a feature pull request merges directly into main
+    And it first ships successfully to production 3 hours after the merge
+    And the deployment falls within the reporting period
+    When a maintainer requests the report
+    Then the report counts 1 included feature pull request
+    And the median lead time is 3 hours
+
   @edge @S-003 @criterion-2
-  Scenario: Withhold weekly publication before verification
-    Given the report results are awaiting verification
+  Scenario Outline: Withhold weekly publication until verification and enablement
+    Given <publication state>
     When the weekly reporting time arrives
     Then the report is not published
+
+    Examples:
+      | publication state                                                   |
+      | the on-demand results are awaiting maintainer verification          |
+      | a maintainer verified the results and weekly publication is disabled |
 
   @edge @S-004 @criterion-4 @criterion-8
   Scenario Outline: Exclude a merged feature pull request without a successful production deployment
@@ -44,6 +59,7 @@ Feature: Report feature PR merge-to-production lead time
       | no deployment                        |
       | only a successful preview deployment |
       | only a successful staging deployment |
+      | only a live deployment on another service |
       | only a failed production deployment  |
 
   @edge @S-005 @criterion-5
@@ -57,9 +73,9 @@ Feature: Report feature PR merge-to-production lead time
 
   @edge @S-006 @criterion-5 @criterion-6
   Scenario: Exclude a redeploy in the window when the first successful deployment was earlier
-    Given no feature pull request first shipped successfully to production within the reporting period
-    And a feature pull request first shipped successfully to production before the reporting period
+    Given verified production history shows that a feature pull request first shipped before the reporting period
     And the same change was successfully redeployed to production during the reporting period
+    And there are no other feature pull requests in the verified production history
     When a maintainer requests the report
     Then the report counts 0 included feature pull requests
     And the median lead time is unavailable
@@ -76,23 +92,52 @@ Feature: Report feature PR merge-to-production lead time
   Scenario: Preserve the feature pull request merge time across a squash promotion
     Given a feature pull request merges into staging 8 hours before it first ships successfully to production
     And a squash promotion carries its change into main 2 hours before that deployment
+    And maintainer-reviewed evidence identifies the original pull request carried by the promotion
     And the deployment falls within the reporting period
     When a maintainer requests the report
     Then the report counts 1 included feature pull request
     And the median lead time is 8 hours
 
-  @edge @S-010 @criterion-3
-  Scenario: Fail the report when a deployed feature pull request cannot be traced
-    Given a successful production deployment contains a squash promotion with insufficient evidence to identify its feature pull requests
-    When a maintainer requests the report
+  @edge @S-010 @criterion-3 @criterion-9
+  Scenario Outline: Fail the report when a squash promotion lacks maintainer-reviewed evidence
+    Given a successful production deployment within the reporting period includes a squash promotion
+    And the promotion obscures which original feature pull requests it carried
+    And there is no maintainer-reviewed evidence identifying those pull requests
+    And the on-demand report has been verified and weekly publication enabled
+    When <report trigger>
     Then the report run fails with a sanitized diagnostic
-    And no median or included pull request count is published
+    And the report withholds the median and included pull request count
+    And credentials are absent from the report output and logs
 
-  @S-011 @criterion-3
-  Scenario: Include a feature pull request merged directly into main
-    Given a feature pull request merges directly into main
-    And it first ships successfully to production 3 hours after the merge
-    And the deployment falls within the reporting period
+    Examples:
+      | report trigger                             |
+      | a maintainer requests the report on demand |
+      | the weekly reporting time arrives           |
+
+  @edge @S-075 @criterion-7
+  Scenario: Include the UTC start boundary and exclude the UTC end boundary
+    Given an enhancement pull request first went live on the designated Render production service at 00:00 UTC on November 1, 2026, 4 hours after merging
+    And another enhancement pull request first went live on that service at 00:00 UTC on December 1, 2026, 8 hours after merging
+    When a maintainer starts the on-demand report at 00:00 UTC on December 1, 2026
+    Then the report shows a UTC start of November 1, 2026 at 00:00 and a UTC end of December 1, 2026 at 00:00
+    And the report counts 1 included feature pull request
+    And the median lead time is 4 hours
+
+  @edge @S-076 @criterion-1 @criterion-8
+  Scenario: Identify historical feature pull requests by the enhancement label
+    Given a historical pull request labeled enhancement merged 4 hours before its first successful deployment
+    And a historical pull request without the enhancement label merged 8 hours before that same deployment
+    And the deployment went live on the designated Render production service within the reporting period
     When a maintainer requests the report
     Then the report counts 1 included feature pull request
-    And the median lead time is 3 hours
+    And the median lead time is 4 hours
+
+  @edge @S-077 @criterion-5 @criterion-8
+  Scenario: Preserve the first live timestamp after a deployment is deactivated
+    Given a feature pull request first went live on the designated Render production service 4 hours after it merged
+    And that deployment was later deactivated
+    And the same change went live on that service again 24 hours after the merge
+    And both live timestamps fall within the reporting period
+    When a maintainer requests the report
+    Then the report counts 1 included feature pull request
+    And the median lead time is 4 hours
