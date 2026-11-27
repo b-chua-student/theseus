@@ -7,3 +7,4 @@ backend/repository
 backend/.env
 manifold/
 *.log
+/instance/
