@@ -320,17 +320,21 @@ Feature: Compare manuscript claims with selected library sources
       | 0       |
       | 1       |
 
-  @S-098 @criterion-8 @service
-  Scenario: Return to Web alone after a library search finds no matching passage
+  @S-121 @criterion-8 @service
+  Scenario: Answer from general knowledge when Web is checked and library sources yield no match
     Given I asked a question with Web alone and then another with Web and Manuscript in the same chat
     And I uncheck Manuscript and select a library source about architecture while keeping Web checked
     When I ask what colors honeybees typically are and the selected source yields no matching passage
     Then the answer describes typical honeybee colors as general knowledge
     And it names the source that yielded no match and includes no library citation
+
+  @S-123 @criterion-8 @service
+  Scenario: Return to Web alone after a library search finds no matching passage
+    Given I received a general answer and a named source gap in the same chat
     When I uncheck that source and ask how many legs a honeybee has in the same chat
     Then the answer says a honeybee has six legs without a library citation or a source gap report
 
-  @S-099 @criterion-8 @service
+  @S-122 @criterion-8 @service
   Scenario: Keep a source-only question grounded when the selected source yields no match
     Given I selected only a library source about architecture with Web unchecked
     When I ask what colors honeybees typically are and the selected source yields no matching passage

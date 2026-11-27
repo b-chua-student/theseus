@@ -16,8 +16,8 @@
 | R-008 | Attempt every selected project source, including selections above 1,000. Admit passages at or above the calibrated cosine cutoff. Give each matching source a chance to contribute a fitting passage before taking more from another source. Calculate the available space for each exchange and cite only supplied evidence. | from ticket | 27 | S-092, S-094, S-095, S-096, S-097 |
 | R-009 | New chats start on Web. Checking or unchecking Manuscript or a source leaves Web as it was. Unchecking the last checked item, or choosing Clear selection, leaves only Web checked. Selection changes apply immediately to the next exchange in the same conversation. Writers can search the source list by title, and filtering preserves checked items. Keep Web, Manuscript and Clear selection visible while sources scroll. Arrow keys move focus, Space toggles and Escape returns focus to the Context button. Summarize the selection on the closed button. | from ticket | 28, 29 | S-064, S-065, S-066, S-071, S-074, S-076, S-080, S-086, S-087 |
 | R-010 | Reopening a chat restores the Web and Manuscript settings and the source selection from its last successful exchange, so a failed send does not change them. A saved record with scope `none` shows as Web alone. A source that is no longer available is named by its saved title and the remaining choices stay checked. | from ticket | 30 | S-090, S-091 |
-| R-011 | Answer general questions from general knowledge after an unsuccessful source match when Web is enabled, identify the gap and omit library citations. With Web disabled report only the gap. | from ticket | 21 | S-098, S-099 |
-| R-012 | Returning to Web alone permits a general answer without the previous source restriction or gap report. | from ticket | 22 | S-098 |
+| R-011 | Answer general questions from general knowledge after an unsuccessful source match when Web is enabled, identify the gap and omit library citations. With Web disabled report only the gap. | from ticket | 21 | S-121, S-122 |
+| R-012 | Returning to Web alone permits a general answer without the previous source restriction or gap report. | from ticket | 22 | S-123 |
 
 ## Open Questions
 

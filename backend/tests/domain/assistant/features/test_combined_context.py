@@ -705,6 +705,15 @@ def names_architecture_gap(ctx: CombinedContextHarness) -> None:
     assert not ctx.cited_sources()
 
 
+@given("I received a general answer and a named source gap in the same chat")
+def prior_library_turn(ctx: CombinedContextHarness) -> None:
+    previous_web_turns(ctx)
+    select_architecture(ctx)
+    ask_colors(ctx)
+    answers_colors(ctx)
+    names_architecture_gap(ctx)
+
+
 @when("I uncheck that source and ask how many legs a honeybee has in the same chat")
 def back_to_web(ctx: CombinedContextHarness) -> None:
     ctx.check_only(["Web"])
