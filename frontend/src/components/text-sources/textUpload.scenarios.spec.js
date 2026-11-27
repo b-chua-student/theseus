@@ -75,6 +75,9 @@ function fakeServer() {
 
 let server;
 beforeEach(() => {
+  // jsdom does not implement the native dialog methods used by the upload form.
+  HTMLDialogElement.prototype.showModal ??= /** @this {HTMLDialogElement} */ function () { this.open = true; };
+  HTMLDialogElement.prototype.close ??= /** @this {HTMLDialogElement} */ function () { this.open = false; this.dispatchEvent(new Event('close')); };
   localStorage.clear();
   server = fakeServer();
   vi.stubGlobal('fetch', server.fetch);

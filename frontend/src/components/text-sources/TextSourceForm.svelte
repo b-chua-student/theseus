@@ -222,35 +222,6 @@
       />
       {#if errors.title}<p id="tsf-title-err" class="tsf-error" >{errors.title}</p>{/if}
 
-    </div>
-
-    <div class="tsf-body">
-      <div class="tsf-body-head">
-        <label for="tsf-content">Content</label>
-        <button type="button" bind:this={previewButton} aria-pressed={showPreview} onclick={togglePreview}>
-          {modal ? 'Preview' : showPreview ? 'Edit' : 'Preview'}
-          {#if modal}<span class="preview-switch" aria-hidden="true"></span>{/if}
-        </button>
-      </div>
-      {#if showPreview}
-        <pre class="tsf-preview" aria-label="Preview" tabindex="0">{content}</pre>
-      {:else}
-        <textarea
-          id="tsf-content"
-          rows="7"
-          required
-          aria-required="true"
-          bind:value={content}
-          aria-invalid={errors.content || overLimit ? 'true' : undefined}
-          aria-describedby="tsf-counter{errors.content ? ' tsf-content-err' : ''}"
-        ></textarea>
-      {/if}
-      <p id="tsf-counter" class="tsf-counter" class:over={overLimit}>
-        {contentLength.toLocaleString('en-US')} / {LIMITS.content.toLocaleString('en-US')}
-      </p>
-      {#if errors.content}<p id="tsf-content-err" class="tsf-error" >{errors.content}</p>{/if}
-    </div>
-    <div class="tsf-meta">
       <label for="tsf-contentType">Type</label>
       <select id="tsf-contentType" bind:value={contentType} aria-invalid={errors.contentType ? 'true' : undefined} aria-describedby={errors.contentType ? 'tsf-contentType-err' : undefined}>
         {#each CONTENT_TYPES as t (t)}<option value={t}>{t}</option>{/each}
@@ -278,6 +249,32 @@
       />
       {#if errors.tags}<p id="tsf-tags-err" class="tsf-error" >{errors.tags}</p>{/if}
     </div>
+    <div class="tsf-body">
+      <div class="tsf-body-head">
+        <label for="tsf-content">Content</label>
+        <button type="button" bind:this={previewButton} aria-pressed={showPreview} onclick={togglePreview}>
+          {modal ? 'Preview' : showPreview ? 'Edit' : 'Preview'}
+          {#if modal}<span class="preview-switch" aria-hidden="true"></span>{/if}
+        </button>
+      </div>
+      {#if showPreview}
+        <pre class="tsf-preview" aria-label="Preview" tabindex="0">{content}</pre>
+      {:else}
+        <textarea
+          id="tsf-content"
+          rows="7"
+          required
+          aria-required="true"
+          bind:value={content}
+          aria-invalid={errors.content || overLimit ? 'true' : undefined}
+          aria-describedby="tsf-counter{errors.content ? ' tsf-content-err' : ''}"
+        ></textarea>
+      {/if}
+      <p id="tsf-counter" class="tsf-counter" class:over={overLimit}>
+        {contentLength.toLocaleString('en-US')} / {LIMITS.content.toLocaleString('en-US')}
+      </p>
+      {#if errors.content}<p id="tsf-content-err" class="tsf-error" >{errors.content}</p>{/if}
+    </div>
   </div>
 
   <div class="tsf-actions">
@@ -293,7 +290,7 @@
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .tsf { color:#203a2b; font-size:13px; }
   .tsf-grid, .tsf-meta, .tsf-body { display:grid; gap:6px; min-width:0; }
-  .tsf-grid { gap:16px; }
+  .tsf-grid { grid-template-columns: 1fr; gap:16px; }
   label { font-weight:600; }
   .tsf-meta label:not(:first-child) { margin-top:8px; }
   input, select, textarea, .tsf-preview {
@@ -325,10 +322,10 @@
   .preview-switch::before { content:''; width:12px; height:12px; margin-left:2px; background:white; border-radius:50%; }
   [aria-pressed=true] .preview-switch { background:#305440; }
   [aria-pressed=true] .preview-switch::before { transform:translateX(12px); }
-  @media(min-width:620px) {
-    .modal .tsf-grid { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:auto 1fr; gap:12px 20px; }
+  @media (min-width: 768px) {
+    .modal .tsf-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap:12px 20px; }
     .modal .tsf-meta { grid-column:1; align-self:start; }
-    .modal .tsf-body { grid-column:2; grid-row:1 / span 2; grid-template-rows:auto 1fr auto; }
+    .modal .tsf-body { grid-column:2; grid-row:1; grid-template-rows:auto 1fr auto; }
     .modal .tsf-body textarea { min-height:200px; max-height:max(200px, 52dvh); overflow-y:auto; }
   }
 </style>

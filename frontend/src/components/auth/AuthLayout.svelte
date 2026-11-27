@@ -61,7 +61,7 @@
         <div class="form-panel">
           <div class="auth-switch" class:signup={mode === 'signup'} role="group" aria-label="Account access">
             <span class="switch-indicator" aria-hidden="true" bind:this={indicator}></span>
-            {#each [['signin', 'Sign In'], ['signup', 'Sign Up']] as [value, label]}
+            {#each [['signin', 'Sign In'], ['signup', 'Sign Up']] as [value, label] (value)}
               <button type="button" aria-pressed={mode === value} onclick={() => { if (mode !== value) onswitch?.(); }}>{label}</button>
             {/each}
           </div>
