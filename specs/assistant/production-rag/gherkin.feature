@@ -3,11 +3,11 @@ Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
 
   @S-019 @criterion-1
   Scenario: Long document text is split into ordered overlapping chunks with hashes
-    Given a document contains multiple paragraphs of prose exceeding the configured token budget
+    Given a document contains multiple paragraphs of prose exceeding the shared 192-content-token budget
     When the production document chunker splits the document text
     Then multiple ordered chunks are produced with sequential positions and content hashes
-    And each chunk contains at most the configured number of tokens
-    And adjacent chunks preserve contextual overlap across chunk boundaries
+    And each chunk contains at most 192 content tokens
+    And adjacent chunks share the 32 content tokens at their common boundary
 
   @S-020 @criterion-2
   Scenario: Local semantic embeddings are generated without external API calls
@@ -62,3 +62,10 @@ Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
     Given a project source has never been indexed in the assistant
     When the source is removed from the source library
     Then the removal handler completes without error
+
+  @S-028 @criterion-4 @edge
+  Scenario: Removal takes effect even when indexing is underway
+    Given indexing has started for a source
+    When the source is removed while indexing is in progress
+    Then after removal completes its index record is stale and its vectors are absent
+    And those outcomes still hold once the indexing job finishes

@@ -12,10 +12,10 @@ Writers upload text sources and ask source-grounded questions. Operators need pe
 - Preserve fast in-memory test defaults and verify retrieval offline.
 
 ## Expected Outcomes
-- [ ] Long text yields ordered chunks with sequential positions, content hashes, contextual overlap, and at most the configured number of tokens per chunk. Blank text yields no chunks.
+- [ ] Long text yields ordered chunks with sequential positions, content hashes, contextual overlap, and at most 192 content tokens per chunk with a 32-token overlap across windows. Blank text yields no chunks.
 - [ ] Each chunk receives one fixed-dimension vector in input order. A paraphrased query ranks the matching passage ahead of an unrelated passage.
 - [ ] Production startup enables token-aware chunking, local semantic embeddings, and persistent vector storage. Automated test startup uses in-memory defaults without writing to production storage.
-- [ ] Removing an indexed source marks its record stale and deletes all its vectors. Other sources remain retrievable. Removing a never-indexed source succeeds.
+- [ ] Removing an indexed source marks its record stale and deletes all its vectors. Other sources remain retrievable. Removing a never-indexed source succeeds. Removal during indexing wins: once removal completes, the source stays stale and has no stored vectors even after the indexing job finishes.
 - [ ] Offline checks verify chunking, embedding and retrieval, production and test startup, and source removal.
 
 ## Rules / Constraints
@@ -28,7 +28,7 @@ Automated verification runs without network access or live external credentials.
 Cloud embedding APIs, background indexing queues, multi-process workers, rich binary or PDF parsing, and changes to prompt guardrails, input screening, rate limits, or history caps.
 
 ## Open Questions
-Should projects choose their own chunk size and overlap? Deferred: fixed defaults suffice for this release.
+Resolved. All projects use the same chunk size and overlap in this release.
 
 ## Output Paths
 Feature directory: `specs/assistant/production-rag/`.
@@ -40,6 +40,6 @@ Feature directory: `specs/assistant/production-rag/`.
 ## Definition of Done
 - [ ] Intake generated and approved
 - [ ] Gherkin generated and approved
-- [ ] Open questions resolved
+- [x] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged
