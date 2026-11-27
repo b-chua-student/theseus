@@ -276,34 +276,36 @@ def format_report(
     return "\n".join(lines)
 
 
+def build_report(end: datetime) -> str:
+    """Render the lead time report for the given UTC window end."""
+    label = os.environ.get("DORA_FEATURE_LABEL", "").strip()
+    if not label:
+        raise dora_evidence.EvidenceError("DORA_FEATURE_LABEL must specify a feature PR label.")
+    repo = os.environ["GITHUB_REPOSITORY"]
+    github_token = os.environ["GH_TOKEN"]
+    service = os.environ["DORA_RENDER_SERVICE_ID"]
+    render_token = os.environ["RENDER_API_KEY"]
+    first_id = os.environ["DORA_RENDER_FIRST_DEPLOY_ID"]
+    if not (
+        re.fullmatch(r"[\w.-]+/[\w.-]+", repo)
+        and re.fullmatch(r"srv-[A-Za-z0-9]+", service)
+        and re.fullmatch(r"(?:dep-[A-Za-z0-9]+|empty)", first_id)
+        and github_token.strip()
+        and render_token.strip()
+    ):
+        raise dora_evidence.EvidenceError("Required reporting configuration is missing or invalid.")
+    deploys = fetch_deploys(service, render_token, first_id)
+    pulls = fetch_pulls(repo, github_token, label, end)
+    traces = resolve(pulls, deploys, promotion_manifest(), end)
+    start, included, hours = calculate(traces, end)
+    return format_report(start, end, included, hours)
+
+
 def main() -> int:
     """Publish a complete summary or emit a fixed error diagnostic."""
-    end = datetime.now(UTC)
     try:
-        label = os.environ.get("DORA_FEATURE_LABEL", "").strip()
-        if not label:
-            raise dora_evidence.EvidenceError("DORA_FEATURE_LABEL must specify a feature PR label.")
-        repo = os.environ["GITHUB_REPOSITORY"]
-        github_token = os.environ["GH_TOKEN"]
-        service = os.environ["DORA_RENDER_SERVICE_ID"]
-        render_token = os.environ["RENDER_API_KEY"]
-        first_id = os.environ["DORA_RENDER_FIRST_DEPLOY_ID"]
         summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
-        if not (
-            re.fullmatch(r"[\w.-]+/[\w.-]+", repo)
-            and re.fullmatch(r"srv-[A-Za-z0-9]+", service)
-            and re.fullmatch(r"(?:dep-[A-Za-z0-9]+|empty)", first_id)
-            and github_token.strip()
-            and render_token.strip()
-        ):
-            raise dora_evidence.EvidenceError(
-                "Required reporting configuration is missing or invalid."
-            )
-        deploys = fetch_deploys(service, render_token, first_id)
-        pulls = fetch_pulls(repo, github_token, label, end)
-        traces = resolve(pulls, deploys, promotion_manifest(), end)
-        start, included, hours = calculate(traces, end)
-        report = format_report(start, end, included, hours)
+        report = build_report(datetime.now(UTC))
         with NamedTemporaryFile(
             mode="w", encoding="utf-8", dir=summary.parent, delete=False
         ) as output:

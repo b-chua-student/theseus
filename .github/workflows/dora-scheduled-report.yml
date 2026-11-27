@@ -1,0 +1,159 @@
+name: Scheduled DORA metrics report
+
+on:
+  schedule:
+    # Sunday at midnight in Manila.
+    - cron: '0 16 * * 6'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  report:
+    env:
+      DORA_SUMMARY_GROUP: '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      overflow: ${{ steps.stage.outputs.overflow }}
+    steps:
+      - name: Capture report start
+        run: date -u '+DORA_REPORT_STARTED_AT=%Y-%m-%dT%H:%M:%SZ' >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate consolidated report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DORA_RENDER_SERVICE_ID: ${{ vars.DORA_RENDER_SERVICE_ID }}
+          DORA_RENDER_FIRST_DEPLOY_ID: ${{ vars.DORA_RENDER_FIRST_DEPLOY_ID }}
+          DORA_FEATURE_LABEL: ${{ vars.DORA_FEATURE_LABEL }}
+        run: python -m scripts.dora_scheduled_report report "$RUNNER_TEMP/dora-report"
+      - name: Stage summary
+        id: stage
+        run: python -m scripts.dora_scheduled_report stage "$RUNNER_TEMP/dora-report"
+      - name: Publish report section 1
+        run: bash scripts/publish_dora_summary.sh 1
+      - name: Publish report section 2
+        run: bash scripts/publish_dora_summary.sh 2
+      - name: Publish report section 3
+        run: bash scripts/publish_dora_summary.sh 3
+      - name: Publish report section 4
+        run: bash scripts/publish_dora_summary.sh 4
+      - name: Publish report section 5
+        run: bash scripts/publish_dora_summary.sh 5
+      - name: Publish report section 6
+        run: bash scripts/publish_dora_summary.sh 6
+      - name: Publish report section 7
+        run: bash scripts/publish_dora_summary.sh 7
+      - name: Publish report section 8
+        run: bash scripts/publish_dora_summary.sh 8
+      - name: Publish report section 9
+        run: bash scripts/publish_dora_summary.sh 9
+      - name: Publish report section 10
+        run: bash scripts/publish_dora_summary.sh 10
+      - name: Publish report section 11
+        run: bash scripts/publish_dora_summary.sh 11
+      - name: Publish report section 12
+        run: bash scripts/publish_dora_summary.sh 12
+      - name: Publish report section 13
+        run: bash scripts/publish_dora_summary.sh 13
+      - name: Publish report section 14
+        run: bash scripts/publish_dora_summary.sh 14
+      - name: Publish report section 15
+        run: bash scripts/publish_dora_summary.sh 15
+      - name: Publish report section 16
+        run: bash scripts/publish_dora_summary.sh 16
+      - name: Publish report section 17
+        run: bash scripts/publish_dora_summary.sh 17
+      - name: Publish report section 18
+        run: bash scripts/publish_dora_summary.sh 18
+      - name: Publish report section 19
+        run: bash scripts/publish_dora_summary.sh 19
+      - name: Publish report section 20
+        run: bash scripts/publish_dora_summary.sh 20
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dora-report
+          # The part after the first wildcard is archived relative to this root.
+          path: ${{ runner.temp }}/dora-report/**/dora-report.md
+          if-no-files-found: error
+          overwrite: true
+
+  summary:
+    name: Report summary (group ${{ matrix.group }})
+    env:
+      DORA_SUMMARY_GROUP: ${{ matrix.group }}
+    needs: report
+    if: needs.report.outputs.overflow != '[]'
+    strategy:
+      # Run groups serially because the run page orders job summaries by completion.
+      max-parallel: 1
+      matrix:
+        group: ${{ fromJSON(needs.report.outputs.overflow) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: dora-report
+          path: ${{ runner.temp }}/dora-report
+      - name: Stage summary group
+        run: python -m scripts.dora_scheduled_report stage "$RUNNER_TEMP/dora-report" --group "$DORA_SUMMARY_GROUP"
+      - name: Publish report section 1
+        run: bash scripts/publish_dora_summary.sh 1
+      - name: Publish report section 2
+        run: bash scripts/publish_dora_summary.sh 2
+      - name: Publish report section 3
+        run: bash scripts/publish_dora_summary.sh 3
+      - name: Publish report section 4
+        run: bash scripts/publish_dora_summary.sh 4
+      - name: Publish report section 5
+        run: bash scripts/publish_dora_summary.sh 5
+      - name: Publish report section 6
+        run: bash scripts/publish_dora_summary.sh 6
+      - name: Publish report section 7
+        run: bash scripts/publish_dora_summary.sh 7
+      - name: Publish report section 8
+        run: bash scripts/publish_dora_summary.sh 8
+      - name: Publish report section 9
+        run: bash scripts/publish_dora_summary.sh 9
+      - name: Publish report section 10
+        run: bash scripts/publish_dora_summary.sh 10
+      - name: Publish report section 11
+        run: bash scripts/publish_dora_summary.sh 11
+      - name: Publish report section 12
+        run: bash scripts/publish_dora_summary.sh 12
+      - name: Publish report section 13
+        run: bash scripts/publish_dora_summary.sh 13
+      - name: Publish report section 14
+        run: bash scripts/publish_dora_summary.sh 14
+      - name: Publish report section 15
+        run: bash scripts/publish_dora_summary.sh 15
+      - name: Publish report section 16
+        run: bash scripts/publish_dora_summary.sh 16
+      - name: Publish report section 17
+        run: bash scripts/publish_dora_summary.sh 17
+      - name: Publish report section 18
+        run: bash scripts/publish_dora_summary.sh 18
+      - name: Publish report section 19
+        run: bash scripts/publish_dora_summary.sh 19
+      - name: Publish report section 20
+        run: bash scripts/publish_dora_summary.sh 20
