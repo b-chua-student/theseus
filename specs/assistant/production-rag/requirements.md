@@ -1,9 +1,6 @@
-# Requirements for production RAG
-
-## Sources
+# Requirements — Production RAG
 
 - Ticket: `tickets/assistant-rag.md`
-- Repository evidence: [repo-findings.md](repo-findings.md), lines 7–19. The findings describe a source inspection at `260474b`.
 
 ## Requirements
 
@@ -18,5 +15,4 @@
 
 ## Open Questions
 
-- Resolved. R-001 fixes the chunk defaults. D-002 and D-005 specify the model and offline fixture.
-- Resolved. Removal takes precedence over active indexing under R-005 and S-028.
+- None.

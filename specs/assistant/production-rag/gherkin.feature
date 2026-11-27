@@ -1,5 +1,5 @@
-Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
-  Use overlapping chunking, local embeddings, persistent vectors, and cleanup.
+Feature: Writers can retrieve relevant passages from their source library
+  Writers can search indexed sources by meaning and remove sources from retrieval.
 
   @S-019 @criterion-1
   Scenario: Long document text is split into ordered overlapping chunks with hashes
@@ -17,10 +17,10 @@ Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
     And no external AI provider API call is made
 
   @S-021 @criterion-3
-  Scenario: Production startup wires real chunking, local embeddings, and persistent vectors
-    Given the application starts in production mode with persistent storage configured
-    When the assistant module dependencies are assembled
-    Then the production chunker, local embedding generator, and persistent vector store are wired
+  Scenario: Indexed passages remain searchable after production restarts
+    Given a source has been indexed in production using the local model
+    When the application restarts with the same storage
+    Then a writer can retrieve its matching passage without reindexing the source
 
   @S-022 @criterion-4
   Scenario: Removing an indexed source deletes its vectors from the vector store
@@ -51,10 +51,10 @@ Feature: Production RAG Pipeline, Local Embeddings, and Vector Cleanup
     Then an empty list of chunks is returned
 
   @S-025 @criterion-3 @edge
-  Scenario: Test startup preserves in-memory defaults without persistent vector storage
-    Given the application starts in automated testing mode
-    When the assistant module dependencies are assembled
-    Then the in-memory chunker, embedding generator, and vector store defaults remain active
+  Scenario: A default test run indexes sources in memory
+    Given the application starts with its default automated test settings
+    When a source is indexed during the test run
+    Then its chunks and embeddings are available for retrieval in memory
     And no data is written to production storage
 
   @S-026 @criterion-4 @edge
