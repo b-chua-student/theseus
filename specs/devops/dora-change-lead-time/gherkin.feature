@@ -12,13 +12,7 @@ Feature: Report feature PR merge-to-production lead time
     And the report shows the UTC bounds of the rolling 30-day reporting period
     And the report counts 3 included feature pull requests
     And the median lead time is 6 hours
-
-  @S-002 @criterion-2
-  Scenario: Publish the verified report weekly
-    Given a maintainer has verified the on-demand report
-    And the maintainer has enabled weekly publication
-    When the weekly reporting time arrives
-    Then a fresh report is published for the rolling 30-day period before that run started
+    And no production deployment starts as a result of the report run
 
   @S-008 @criterion-9
   Scenario: Keep credentials out of the report and logs
@@ -29,22 +23,18 @@ Feature: Report feature PR merge-to-production lead time
   @S-011 @criterion-3
   Scenario: Include a feature pull request merged directly into main
     Given a feature pull request merges directly into main
-    And it first ships successfully to production 3 hours after the merge
+    And a maintainer manually deploys the change to production
+    And it first goes live 3 hours after the merge
     And the deployment falls within the reporting period
     When a maintainer requests the report
     Then the report counts 1 included feature pull request
     And the median lead time is 3 hours
 
-  @edge @S-003 @criterion-2
-  Scenario Outline: Withhold weekly publication until verification and enablement
-    Given <publication state>
-    When the weekly reporting time arrives
-    Then the report is not published
-
-    Examples:
-      | publication state                                                   |
-      | the on-demand results are awaiting maintainer verification          |
-      | a maintainer verified the results and weekly publication is disabled |
+  @edge @S-078 @criterion-2
+  Scenario: Generate the report only when requested manually
+    Given a maintainer has not requested a report
+    When a change merges into main
+    Then no lead-time report run starts
 
   @edge @S-004 @criterion-4 @criterion-8
   Scenario Outline: Exclude a merged feature pull request without a successful production deployment
@@ -99,20 +89,14 @@ Feature: Report feature PR merge-to-production lead time
     And the median lead time is 8 hours
 
   @edge @S-010 @criterion-3 @criterion-9
-  Scenario Outline: Fail the report when a squash promotion lacks maintainer-reviewed evidence
+  Scenario: Fail the report when a squash promotion lacks maintainer-reviewed evidence
     Given a successful production deployment within the reporting period includes a squash promotion
     And the promotion obscures which original feature pull requests it carried
     And there is no maintainer-reviewed evidence identifying those pull requests
-    And the on-demand report has been verified and weekly publication enabled
-    When <report trigger>
+    When a maintainer requests the report on demand
     Then the report run fails with a sanitized diagnostic
     And the report withholds the median and included pull request count
     And credentials are absent from the report output and logs
-
-    Examples:
-      | report trigger                             |
-      | a maintainer requests the report on demand |
-      | the weekly reporting time arrives           |
 
   @edge @S-075 @criterion-7
   Scenario: Include the UTC start boundary and exclude the UTC end boundary

@@ -11,7 +11,7 @@ Give Theseus maintainers a baseline for how long a merged feature PR takes to go
 
 - Trace feature PRs merged into `staging` through their promotion to `main`, and trace feature PRs merged directly into `main`.
 - Measure one sample per feature PR from its merge timestamp to its first successful production deployment. A promotion can carry multiple feature PRs, each with its own merge timestamp.
-- Report the UTC bounds of a rolling 30-day window, median lead time in hours, and included PR count on demand in GitHub Actions. Publish weekly after maintainer verification.
+- Report the UTC bounds of a rolling 30-day window, median lead time in hours, and included PR count only when a maintainer starts the report manually in GitHub Actions.
 
 ## Non-Goals
 
@@ -20,6 +20,7 @@ Give Theseus maintainers a baseline for how long a merged feature PR takes to go
 ## Constraints
 
 - The `enhancement` label identifies feature PRs, including historical feature PRs in scope.
+- Maintainers initiate production deployments manually. Report runs read deployment history.
 - Only deployments that successfully go live on the designated Render production service qualify.
 - A PR's first successful production deployment determines window membership, including for PRs merged before the window. Use verified history from before the window when needed to distinguish a first live deployment from a redeploy.
 - If a promotion rewrites history and obscures the original feature PRs, require maintainer-reviewed evidence identifying the PRs it carried.
@@ -27,7 +28,7 @@ Give Theseus maintainers a baseline for how long a merged feature PR takes to go
 
 ## Known Touchpoints
 
-The configured Render production service deploys from `main`, and its full deployment history is available for verification. See the [Render configuration findings](../dora-deployment-frequency/repo-findings.md).
+Maintainers manually deploy the designated Render production service from `main`, and its full deployment history is available for verification. See the [Render configuration findings](../dora-deployment-frequency/repo-findings.md).
 
 Pull requests into `staging` and `main` allow merge commits only.
 
