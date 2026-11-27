@@ -1,4 +1,5 @@
 <script>
+  import { fly } from 'svelte/transition';
   import { providerSettings } from '../../lib/api/auth.js';
   import { apiFetch, jsonBody } from '../../lib/api/http.js';
   let { user, inEditor = false, documentTitle = '', manuscriptCount = 0, onworkspace, onsignout } = $props();
@@ -53,8 +54,8 @@
     </nav>
   </div>
   <div class="profile-control">
-    <button type="button" class="profile-button" onclick={openAccount} aria-expanded={profileOpen} aria-controls="account-menu"><span class="avatar" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 22v-3a7 7 0 0 1 14 0v3"/></svg></span><span class="account-label">Account</span><span aria-hidden="true">⌄</span></button>
-    {#if profileOpen}<div id="account-menu" class="account-menu"><form onsubmit={event => { event.preventDefault(); save(); }}>
+    <button type="button" class="profile-button" onclick={openAccount} aria-label="Account" aria-expanded={profileOpen} aria-controls="account-menu"><span class="avatar" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 22v-3a7 7 0 0 1 14 0v3"/></svg></span><span class="account-label">Account</span><svg class="account-arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    {#if profileOpen}<div id="account-menu" class="account-menu" inert={!profileOpen} transition:fly={{ y: -5, duration: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 0 : 150 }}><form onsubmit={event => { event.preventDefault(); save(); }}>
       <label>Display name<input bind:value={name} required maxlength="50" /></label><button>Save</button>
       </form>
       {#if googleConnected}
@@ -77,6 +78,15 @@
   .breadcrumbs { display:flex; align-items:center; gap:7px; min-width:0; border:1px solid #e0e4e0; border-radius:7px; padding:2px 8px 2px 2px; background:#f6f7f5; }.workspace-link { display:flex; align-items:center; gap:5px; border:0; background:transparent; color:var(--text); border-radius:5px; padding:4px 10px; font-weight:500; }.chevron { color:#9aa59f; }.current { padding:4px 8px; border-radius:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.count { background:#e5ebe5; font-size:9px; border-radius:3px; padding:0 5px; }
   .breadcrumbs .breadcrumb-active { background:var(--accent); color:white; }
   .profile-control { position:relative; flex-shrink:0; }.profile-button { display:flex; align-items:center; gap:8px; border:1px solid #e0e4e0; border-radius:999px; padding:4px 10px 4px 6px; background:white; font-weight:600; }.avatar { display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:var(--accent); color:white; }.account-menu { position:absolute; right:0; top:calc(100% + 8px); width:190px; padding:5px; border:1px solid var(--border); border-radius:9px; background:var(--surface); box-shadow:0 12px 30px #19282226; }.account-menu p { padding:5px 8px; margin:0; font-size:10px; color:var(--text-muted); border-bottom:1px solid var(--border); }.account-menu button { display:block; text-align:left; width:100%; padding:8px; border:0; border-radius:5px; background:transparent; }.account-menu button:not(:disabled):hover { background:var(--surface-muted); }
+  .profile-button:hover, .profile-button[aria-expanded=true] { background:#eff5f0; border-color:#a6bdad; }
+  .account-arrow { display:block; flex:none; color:#476353; }
+  .profile-button[aria-expanded=true] .account-arrow { transform:rotate(180deg); }
+  .account-menu form { display:grid; gap:6px; padding:5px; }
+  .account-menu input { width:100%; margin-top:4px; padding:6px 8px; border:1px solid var(--border); border-radius:5px; font:inherit; }
+  @media (prefers-reduced-motion:no-preference) {
+    .profile-button, .account-menu button { transition:background-color 150ms ease, border-color 150ms ease; }
+    .account-arrow { transition:transform 150ms ease; }
+  }
   @media(max-width:600px) { .app-header { padding:0 12px; gap:8px; }.navigation-left { gap:7px; }.breadcrumbs { gap:5px; }.workspace-link { padding:4px 6px; }.account-label { display:none; } }
   @media(max-width:420px) { .brand > span:last-child,.nav-divider { display:none; }.current { max-width:125px; }.profile-button { padding:4px 6px; gap:4px; } }
 </style>

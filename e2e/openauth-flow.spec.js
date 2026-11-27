@@ -88,6 +88,7 @@ test('S-024 S-033 explicitly link Google after password authentication', async (
   await button(page, 'Account').click()
   await button(page, 'Link Google').click()
   await consent(page, address)
+  await expect(button(page, 'Account')).toBeVisible()
   await page.reload()
   await button(page, 'Account').click()
   await expect(page.getByText('Google connected', { exact: true })).toBeVisible()
