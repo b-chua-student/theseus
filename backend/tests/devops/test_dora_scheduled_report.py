@@ -34,7 +34,15 @@ METRICS = (
 
 @pytest.fixture
 def evidence(monkeypatch) -> Iterator[None]:
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    revision = "a" * 40
+
+    def git(*args: str) -> list[str]:
+        if args == ("rev-parse", "--is-shallow-repository"):
+            return ["false"]
+        assert args == ("rev-list", "--parents", revision)
+        return [revision]
+
+    monkeypatch.setattr(dora_lead_time, "git", git)
     settings = {
         **TOKENS,
         "GITHUB_REPOSITORY": "example/theseus",
@@ -150,7 +158,8 @@ def test_s079_scheduled_report(tmp_path, monkeypatch, evidence) -> None:
     status = subprocess.check_output(["git", "status", "--porcelain"])
     report = publish(tmp_path, monkeypatch, SATURDAY)
     assert subprocess.check_output(["git", "status", "--porcelain"]) == status
-    assert all(metric in report for metric in METRICS)
+    for metric in METRICS:
+        assert metric in report
 
     standalone = tmp_path / "standalone"
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(standalone))
@@ -168,10 +177,9 @@ def test_s079_scheduled_report(tmp_path, monkeypatch, evidence) -> None:
 
 def test_s081_manual_report(tmp_path, monkeypatch, evidence) -> None:
     assert "workflow_dispatch" in workflow()["on"]
-    assert all(
-        metric in publish(tmp_path, monkeypatch, SATURDAY + timedelta(hours=1))
-        for metric in METRICS
-    )
+    report = publish(tmp_path, monkeypatch, SATURDAY + timedelta(hours=1))
+    for metric in METRICS:
+        assert metric in report
 
 
 def test_s080_missing_evidence(tmp_path, monkeypatch, evidence) -> None:
@@ -182,7 +190,8 @@ def test_s080_missing_evidence(tmp_path, monkeypatch, evidence) -> None:
     report = publish(tmp_path, monkeypatch, SATURDAY)
     assert "GitHub evidence request failed." in report
     assert METRICS[1] not in report
-    assert all(metric in report for metric in (*METRICS[:1], *METRICS[2:]))
+    for metric in (*METRICS[:1], *METRICS[2:]):
+        assert metric in report
 
 
 def test_s082_manual_recovery() -> None:
