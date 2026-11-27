@@ -8,6 +8,14 @@ Give maintainers a baseline for how long merged features take to reach users.
 
 Theseus runs on Render. Feature pull requests can reach production through a promotion from `staging` to `main` or through a direct merge into `main`.
 
+The configured Render production service deploys from `main`, and its full deployment history is available for verification.
+
+Pull requests into `staging` and `main` allow merge commits only.
+
+All staging-to-main promotions in the production history used by the report used merge commits.
+
+Git history confirms that the AI Research Assistant PR (#96) and the staging-to-main promotions in PRs #109, #112, #153, #167, and #173 used merge commits.
+
 ## Scope
 
 - Measure elapsed time from each feature pull request's original merge into `staging` or `main` to the first successful production deployment that includes its changes.
@@ -24,8 +32,11 @@ Theseus runs on Render. Feature pull requests can reach production through a pro
 
 ## Rules / Constraints
 
+- The `enhancement` label identifies feature pull requests, including historical feature pull requests in scope.
 - Use the 30 days before the report starts. Include the UTC start boundary and exclude the UTC end boundary.
 - Establish each feature pull request's first successful live deployment across verified history on the designated Render production service. Use that timestamp to determine window membership, even if the pull request merged before the window opened.
+- Use deployment history from before the reporting window when needed to distinguish a first live deployment from a redeploy.
+- Require maintainer-reviewed evidence identifying the original feature pull requests carried by a promotion when rewritten history obscures that link.
 - Exclude preview and staging deployments and production attempts that never went live. Preserve historically successful live deployments after deactivation.
 - Label the result “Feature PR merge-to-production lead time.”
 
@@ -40,9 +51,7 @@ Theseus runs on Render. Feature pull requests can reach production through a pro
 
 ## Open Questions
 
-- Which Render service is production, and how far back can its deployment history be verified?
-- Which merge strategies are enabled on `staging` and `main`, and what evidence identifies original feature pull requests when history is rewritten?
-- Does the maintainer-approved feature classification cover historical pull requests?
+- None.
 
 ## Output Paths
 

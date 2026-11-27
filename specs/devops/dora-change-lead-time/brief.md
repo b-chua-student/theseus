@@ -19,6 +19,7 @@ Give Theseus maintainers a baseline for how long a merged feature PR takes to go
 
 ## Constraints
 
+- The `enhancement` label identifies feature PRs, including historical feature PRs in scope.
 - Only deployments that successfully go live on the designated Render production service qualify.
 - A PR's first successful production deployment determines window membership, including for PRs merged before the window. Use verified history from before the window when needed to distinguish a first live deployment from a redeploy.
 - If a promotion rewrites history and obscures the original feature PRs, require maintainer-reviewed evidence identifying the PRs it carried.
@@ -26,13 +27,19 @@ Give Theseus maintainers a baseline for how long a merged feature PR takes to go
 
 ## Known Touchpoints
 
+The configured Render production service deploys from `main`, and its full deployment history is available for verification. See the [Render configuration findings](../dora-deployment-frequency/repo-findings.md).
+
+Pull requests into `staging` and `main` allow merge commits only.
+
+All staging-to-main promotions in the production history used by the report used merge commits.
+
+Git history confirms that the AI Research Assistant PR (#96) and the staging-to-main promotions in PRs #109, #112, #153, #167, and #173 used merge commits.
+
 GitHub PR metadata supplies feature PR identities and merge timestamps. Git history and promotion provenance link feature PRs to deployed revisions. Render supplies the production deployment outcome, live timestamp, and deployed SHA.
 
 ## Open Questions
 
-- Which Render service is production, and how far back can maintainers verify its deployment history?
-- Which merge strategies are enabled on `staging` and `main`, and do the historical promotion records cover every rewritten promotion in scope?
-- Does the maintainer-approved feature classification cover historical pull requests?
+- None.
 
 ## Success Criteria
 
