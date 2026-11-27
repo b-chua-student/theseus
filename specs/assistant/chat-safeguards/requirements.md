@@ -1,9 +1,6 @@
-# Requirements: Assistant chat safeguards
-
-## Sources
+# Requirements — Assistant chat safeguards
 
 - Ticket: `tickets/assistant-safeguards.md`
-- Repository evidence: [repo-findings.md](repo-findings.md)
 
 ## Requirements
 
@@ -18,4 +15,4 @@
 
 ## Open Questions
 
-Resolved. All projects use the same limits in this release: ten chat questions per minute when rate limiting is enabled and the ten most recent completed exchanges for model history. Per-project overrides are out of scope.
+- None.
