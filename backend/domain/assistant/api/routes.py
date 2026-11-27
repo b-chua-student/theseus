@@ -4,6 +4,7 @@ from flask import Blueprint, current_app, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from pydantic import ValidationError
 
+from bootstrap.extensions import limiter
 from domain.assistant.models.aggregates import Conversation
 from domain.assistant.models.errors import ChatUnavailableError
 from domain.assistant.services.chat import ChatService
@@ -90,6 +91,7 @@ def start_conversation(project_id: str) -> ResponseReturnValue:
 
 
 @conversation_bp.post("/<conversation_id>/exchanges")
+@limiter.limit("10 per minute", override_defaults=False)
 @login_required
 def ask(project_id: str, conversation_id: str) -> ResponseReturnValue:
     """Submit a query to a conversation and return the assistant's answer."""
