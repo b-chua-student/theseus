@@ -18,6 +18,9 @@ The Assistant currently offers separate Manuscript and Source Library context op
 - [ ] A user can select library sources and ask which of those sources support a claim in the current manuscript. The Assistant uses the manuscript and evidence from the selected sources in the same answer. The user does not need to restate the claim in the question.
 - [ ] A user can quote a selected passage and ask how it compares with evidence from the selected sources. The answer addresses that passage.
 
+- [ ] With Web enabled, if the selected library sources yield no matching passage for a general-knowledge question, answer from general knowledge, identify the source gap, and omit library citations. With Web disabled, report the gap without supplying a general-knowledge answer.
+- [ ] After the writer unchecks all library sources and leaves Web alone, answer the next general-knowledge question in the same chat without carrying forward the previous source restriction or gap report.
+
 ## Rules / Constraints
 
 - Limit library evidence to the sources the user selected.

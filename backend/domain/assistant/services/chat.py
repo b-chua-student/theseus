@@ -33,6 +33,7 @@ from domain.assistant.models.value_objects import (
     ProjectId,
     Query,
     SelectedSource,
+    SourceStatus,
 )
 from domain.assistant.services.answer_validation import INTERRUPTED_MESSAGE, ValidateAnswer
 from domain.assistant.services.evidence_retrieval import Evidence as RetrievedEvidence
@@ -197,7 +198,16 @@ class ChatService:
                 if context.search_library
                 else RetrievedEvidence.empty()
             )
-            if context.search_library and self._review_sources:
+            web_without_matches = (
+                context.web
+                and not evidence.excerpts
+                and bool(evidence.outcomes)
+                and all(
+                    outcome.status == SourceStatus.SEARCHED_WITHOUT_MATCH
+                    for outcome in evidence.outcomes
+                )
+            )
+            if context.search_library and self._review_sources and not web_without_matches:
                 answer, cache_write = self._source_answer(
                     conversation, query, text, context, evidence, fixed_texts, on_draft_ready
                 )
@@ -211,7 +221,9 @@ class ChatService:
                     outcomes=evidence.reported,
                     web=context.web,
                 )
-                if context.search_library and self._validate_answer is not None:
+                if web_without_matches:
+                    answer = Answer(f"**General knowledge**\n{answer.text}")
+                elif context.search_library and self._validate_answer is not None:
                     if on_draft_ready is not None:
                         on_draft_ready()
                     answer = self._validate_answer.execute(
@@ -239,7 +251,9 @@ class ChatService:
             raise ChatModelError("The assistant failed to answer.") from exc
 
         try:
-            report = evidence.gap_report(include_reported=self._review_sources)
+            report = evidence.gap_report(
+                include_reported=self._review_sources or web_without_matches
+            )
             text = f"{answer.text}\n\n{report}" if report else answer.text
             answer = replace(answer, text=text)
             conversation.context_scope = context.scope

@@ -240,13 +240,14 @@ class RecordingChatModel(ChatModel):
     def __init__(self) -> None:
         """Start with no recorded calls."""
         self.calls: list[ModelCall] = []
+        self.answers: dict[str, str] = {}
 
     def reply(self, *args: object, **kwargs: object) -> Answer:
         """Record the call and answer, citing every supplied excerpt by its number."""
         call = ModelCall(args, kwargs)
         self.calls.append(call)
         cited = " ".join(f"[{number}]" for number, _ in enumerate(call.excerpts, 1))
-        return Answer(f"Recorded answer. {cited}")
+        return Answer(self.answers.get(call.question, f"Recorded answer. {cited}"))
 
     @property
     def last(self) -> ModelCall:
@@ -302,7 +303,7 @@ class CombinedContextHarness:
         self.vectors = ScriptedVectorStore()
         self.model = RecordingChatModel()
         self.tokens = FakeTokenCounter()
-        self.options: dict[str, object] = {}
+        self.options: dict[str, object] = {"answer_validator": AcceptingValidator()}
         self.ids: dict[str, DocumentRefId] = {}
         self.draft = "My manuscript makes a claim."
         self.web = True
@@ -415,7 +416,6 @@ class CombinedContextHarness:
                 indexed_document_repo=self.documents,
                 vector_store=self.vectors,
                 chat_model=self.model,
-                answer_validator=AcceptingValidator(),
                 **self.options,
             )
             app = create_app({"TESTING": True}, container=container)

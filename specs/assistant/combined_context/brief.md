@@ -41,6 +41,8 @@ Definitions used below:
 
 7. All indexed sources checks every indexed source currently in the project, including entries hidden by a title filter. It preserves Web and Manuscript. Unchecking one source retains the others and clears the all-selected indicator. Checking every source restores the indicator. Disable this option when no sources are indexed. When the context window cannot fit evidence from every matching source, name each source whose evidence was omitted for capacity. Only cite library evidence that was supplied to the model.
 
+8. For a general-knowledge question with no matching selected passage, answer from general knowledge when Web is enabled and identify the source gap without a library citation. With Web disabled, report the gap alone. After a switch back to Web alone, answer the next question without repeating the earlier source restriction or gap report.
+
 ## Decisions
 
 - **Relevance and source coverage.** Attempt to search every selected source. Rank its passages by cosine similarity between the query embedding and each passage embedding. Only passages scoring at or above the configured relevance threshold are eligible for inclusion. Each source gets a chance to contribute, with no fixed passage quota. If a search completes and no passage meets the threshold, mark that source “searched without a match.” If the search fails, mark it unavailable. During implementation, calibrate the cutoff using representative queries and passages labelled as supporting, qualifying, contradicting or unrelated to the claim. Set the passage budget during design and testing.
