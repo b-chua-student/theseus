@@ -344,9 +344,10 @@
         <button type="button" class="pill primary save-toggle" onclick={toggleSaveMenu} disabled={!editor || saving || !canSave} aria-label="Save with revision message" aria-haspopup="true" aria-expanded={menuOpen === 'save'}>{@render icon('chevron', 10)}</button>
         {#if menuOpen === 'save'}
           <form class="dropdown-panel save-panel" aria-label="Save options" onsubmit={submitSave}>
-            <label for="revision-message"><strong>Revision message</strong></label>
-            <input id="revision-message" bind:this={messageInput} bind:value={revisionMessage} maxlength="256" placeholder="Manual save" autocomplete="off" />
-            <small class="save-hint">Saved to draft "{currentDraft}". Leave blank to use "Manual save".</small>
+            <div class="save-context">Draft <strong>{currentDraft}</strong></div>
+            <label for="revision-message">Revision message</label>
+            <input id="revision-message" bind:this={messageInput} bind:value={revisionMessage} maxlength="256" aria-describedby="save-message-hint" placeholder="Manual save" autocomplete="off" />
+            <small class="save-hint" id="save-message-hint">Leave blank to use "Manual save".</small>
             <button type="submit" class="primary">{@render icon('save', 12)} Save with message</button>
           </form>
         {/if}
@@ -408,26 +409,31 @@
   button:disabled { cursor: default; opacity: 1; -webkit-text-fill-color: currentColor; }
   button:not(:disabled):hover { background: #e9ede9; }
   button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-  .editor-header { background: var(--surface); border-bottom: 1px solid #e2e6e2; padding: 6px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .editor-header { background: linear-gradient(105deg, #f0f7f2, #fff 70%); border-bottom: 1px solid #e2e6e2; padding: 9px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   .document-controls, .header-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .document-controls { flex: 1; }
   .header-actions { flex-shrink: 0; gap: 10px; }
-  .back-button { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: #f2f4f2; flex-shrink: 0; padding: 0; }
+  .back-button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: #f2f4f2; flex-shrink: 0; padding: 0; }
   .pill { border: 1px solid var(--border); border-radius: 999px; background: #f4f6f4; padding: 5px 13px; font-size: 10.5px; font-weight: 600; white-space: nowrap; }
   .branch { border-color: var(--accent-border); }
   .primary, .active { background: var(--green); color: white; border-color: var(--green); }
   .primary:not(:disabled):hover, .active:not(:disabled):hover { background: var(--accent-hover); }
   .document-meta { margin-left: 6px; min-width: 0; }
   .title-row { display: flex; align-items: center; gap: 8px; }
-  .name { font-size: 12.5px; font-weight: 700; color: var(--text-h); margin: 0; line-height: 1.2; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .name { font-size: 15px; font-weight: 700; color: var(--text-h); margin: 0; line-height: 1.2; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .save-status { font-size: 9px; color: var(--text-muted); white-space: nowrap; font-family: var(--mono); }
   .save-split { display: inline-flex; }
   .save-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
   .save-toggle { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-color: #ffffff55; padding: 5px 9px; }
-  .save-panel { left: auto; right: 0; width: 250px; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
-  .save-panel input { font-size: 11px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; }
-  .save-panel .primary { justify-content: center; width: 100%; background: var(--green); color: white; }
-  .save-hint { font-size: 9px; color: var(--text-muted); }
+  .dropdown-panel.save-panel { left:auto; right:0; top:calc(100% + 8px); width:300px; max-width:calc(100vw - 24px); display:grid; gap:8px; padding:18px; border:1px solid #cfddd3; border-radius:14px; box-shadow:0 12px 32px #203f2d26; }
+  .save-context { display:flex; align-items:baseline; gap:6px; color:#54685b; font-size:11px; }
+  .save-context strong { background:#e9f2eb; border-radius:5px; padding:2px 7px; color:#34563f; overflow-wrap:anywhere; }
+  .save-panel label { margin-top:4px; font-size:15px; font-weight:650; color:#24392c; }
+  .save-panel input { min-width:0; width:100%; padding:10px 12px; border:1px solid #b8cabe; border-radius:8px; background:white; font:13px var(--sans); }
+  .save-panel input:focus { outline:2px solid #678c73; outline-offset:1px; }
+  .save-panel button.primary { justify-content:center; margin-top:6px; min-height:38px; border-radius:8px; background:var(--green); color:white; font-size:12px; }
+  .save-panel .save-hint { font-size:11px; line-height:1.5; color:#53665a; }
+  @media (max-width:560px) { .dropdown-panel.save-panel { left:0; right:auto; } }
   .save-status span { color: var(--green); margin-right: 4px; }
   .index-status { font-size: 9px; font-family: var(--mono); white-space: nowrap; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); }
   .index-status.indexed { color: var(--green); border-color: var(--accent-border); }
