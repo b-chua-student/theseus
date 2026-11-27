@@ -1,6 +1,6 @@
 # Theseus
 
-Theseus is a web-based document editor with integrated Git-like VCS and AI capabilities.
+Theseus is a web-based document editor with integrated Git-like VCS and AI capabilities for helping academic researchers write thesis-grade papers.
 
 ## Installation
 
