@@ -48,3 +48,9 @@ Use this context when asked to create tests for Theseus. Read the requested beha
 - Run the new or changed tests first, then the nearby suite when feasible. From the repository root, use `pytest backend/tests/path/to/test_file.py` for a backend file, `npm --prefix frontend test` for Node tests, or `npm --prefix frontend run test:components` for Vitest.
 - For CI selection, run unit, integration, then end-to-end stages. From the repository root, run `pytest -m "not integration and not e2e"` for unit tests and `pytest -m integration` for integration tests once all existing tests have been classified. For pytest-based end-to-end tests in the top-level directory, run `pytest e2e/ -m e2e`. The current pytest configuration discovers `backend/tests/` by default. Untagged tests pass the unit filter, so check existing coverage before relying on it as a CI gate.
 - Report the test files changed, what behavior they cover, the commands run, and any failures, skips, or verification blocked by missing dependencies.
+
+## AI release checks
+
+Use test adapters and mock provider calls in routine checks. Assert schema, required fields, validation status, and error behavior. Keep exact wording assertions for application-owned messages.
+
+For prompt or AI logic changes, run the affected offline tests and record evaluation evidence. The [live evaluator](../scripts/eval_combined_context.py) uses Gemini and synthetic inputs. Use a scoped test key with a spending limit and record the model, prompt revision, and results. A scheduled live provider smoke test and its budget still need evidence. See the [AI feature write-up](ai-feature.md).
