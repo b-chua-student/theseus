@@ -1,0 +1,26 @@
+name: DORA failed deployment recovery time
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Capture report start
+        run: date -u '+DORA_REPORT_STARTED_AT=%Y-%m-%dT%H:%M:%SZ' >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Publish failed deployment recovery time
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/dora_failed_deployment_recovery_time.py

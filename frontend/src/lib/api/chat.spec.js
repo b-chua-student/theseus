@@ -30,7 +30,7 @@ function streamOf(...chunks) {
 const ndjson = (...chunks) =>
   new Response(streamOf(...chunks), { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } });
 const line = (record) => JSON.stringify(record) + '\n';
-const ask = (options) => askConversation('p1', 'c1', 'When did it start?', 'source_library', null, '', options);
+const ask = (options) => askConversation('p1', 'c1', 'When did it start?', 'source_library', null, '', null, {}, options);
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock.mockReset());

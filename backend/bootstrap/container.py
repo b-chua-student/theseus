@@ -1,4 +1,6 @@
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from bootstrap.contexts.assistant.module import AssistantModule, build_assistant_module
@@ -36,6 +38,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
 )
 from domain.assistant.infrastructure.ports.source_content_provider import SourceContentProvider
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.value_objects import DocumentRefId
 from domain.identity.infrastructure.adapters.argon_password_hasher import ArgonPasswordHasher
@@ -105,8 +108,16 @@ def build_container(
     chat_model: ChatModel | None = None,
     answer_validator: AnswerValidator | None = None,
     revision_history_repo: RevisionHistoryRepository | None = None,
+    relevance_threshold: float | None = None,
+    token_counter: TokenCounter | None = None,
+    context_window: int | None = None,
+    response_reserve: int = 0,
 ) -> Container:
-    """Build a Container, defaulting any unspecified dependency to an in-memory implementation."""
+    """Build a Container, defaulting any unspecified dependency to an in-memory implementation.
+
+    ``relevance_threshold``, ``token_counter``, ``context_window`` and ``response_reserve``
+    configure how the assistant picks library evidence; see ``build_assistant_module``.
+    """
     identity_repo = identity_repo or InMemoryIdentityRepository()
     hasher = hasher or ArgonPasswordHasher()
     project_repo = project_repo or InMemoryProjectRepository()
@@ -145,6 +156,10 @@ def build_container(
         conversation_repo=conversation_repo,
         chat_model=chat_model,
         answer_validator=answer_validator,
+        relevance_threshold=relevance_threshold,
+        token_counter=token_counter,
+        context_window=context_window,
+        response_reserve=response_reserve,
         source_ids=lambda project_id: [
             DocumentRefId(source.id.value)
             for source in source_repo.list_active()
@@ -178,12 +193,17 @@ def build_mongo_container(
     passed as a keyword override; an explicitly passed repository wins over the
     Mongo one, which keeps individual repositories swappable in tests.
     """
+    from domain.assistant.infrastructure.adapters.chroma_vector_store import ChromaVectorStore
     from domain.assistant.infrastructure.adapters.mongodb_conversation_repository import (
         MongoConversationRepository,
     )
     from domain.assistant.infrastructure.adapters.mongodb_indexed_document_repository import (
         MongoIndexedDocumentRepository,
     )
+    from domain.assistant.infrastructure.adapters.onnx_embedding_generator import (
+        OnnxEmbeddingGenerator,
+    )
+    from domain.assistant.infrastructure.adapters.token_window_chunker import TokenWindowChunker
     from domain.identity.infrastructure.adapters.mongodb_identity_repository import (
         MongoIdentityRepository,
     )
@@ -201,10 +221,22 @@ def build_mongo_container(
     )
 
     from .mongo import create_database, mongo_settings
+    from .rag import minilm_snapshot
 
     default_uri, default_db = mongo_settings()
     uri = uri or default_uri
     db_name = db_name or default_db
+    if overrides.get("document_chunker") is None or overrides.get("embedding_generator") is None:
+        configured_model = os.getenv("RAG_MODEL_PATH")
+        model_path = Path(configured_model) if configured_model else minilm_snapshot()
+        if overrides.get("document_chunker") is None:
+            overrides["document_chunker"] = TokenWindowChunker(model_path)
+        if overrides.get("embedding_generator") is None:
+            overrides["embedding_generator"] = OnnxEmbeddingGenerator(model_path)
+    if overrides.get("vector_store") is None:
+        vector_path = os.getenv("RAG_VECTOR_PATH") or "instance/vectors"
+        overrides["vector_store"] = ChromaVectorStore(persist_path=vector_path)
+
     database = create_database(uri, db_name)
 
     repositories = {

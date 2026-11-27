@@ -17,7 +17,8 @@ port, value objects and service:
   ``location``.
 """
 
-from dataclasses import dataclass, field
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -43,6 +44,7 @@ from domain.assistant.models.value_objects import (
     ProjectId,
     Query,
     RetrievedChunk,
+    SourceOutcome,
     Verdict,
 )
 from domain.assistant.services.chat import ChatService
@@ -137,6 +139,11 @@ class ScriptedChatModel(ChatModel):
         history: list[Exchange],
         query: Query,
         context: list[RetrievedChunk] | None = None,
+        manuscript_text: str | None = None,
+        quote: str | None = None,
+        outcomes: Sequence[SourceOutcome] = (),
+        *,
+        web: bool = True,
     ) -> Answer:
         self.calls.append((query, context))
         self._clock.set(self._clock.now() + self._takes)
@@ -161,6 +168,7 @@ class ScriptedValidator(AnswerValidator):
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
         timeout: float | None = None,
+        quote: str | None = None,
     ) -> Verdict:
         self.checks.append(
             CheckCall(question, answer.text, list(passages), manuscript_text, timeout)
@@ -267,6 +275,7 @@ class Env:
     conversation_id: str
     project_id: str
     repository: InMemoryConversationRepository
+    document_id: DocumentRefId
     clock: FakeClock
     model: ScriptedChatModel
     validator: ScriptedValidator
@@ -290,7 +299,11 @@ def build(
     documents.add(document)
     model = ScriptedChatModel(drafts, clock, takes=draft_takes)
     validator = ScriptedValidator(checks, revisions or [], clock)
-    store = ScriptedVectorStore(searches, clock)
+    scoped_searches = [
+        replace(step, results=[replace(p, doc_ref_id=document.doc_ref_id) for p in step.results])
+        for step in searches
+    ]
+    store = ScriptedVectorStore(scoped_searches, clock)
     embedder = RecordingEmbedder()
     service = ChatService(
         repository,
@@ -304,7 +317,16 @@ def build(
     )
     conversation_id = str(service.start(project_id).value)
     return Env(
-        service, conversation_id, project_id, repository, clock, model, validator, store, embedder
+        service,
+        conversation_id,
+        project_id,
+        repository,
+        document.doc_ref_id,
+        clock,
+        model,
+        validator,
+        store,
+        embedder,
     )
 
 
@@ -319,6 +341,7 @@ class AcceptingValidator(AnswerValidator):
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
         timeout: float | None = None,
+        quote: str | None = None,
     ) -> Verdict:
         return Verdict()
 

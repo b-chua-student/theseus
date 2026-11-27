@@ -230,9 +230,17 @@ def test_s010_a_gap_is_not_invented_when_the_model_reports_none() -> None:
 def test_s012_check_sends_the_question_draft_numbered_passages_and_manuscript() -> None:
     validator, models = validator_with(verdict_json(claims=[claim("The pilot started in May", 1)]))
 
-    check(validator, manuscript_text=MANUSCRIPT)
+    quote = "  The comparison target.  "
+    validator.check(
+        question=QUESTION,
+        answer=Answer(DRAFT),
+        passages=PASSAGES,
+        manuscript_text=MANUSCRIPT,
+        quote=quote,
+    )
 
     prompt = prompt_of(models)
+    assert f"<quote>\n{quote}\n</quote>" in prompt
     assert QUESTION in prompt
     assert DRAFT in prompt
     assert "[1] (P1) The pilot started in May." in prompt
@@ -477,12 +485,16 @@ def test_proposal_returns_untrusted_excerpts_in_one_attempt() -> None:
             {"answer": DRAFT, "claims": [{"text": P2.text, "citation": 2, "excerpt": P2.text}]}
         )
     )
-    assert validator.draft(QUESTION, Evidence(tuple(PASSAGES)), timeout=12).claims == (
+    quote = "  The comparison target.  "
+    assert validator.draft(QUESTION, Evidence(tuple(PASSAGES)), timeout=12, quote=quote).claims == (
         ProposedFinding(P2.text, 2, P2.text),
     )
     [request] = models.requests
     assert request["config"].http_options.retry_options.attempts == 1
     assert provider_timeout_ms(models) == 12_000
+    prompt = json.loads(prompt_of(models))
+    assert prompt["question"] == QUESTION
+    assert prompt["quote"] == quote
 
 
 @pytest.mark.parametrize(

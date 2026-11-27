@@ -1,5 +1,6 @@
 from domain.src_lib.infrastructure.ports.event_publisher import EventPublisher
 from domain.src_lib.infrastructure.ports.source_repository import SourceRepository
+from domain.src_lib.models.events import SourceRemoved
 from domain.src_lib.models.value_objects import SourceId
 
 from .errors import SourceNotFound
@@ -22,6 +23,10 @@ class RemoveSourceService:
         source = self._repository.get(SourceId.from_str(source_id))
         if source is None:
             raise SourceNotFound(source_id)
+        if source.is_removed:
+            # Retry cleanup after a previous deletion persisted the source tombstone.
+            self._publisher.publish([SourceRemoved(source.id, source.project_id)])
+            return
         source.remove()
         self._repository.save(source)
         self._publisher.publish(source.pull_events())

@@ -19,6 +19,8 @@ class AnswerProposer(ABC):
         evidence: Evidence,
         manuscript_text: str = "",
         timeout: float | None = None,
+        *,
+        quote: str | None = None,
     ) -> SourceDraft:
         """Return answer text, candidate claims and any missing evidence before review."""
 
@@ -39,6 +41,7 @@ class AnswerValidator(ABC):
         passages: list[RetrievedChunk],
         manuscript_text: str = "",
         timeout: float | None = None,
+        quote: str | None = None,
     ) -> Verdict:
         """Check relevance, claims and citations of ``answer`` against ``passages``.
 

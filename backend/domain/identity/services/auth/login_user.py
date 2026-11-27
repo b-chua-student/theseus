@@ -30,7 +30,7 @@ class LoginUserService:
 
         user = self._repository.get_by_email(email_vo)
 
-        if user is None:
+        if user is None or user.password_hash is None or user.status == "suspended":
             self._hasher.verify(password, self._dummy_hash)
             raise InvalidCredentialsError("Unknown email")
 

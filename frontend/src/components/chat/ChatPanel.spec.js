@@ -6,10 +6,11 @@ vi.mock('../../lib/api/chat.js', () => ({
   askConversation: vi.fn(),
   listConversations: vi.fn(),
   getConversation: vi.fn(),
+  listIndexedSourceIds: vi.fn().mockResolvedValue(null),
 }));
 vi.mock('../../lib/api/sources.js', () => ({ listSources: vi.fn() }));
 
-import { startConversation, askConversation, listConversations, getConversation } from '../../lib/api/chat.js';
+import { startConversation, askConversation, listConversations, getConversation, listIndexedSourceIds } from '../../lib/api/chat.js';
 import { listSources } from '../../lib/api/sources.js';
 import ChatPanel from './ChatPanel.svelte';
 
@@ -41,13 +42,14 @@ const editor = { getText: () => '', state: { selection: { empty: true } } };
 
 async function sendQuestion() {
   render(ChatPanel, { projectId: 'p1', editor, tick: 0, open: true, onclose: vi.fn(), notice: '' });
-  await fireEvent.click(screen.getByRole('button', { name: 'Source Library' }));
+  await fireEvent.click(screen.getByRole('button', { name: /^context/i }));
+  await fireEvent.click(await screen.findByRole('checkbox', { name: 'Pilot report' }));
   await fireEvent.input(screen.getByLabelText('Message the assistant'), {
     target: { value: 'When did the pilot start and end?' },
   });
   await fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
   await waitFor(() => expect(askConversation).toHaveBeenCalled());
-  return vi.mocked(askConversation).mock.calls[0][6];
+  return vi.mocked(askConversation).mock.calls[0][8];
 }
 
 beforeEach(() => {
@@ -55,7 +57,8 @@ beforeEach(() => {
   pending = deferred();
   vi.mocked(startConversation).mockResolvedValue('c1');
   vi.mocked(listConversations).mockResolvedValue([]);
-  vi.mocked(listSources).mockResolvedValue([]);
+  vi.mocked(listIndexedSourceIds).mockResolvedValue(['s1']);
+  vi.mocked(listSources).mockResolvedValue([{ id: 's1', title: 'Pilot report', authors: [], year: null, file_ref: '' }]);
   vi.mocked(askConversation).mockReturnValue(pending.promise);
 });
 
@@ -187,6 +190,7 @@ describe('ChatPanel answer validation', () => {
     });
     render(ChatPanel, { projectId: 'p1', editor, tick: 0, open: true, onclose: vi.fn(), notice: '' });
 
+    await fireEvent.click(screen.getByRole('button', { name: 'History' }));
     await screen.findByRole('option', { name: 'Earlier chat' });
     await fireEvent.change(screen.getByLabelText('Saved conversations'), { target: { value: 'c9' } });
 

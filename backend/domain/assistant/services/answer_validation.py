@@ -137,6 +137,9 @@ class ValidateAnswer:
         manuscript_text: str,
         recovery: list[Recovery],
         on_draft_ready: Callable[[], None] | None,
+        *,
+        recover: Callable[[Evidence, str, frozenset[int]], Evidence] | None = None,
+        quote: str | None = None,
     ) -> tuple[Answer, bool]:
         """Recover evidence and review once; only a complete success is reusable."""
         deadline = self._clock() + self._deadline_seconds
@@ -161,8 +164,12 @@ class ValidateAnswer:
                 progress.evidence = self._call(
                     executor,
                     deadline,
-                    lambda _: self._retriever.find_more(
-                        project_id, question, evidence, hint, source_ids, keep=keep
+                    lambda _: (
+                        recover(evidence, hint, keep)
+                        if recover is not None
+                        else self._retriever.find_more(
+                            project_id, question, evidence, hint, source_ids, keep=keep
+                        )
                     ),
                 )
                 recovery.append(Recovery(hint, keep, evidence_key(progress.evidence)))
@@ -174,6 +181,7 @@ class ValidateAnswer:
                     answer=draft.answer,
                     passages=list(progress.evidence.passages),
                     manuscript_text=manuscript_text,
+                    quote=quote,
                     timeout=remaining,
                 ),
             )

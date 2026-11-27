@@ -309,8 +309,8 @@ def test_s004_json_citations_name_the_source_and_location() -> None:
     body = make_client(env).post(**exchange_request(env, "json")).get_json()
 
     assert [(c["key"], c["location"], c["source_id"]) for c in body["citations"]] == [
-        (1, "P1", str(P1.doc_ref_id.value)),
-        (2, "P2", str(P2.doc_ref_id.value)),
+        (1, "P1", str(env.document_id.value)),
+        (2, "P2", str(env.document_id.value)),
     ]
     assert body["answer"] == SUPPORTED
 

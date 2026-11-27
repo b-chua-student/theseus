@@ -18,7 +18,14 @@ def evidence_key(evidence: Evidence) -> str:
     """Include the identity, text, ordering and citation metadata of admitted passages."""
     return fingerprint(
         [
-            (str(p.doc_ref_id.value), str(p.chunk_id.value), p.text, p.position, p.location)
+            (
+                str(p.doc_ref_id.value),
+                str(p.chunk_id.value),
+                p.text,
+                p.position,
+                p.location,
+                p.title,
+            )
             for p in evidence.passages
         ]
     )

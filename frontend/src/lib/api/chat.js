@@ -92,24 +92,35 @@ async function readStream(res, onStatus) {
  * @param {string} query
  * @param {"none" | "manuscript" | "source_library"} contextScope
  * @param {string[] | null} sourceIds
- * @param {string} manuscriptText
- * @param {{ onStatus?: (message: string) => void }} [options] `onStatus` receives the server's
- *   progress message while the answer is still being checked.
- * @returns {Promise<{ answer: string, unverified_draft?: string, citations: Array<{ key: number, source_id: string, title: string | null, location: string }> }>}
+ * @param {string} manuscriptText  Sent only when the manuscript is part of the context.
+ * @param {string | null} quote  The exact quoted passage, kept apart from the question.
+ * @param {{ web?: boolean, manuscript?: boolean }} checked  The checked Web and Manuscript items.
+ * @param {{ onStatus?: (message: string) => void }} [options]
+ * @returns {Promise<{ answer: string, unverified_draft?: string, citations: { key: string | number, source_id: string, title: string | null, location: string }[] }>}
  */
-export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null, manuscriptText = "", options = {}) {
+export async function askConversation(projectId, conversationId, query, contextScope = "source_library", sourceIds = null, manuscriptText = "", quote = null, checked = {}, options = {}) {
   const res = await apiFetch(
     `/api/projects/${projectId}/conversations/${conversationId}/exchanges`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: `${NDJSON}, application/json;q=0.9` },
-      body: JSON.stringify({ query, context_scope: contextScope, source_ids: sourceIds, manuscript_text: manuscriptText }),
+      body: JSON.stringify({ query, context_scope: contextScope, source_ids: sourceIds, manuscript_text: manuscriptText, quote, ...checked }),
     },
     'The assistant did not reply. Please try again.',
   );
   if ((res.headers.get('Content-Type') || '').startsWith(NDJSON)) return readStream(res, options.onStatus);
   const body = await res.json();
   return terminalAnswer(body);
+}
+
+/**
+ * List the IDs of the project's library sources the assistant can search.
+ * @param {string} projectId
+ * @returns {Promise<string[]>}
+ */
+export async function listIndexedSourceIds(projectId) {
+  const res = await apiFetch(`/api/projects/${projectId}/indexed-sources`, {}, 'Could not load indexed sources.');
+  return (await res.json()).source_ids;
 }
 export async function listConversations(projectId) {
   const res = await apiFetch(`/api/projects/${projectId}/conversations`, {}, 'Could not load conversations.');
