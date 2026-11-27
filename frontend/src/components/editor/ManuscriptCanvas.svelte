@@ -25,7 +25,7 @@
   .editor-mount :global(.tiptap span[style*="font-size"]) { line-height: 1.3; }
 
   .document-canvas, .document-canvas *, .editor-mount :global(.tiptap *) { box-sizing: border-box; }
-  .document-canvas { flex: 1; min-width: 0; overflow: auto; padding: 28px 24px; background: var(--canvas); }
+  .document-canvas { flex: 1; min-width: 0; overflow: auto; padding: 32px 24px; background: radial-gradient(ellipse at 10% 15%, #cde3d6, transparent 58%), radial-gradient(ellipse at 90% 75%, #fff, transparent 55%), #eaf1eb; background-size:125% 115%; }
   .document-sheet { width: 100%; max-width: 540px; min-height: 700px; padding: 40px 44px; margin: 0 auto; display: flex; flex-direction: column; background: var(--paper); border: 1.5px solid var(--accent); box-shadow: 0 8px 26px -4px rgb(28 42 36 / 14%), 0 2px 6px -1px rgb(28 42 36 / 6%); }
   .document-sheet { position: relative; }
   .canvas-overlay { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; background: color-mix(in srgb, var(--paper) 92%, transparent); font: 12px var(--sans); color: var(--text-muted); }
@@ -55,4 +55,8 @@
   .editor-mount :global(.tiptap [data-manual-page-break]::after) { content: 'MANUAL PAGE BREAK'; position: absolute; inset: 0; display: grid; place-items: center; font: 9px var(--sans); letter-spacing: .08em; color: var(--accent-border); }
   .editor-mount :global(.tiptap [data-manual-page-break].ProseMirror-selectednode) { outline: 2px solid var(--accent); }
   @media (max-width: 560px) { .editor-mount :global(.tiptap [data-manual-page-break]) { margin-left: -22px; margin-right: -22px; } }
+  @media (prefers-reduced-motion:no-preference) {
+    .document-canvas { animation: canvas-wave 12s ease-in-out infinite alternate; }
+  }
+  @keyframes canvas-wave { from { background-position:0% 10%; } to { background-position:100% 90%; } }
 </style>

@@ -326,26 +326,28 @@
 
 <style>
   /* Shared fonts and theme come from index.html and app.css. */
-  .theseus-dashboard { width: 100%; min-height: calc(100dvh - 48px); flex: 1; color-scheme: light; background: var(--page-background); color: var(--text); font: 11px/1.5 var(--sans); text-align: left; }
+  .theseus-dashboard { width: 100%; min-height: calc(100dvh - 48px); flex: 1; color-scheme: light; background: radial-gradient(ellipse at 12% 25%, #cee5d8, transparent 55%), radial-gradient(ellipse at 90% 68%, white, transparent 50%), #edf3ee; background-size: 125% 110%; color: var(--text); font: 11px/1.5 var(--sans); text-align: left; }
   .theseus-dashboard * { box-sizing: border-box; }
   button, input { font: inherit; color: inherit; }
   button { cursor: pointer; }
   button:disabled { cursor: default; opacity: 1; }
   button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-  .dashboard-content { max-width: 884px; margin: 0 auto; padding: 36px 32px 60px; }
+  .dashboard-content { max-width: 1024px; margin: 0 auto; padding: 36px 32px 60px; }
   .workspace-breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: #5a6760; margin-bottom: 14px; }
   .workspace-breadcrumb button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; font-weight: 500; }
   .workspace-badge { font: 600 9.5px var(--mono); padding: 4px 8px; border-radius: 4px; background: #dee5df; color: #2f3b35; }
 
   .surface { background: var(--surface); border: 1.5px solid transparent; border-radius: 14px; box-shadow: var(--shadow); }
-  .project-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px; margin-bottom: 28px; }
+  .project-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: clamp(28px, 4vw, 48px); margin-bottom: 32px; background: linear-gradient(115deg, #284a3c, #426854); box-shadow: 0 10px 30px #294c391a; }
   .project-copy { max-width: 450px; min-width: 0; }
-  h1 { font-size: 20px; font-weight: 700; letter-spacing: -.025em; color: var(--text-h); margin: 0 0 8px; }
-  .project-copy p { font-size: 10.5px; line-height: 1.6; color: var(--text-muted); margin: 0; }
+  h1 { font-size: clamp(26px, 3vw, 38px); line-height: 1.15; font-weight: 700; letter-spacing: -.025em; color: white; margin: 0 0 12px; }
+  .project-copy p { font-size: 14px; line-height: 1.6; color: #edf5ef; margin: 0; }
 
   .project-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .new-button, .primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 10.5px; font-weight: 600; border-radius: 7px; padding: 8px 14px; border: 1px solid var(--border); background: #f4f5f3; white-space: nowrap; }
+  .new-button, .primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; font-size: 12px; font-weight: 600; border-radius: 7px; padding: 8px 14px; border: 1px solid var(--border); background: #f4f5f3; white-space: nowrap; }
+  .new-button { color: #294a3b; background: white; }
+  .project-actions .primary-button { border-color: #a8c0b1; }
   .new-button:hover { background: #eaece9; }
   .primary-button { background: var(--accent); color: white; border-color: var(--accent); }
   .primary-button:not(:disabled):hover { background: var(--accent-hover); }
@@ -392,6 +394,15 @@
   .dialog-actions .primary:not(:disabled):hover { background: var(--accent-hover); }
   .dialog-actions .primary:disabled { opacity: 0.65; cursor: default; }
 
+  .empty-icon { padding: 12px; border-radius: 14px; background: #e6f0e9; color: #365e47; }
+  .project-actions button:focus-visible { outline-color: white; }
+  @media (prefers-reduced-motion: no-preference) {
+    .theseus-dashboard { animation: workspace-wave 12s ease-in-out infinite alternate; }
+    .theseus-dashboard :global(button) { transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 140ms ease; }
+    .theseus-dashboard :global(button:active:not(:disabled)) { transform: translateY(1px); }
+  }
+  @keyframes workspace-wave { from { background-position: 0% 20%; } to { background-position: 100% 80%; } }
+  @media (prefers-reduced-motion: reduce) { .skeleton-card { animation: none; } }
   @media(max-width: 767px) { .project-card { flex-direction: column; align-items: flex-start; padding: 24px; } .dashboard-grid { grid-template-columns: 1fr; } .dashboard-content { padding: 28px 16px 40px; } }
   @media(max-width: 420px) { .workspace-breadcrumb { flex-wrap: wrap; } .project-card { padding: 20px; } .section-heading { flex-wrap: wrap; } .project-actions { gap: 8px; } .new-button, .primary-button { padding: 8px 11px; } }
 </style>

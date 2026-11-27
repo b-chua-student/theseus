@@ -26,8 +26,8 @@
   const DRAFT_DEBOUNCE_MS = 1000;
   const CONTENT_TYPES = ['documentation', 'notes', 'code', 'other'];
 
-  /** @type {{projectId: string, source?: any, onsaved?: (s: any) => void, oncancel?: () => void}} */
-  let { projectId, source = null, onsaved, oncancel } = $props();
+  /** @type {{projectId: string, source?: any, modal?: boolean, onsaved?: (s: any) => void, oncancel?: () => void}} */
+  let { projectId, source = null, modal = false, onsaved, oncancel } = $props();
 
   const initial = untrack(() => source);
   const editing = initial !== null && initial !== undefined;
@@ -195,7 +195,7 @@
   }
 </script>
 
-<form class="tsf" onsubmit={submit} novalidate aria-label={editing ? 'Edit text source' : 'New text source'}>
+<form class="tsf" class:modal onsubmit={submit} novalidate aria-label={editing ? 'Edit text source' : 'New text source'}>
   {#if restored}
     <p class="tsf-notice" role="status">
       Draft restored.
@@ -249,12 +249,12 @@
       />
       {#if errors.tags}<p id="tsf-tags-err" class="tsf-error" >{errors.tags}</p>{/if}
     </div>
-
     <div class="tsf-body">
       <div class="tsf-body-head">
         <label for="tsf-content">Content</label>
         <button type="button" bind:this={previewButton} aria-pressed={showPreview} onclick={togglePreview}>
-          {showPreview ? 'Edit' : 'Preview'}
+          {modal ? 'Preview' : showPreview ? 'Edit' : 'Preview'}
+          {#if modal}<span class="preview-switch" aria-hidden="true"></span>{/if}
         </button>
       </div>
       {#if showPreview}
@@ -262,7 +262,7 @@
       {:else}
         <textarea
           id="tsf-content"
-          rows="16"
+          rows="7"
           required
           aria-required="true"
           bind:value={content}
@@ -278,60 +278,54 @@
   </div>
 
   <div class="tsf-actions">
+    {#if modal && oncancel}<button type="button" onclick={oncancel}>Cancel</button>{/if}
     <button type="submit" disabled={submitting}>
       {submitting ? 'Saving…' : editing ? 'Save changes' : 'Create'}
     </button>
-    {#if oncancel}<button type="button" onclick={() => oncancel?.()}>Cancel</button>{/if}
+    {#if !modal && oncancel}<button type="button" onclick={() => oncancel?.()}>Cancel</button>{/if}
   </div>
 </form>
 
 <style>
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .tsf { max-width: 100%; }
-  input, select, textarea { width: 100%; box-sizing: border-box; font: inherit; }
-  button { min-height: 44px; min-width: 44px; }
-  .tsf-actions { flex-wrap: wrap; }
-  :is(input, select, textarea, button):focus-visible { outline: 2px solid var(--accent, #1a56db); outline-offset: 2px; }
-  .tsf-grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: 1fr;
+  .tsf { color:#203a2b; font-size:13px; }
+  .tsf-grid, .tsf-meta, .tsf-body { display:grid; gap:6px; min-width:0; }
+  .tsf-grid { grid-template-columns: 1fr; gap:16px; }
+  label { font-weight:600; }
+  .tsf-meta label:not(:first-child) { margin-top:8px; }
+  input, select, textarea, .tsf-preview {
+    width:100%; box-sizing:border-box; padding:9px 11px; border:1px solid #bdcdc2;
+    border-radius:8px; background:white; color:#23362b; font:inherit; line-height:1.5;
   }
+  textarea { resize:vertical; }
+  :is(input, select, textarea, button, pre):focus-visible { outline:2px solid #477359; outline-offset:2px; }
+  [aria-invalid=true] { border-color:#ac3842; }
+  .tsf-body-head, .tsf-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .tsf-preview { white-space:pre-wrap; overflow-wrap:anywhere; min-height:10rem; margin:0; background:#f2f6f3; }
+  .tsf-counter { margin:0; text-align:right; color:#536459; font-size:11px; font-variant-numeric:tabular-nums; }
+  .tsf-counter.over, .tsf-error { color:#a3313b; }
+  button { cursor:pointer; min-height:36px; border:1px solid #c7d5cb; border-radius:8px; padding:6px 12px; background:white; color:#30513d; font:600 12px var(--sans); }
+  button:hover:not(:disabled) { background:#edf4ef; }
+  .tsf-actions { justify-content:flex-start; flex-wrap:wrap; margin-top:18px; padding-top:14px; border-top:1px solid #dce6df; }
+  .tsf-actions button { min-height:44px; }
+  .tsf-actions button[type=submit] { flex:1; background:#305440; border-color:#305440; color:white; }
+  .tsf-actions button[type=submit]:hover:not(:disabled) { background:#234331; }
+  button:disabled { opacity:.65; cursor:default; }
+  @media (prefers-reduced-motion:no-preference) {
+    button { transition:background-color 150ms ease, transform 120ms ease; }
+    button:active:not(:disabled) { transform:translateY(1px); }
+  }
+  .modal .tsf-actions { justify-content:flex-end; }
+  .modal .tsf-actions button[type=submit] { flex:initial; }
+  .modal .tsf-body-head button { display:inline-flex; align-items:center; gap:6px; border:0; background:transparent; padding:0 4px; }
+  .preview-switch { display:inline-flex; align-items:center; width:28px; height:16px; border-radius:10px; background:#87978b; }
+  .preview-switch::before { content:''; width:12px; height:12px; margin-left:2px; background:white; border-radius:50%; }
+  [aria-pressed=true] .preview-switch { background:#305440; }
+  [aria-pressed=true] .preview-switch::before { transform:translateX(12px); }
   @media (min-width: 768px) {
-    .tsf-grid {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-    }
-  }
-  .tsf-meta,
-  .tsf-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  .tsf-body-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .tsf-preview {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    min-height: 16rem;
-    margin: 0;
-    padding: 0.5rem;
-    border: 1px solid currentColor;
-  }
-  .tsf-counter {
-    margin: 0;
-    text-align: right;
-  }
-  .tsf-counter.over,
-  .tsf-error {
-    color: #b00020;
-  }
-  .tsf-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    .modal .tsf-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap:12px 20px; }
+    .modal .tsf-meta { grid-column:1; align-self:start; }
+    .modal .tsf-body { grid-column:2; grid-row:1; grid-template-rows:auto 1fr auto; }
+    .modal .tsf-body textarea { min-height:200px; max-height:max(200px, 52dvh); overflow-y:auto; }
   }
 </style>

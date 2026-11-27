@@ -11,7 +11,7 @@
   import { fonts, sizes, normalizeFontSize, InlineStyle, Underline, Alignment, PageBreak, SelectionHighlight } from "../lib/editor/extensions.js";
   import StarterKit from "@tiptap/starter-kit";
 
-  let { manuscriptId, projectId, title, onback } = $props();
+  let { manuscriptId, projectId, title, onback, ontitle } = $props();
 
   /* API INTEGRATION GUIDE
    * ACTIVE API: document load and save() below use the existing manuscript backend.
@@ -225,6 +225,7 @@
     }
     return withTimeout(getManuscript(projectId, manuscriptId), 15000)
       .then((manuscript) => {
+        ontitle?.(manuscript.title);
         const content = [...manuscript.sections]
           .sort((a, b) => a.ordinal - b.ordinal)
           .flatMap((s) => {
@@ -454,4 +455,12 @@
   .local-notice { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #eff4ef; border-bottom: 1px solid var(--border); padding: 7px 16px; font-size: 11px; flex-shrink: 0; }.local-notice button { border: 0; background: transparent; }
   .input-dialog { width: min(380px, calc(100vw - 32px)); border: 1px solid var(--accent-border); border-radius: 12px; padding: 22px; background: var(--surface); color: var(--text); font: 12px var(--sans); box-shadow: 0 20px 60px #19282233; }.input-dialog::backdrop { background: #19282255; }.input-dialog h3 { font-size: 14px; margin-bottom: 16px; }.input-dialog label { display: grid; gap: 6px; }.input-dialog input { width: 100%; padding: 9px; border: 1px solid #aeb9b3; border-radius: 6px; background: white; color: var(--text); font: inherit; }.input-dialog p { color: var(--text-muted); line-height: 1.5; }.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }.dialog-actions button { border: 1px solid #aeb9b3; border-radius: 6px; padding: 7px 14px; }
 
+  @media (prefers-reduced-motion:no-preference) {
+    .theseus-editor :global(.dropdown-panel), .theseus-editor :global(.context-menu) {
+      animation: editor-menu-in 150ms ease-out;
+    }
+    .theseus-editor :global(button) { transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, scale 120ms ease-out; }
+    .theseus-editor :global(button:active:not(:disabled):not(.resize-handle)) { scale: .97; box-shadow: inset 0 1px 3px #23432e24; }
+  }
+  @keyframes editor-menu-in { from { opacity: 0; translate: 0 3px; } to { opacity: 1; translate: 0 0; } }
 </style>

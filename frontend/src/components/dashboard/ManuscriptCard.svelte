@@ -72,6 +72,7 @@
     position: relative;
     transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
   }
+  .manuscript-card:focus-within { border-color: #678772; z-index: 1; }
   .manuscript-card:hover {
     transform: translateY(-2px);
     border-color: var(--accent);
@@ -92,8 +93,8 @@
   .card-body:hover { background: none; }
 
   .card-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; }
-  .document-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--accent); color: white; border-radius: 4px; padding: 3px 8px; font: 500 9px var(--mono); }
-  .document-title { display: block; font-size: 14.5px; font-weight: 700; color: var(--text-h); overflow-wrap: anywhere; }
+  .document-badge { display: inline-flex; align-items: center; gap: 5px; background: #e3efe6; color: #32553f; border-radius: 5px; padding: 3px 8px; font: 500 9px var(--mono); }
+  .document-title { display: block; font-size: 17px; font-weight: 700; color: var(--text-h); overflow-wrap: anywhere; }
   .open-label { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; margin-top: 8px; }
   .open-label > span { font-size: 15px; }
 

@@ -1,4 +1,12 @@
 <script>
+  import { slide } from "svelte/transition";
+
+  function slideChat(node) {
+    const mobile = window.matchMedia("(max-width: 1023px)").matches;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    return slide(node, { axis: mobile ? "y" : "x", duration: reducedMotion ? 0 : 180 });
+  }
+
   import { startConversation, askConversation, listConversations, getConversation, listIndexedSourceIds } from "../../lib/api/chat.js";
   import ContextDropdown from "./ContextDropdown.svelte";
   import { encodeSelection, initialSelection, restoreSelection } from "./contextSelection.js";
@@ -15,6 +23,35 @@
   // Saved sources that can no longer be searched, named when a chat is reopened.
   let unavailableSources = $state([]);
   let conversationId = $state(null);
+  const minimumWidth = 300;
+  let chatWidth = $state(370);
+  let drag = null;
+
+  function resizeTo(width) {
+    chatWidth = Math.round(Math.max(minimumWidth, Math.min(window.innerWidth * 0.55, width)));
+  }
+
+  function startResize(event) {
+    if (event.button !== 0 || !event.isPrimary) return;
+    const handle = event.currentTarget;
+    drag = { x: event.clientX, width: handle.parentElement.getBoundingClientRect().width };
+    handle.setPointerCapture(event.pointerId);
+  }
+
+  function moveResize(event) {
+    if (drag && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      resizeTo(drag.width + drag.x - event.clientX);
+    }
+  }
+
+  function resizeWithKeys(event) {
+    const width = event.currentTarget.parentElement.getBoundingClientRect().width;
+    if (event.key === 'ArrowLeft') resizeTo(width + 24);
+    else if (event.key === 'ArrowRight') resizeTo(width - 24);
+    else return;
+    event.preventDefault();
+  }
+
   let messages = $state([]);
   let savedConversations = $state([]);
   let historyLoading = $state(false);
@@ -241,7 +278,11 @@
   </svg>
 {/snippet}
     {#if open}
-      <aside class="chat scholar-chat" id="theseus-chat" aria-label="Theseus AI assistant">
+      <aside transition:slideChat class="chat scholar-chat" id="theseus-chat" style:--chat-width={chatWidth + 'px'} aria-label="Theseus AI assistant">
+        <button type="button" class="resize-handle" aria-label="Resize chat width"
+          title="Drag to resize chat, or use the left and right arrow keys"
+          onpointerdown={startResize} onpointermove={moveResize}
+          onlostpointercapture={() => drag = null} onkeydown={resizeWithKeys}></button>
         <header class="scholar-header">
           <div class="scholar-identity"><span class="scholar-avatar" aria-hidden="true">t<span></span></span><div><h3>Theseus Scholar AI</h3></div></div>
           <button type="button" class="scholar-close" onclick={onclose} aria-label="Close assistant" title="Close assistant">{@render icon('panel')}</button>
@@ -336,8 +377,8 @@
   button:disabled, select:disabled { cursor: default; opacity: 1; -webkit-text-fill-color: currentColor; }
   button:not(:disabled):hover { background: #e9ede9; }
   button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-  .chat.scholar-chat { width: 370px; min-width: 0; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); font-family: var(--sans); }
-  .scholar-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 14px 14px 10px; gap: 10px; }
+  .chat.scholar-chat { position:relative; width:min(var(--chat-width), 55vw); min-width: 0; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); font-family: var(--sans); }
+  .scholar-header { border-bottom: 1px solid #cbd8cf; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 14px 14px 10px; gap: 10px; }
   .scholar-identity { display: flex; gap: 9px; align-items: center; min-width: 0; }.scholar-identity > div { min-width: 0; }.scholar-identity h3 { font-family: var(--sans); font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; margin: 0 0 3px; }
   .scholar-avatar { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 10px; background: var(--accent); color: white; font: 600 17px var(--sans); flex-shrink: 0; position: relative; }.scholar-avatar > span { position: absolute; width: 7px; height: 7px; background: #bed1cb; border: 2px solid var(--surface); border-radius: 50%; right: -2px; top: 0; }.scholar-close { background: transparent; border: 0; padding: 3px; color: var(--text-muted); }
 
@@ -365,6 +406,13 @@
   .scholar-composer-area { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--surface-muted); padding: 10px; }.scholar-selection { display: flex; gap: 6px; align-items: center; padding: 7px 0 9px; min-width: 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }.selection-tag { font: 7px var(--mono); background: var(--accent); color: white; padding: 3px; border-radius: 3px; }.selection-excerpt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; flex: 1; min-width: 0; font-style: italic; }.scholar-selection button { border: 1px solid var(--border); background: var(--surface); border-radius: 4px; font-size: 8px; padding: 3px 5px; }
   .scholar-composer-tools { display: flex; align-items: center; gap: 5px; margin-bottom: 7px; flex-wrap: wrap; }.scholar-composer-tools button { border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font: 8px var(--mono); padding: 4px 5px; }.scholar-composer-tools button:disabled { color: #8b968f; }
   .scholar-input { position: relative; border: 1px solid #bdccbf; border-radius: 15px; background: var(--paper); padding: 10px; display: flex; align-items: flex-end; gap: 7px; }.scholar-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px #3b5b4f12; }.scholar-input textarea { width: 100%; min-width: 0; flex: 1; resize: vertical; max-height: 180px; min-height: 56px; border: 0; background: transparent; font: 11px/1.6 var(--sans); color: var(--text); outline: none; }.scholar-input textarea::placeholder { color: #87948a; }.scholar-send { display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; flex-shrink: 0; padding: 0; background: var(--accent); color: white; border: 0; border-radius: 10px; }.scholar-send:not(:disabled):hover { background: var(--accent-hover); }.scholar-send:disabled { opacity: .45; cursor: default; }.scholar-input-hint { display: flex; justify-content: space-between; gap: 5px; color: var(--text-muted); font-size: 7px; margin: 6px 3px 0; }
+  .scholar-chat .resize-handle {
+    position:absolute; z-index:3; inset:0 auto 0 -5px; width:10px; padding:0;
+    background:transparent; border:0; border-radius:0; cursor:col-resize; touch-action:none; user-select:none;
+  }
+  .resize-handle::after { content:''; position:absolute; left:4px; top:50%; width:3px; height:32px; transform:translateY(-50%); border-radius:3px; background:transparent; }
+  .resize-handle:is(:hover,:focus-visible,:active)::after { background:#718079; }
+  @media (max-width:1023px) { .scholar-chat .resize-handle { display:none; } }
   @media (max-width: 1023px) { .chat.scholar-chat { width: 100%; height: 600px; border-left: 0; border-top: 1px solid var(--border); } }
   .scholar-unavailable { margin: 6px 14px 0; font-size: 10px; color: var(--text-muted); overflow-wrap: anywhere; }
   .scholar-quote { margin: 0 0 6px; padding: 2px 0 2px 8px; border-left: 2px solid currentColor; opacity: .8; white-space: pre-wrap; }
