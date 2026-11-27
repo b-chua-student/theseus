@@ -19,6 +19,7 @@ import trustme
 from cryptography.hazmat.primitives.asymmetric import rsa
 from flask import Flask, jsonify, redirect, render_template_string, request, send_from_directory
 from flask_wtf.csrf import CSRFProtect
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.serving import make_server
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +38,7 @@ provider.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )
-csrf = CSRFProtect(provider)
+CSRFProtect(provider)
 key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 codes = {}
 grants = {}
@@ -81,8 +82,10 @@ def authorize():
     return response
 
 
-@provider.post("/token")
-@csrf.exempt  # Server-to-server code exchange authenticated with PKCE.
+token_api = Flask("fixture_token", static_folder=None)
+
+
+@token_api.post("/", strict_slashes=False)
 def token():
     auth = codes.pop(request.form["code"], None)
     if not auth:
@@ -142,8 +145,10 @@ app.view_functions["frontend_fallback"] = lambda path: (
 )
 
 
-@provider.post("/check-exposure")
-@csrf.exempt  # Read-only assertion endpoint without browser credentials.
+exposure_api = Flask("fixture_exposure", static_folder=None)
+
+
+@exposure_api.post("/", strict_slashes=False)
 def check_exposure():
     evidence = request.get_data(as_text=True) + log.getvalue()
     return jsonify(issued=bool(tokens), exposed=any(t in evidence for t in tokens))
@@ -158,6 +163,9 @@ if __name__ == "__main__":
         ca.cert_pem.write_to_path(ca_file)
         os.environ["REQUESTS_CA_BUNDLE"] = str(ca_file)
         os.environ["SSL_CERT_FILE"] = str(ca_file)
-        server = make_server("127.0.0.1", 5119, provider, threaded=True, ssl_context=tls)
+        fixture = DispatcherMiddleware(
+            provider, {"/token": token_api, "/check-exposure": exposure_api}
+        )
+        server = make_server("127.0.0.1", 5119, fixture, threaded=True, ssl_context=tls)
         Thread(target=server.serve_forever, daemon=True).start()
         app.run(host="127.0.0.1", port=APP_PORT, ssl_context=tls, threaded=True)
