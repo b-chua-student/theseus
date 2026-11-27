@@ -29,12 +29,12 @@ Help maintainers see what share of production deployments are unplanned response
 - Include all production deployments in the reporting period in the denominator.
 - Use each deployment's production live time to assign it to the period. Include the window start and exclude the report start, regardless of when the incident began.
 - Count rework when production history confirms the deployment went live and a maintainer confirms on the incident record that the specific deployment was an unplanned response. Incidents of any cause qualify.
-- A maintainer reviews each production deployment by ID. Accept either valid incident confirmation or an explicit reviewed disposition of no qualifying rework. Deployments without either disposition remain awaiting review, including those without linked incidents.
-- Unavailable incident evidence puts a deployment into awaiting review if it could change whether the deployment qualifies as rework, even when a no-rework decision is already recorded. Count each affected deployment once. If the affected deployment IDs are unknown, include every deployment whose classification could still change. Keep valid rework confirmations that the evidence gap cannot change.
+- With readable incident evidence, deployments without a valid rework confirmation contribute only to the production total.
+- Count each deployment whose rework status could change because incident evidence is unavailable. If the affected IDs are unknown, include every deployment that could still be confirmed as rework. Retain valid confirmations that the gap cannot change.
 
 ## Known Touchpoints
 
-- Production deployment history and incident records provide evidence. Hotfix labels and rollback records can identify candidates for review.
+- Production deployment history and incident records provide evidence.
 
 ## Assumptions
 
@@ -49,12 +49,11 @@ Help maintainers see what share of production deployments are unplanned response
 1. For a period with production deployments and complete evidence, the report displays the distinct qualifying deployment count, the total production deployment count, and the first count divided by the second as a percentage.
 2. When multiple records refer to the same qualifying deployment, the report counts it once.
 3. A maintainer can run the report on demand. It includes deployments that went live exactly 30 days before the run in UTC and excludes deployments that went live at or after the run start.
-4. A verified empty period shows both counts as zero and **N/A — no production deployments**. A period with production deployments and complete evidence of zero rework shows **0%**.
-5. When a gap could change either count, the report displays **Incomplete evidence** and omits the rate. When production history is complete, it displays the verified production total, confirmed rework count, and number awaiting review. When production history is incomplete, it marks the production total as unverified.
-
-6. A deployment with no linked incident or recorded disposition contributes to the awaiting-review count. When every deployment has a valid disposition and the rest of the evidence is complete, the report shows the rate.
+4. A verified empty period shows both counts as zero and **N/A — no production deployments**. A period with production deployments and readable evidence with zero confirmed rework shows **0%**.
+5. When a gap could change either count, the report displays **Incomplete evidence** and omits the rate. When production history is complete, it displays the verified production total, confirmed rework count, and number of deployments affected by the evidence gap. When production history is incomplete, it marks the production total as unverified.
+6. With readable evidence, the report includes deployments without a valid rework confirmation in the production total and publishes the rate.
 7. The production incident template includes a **Deployment rework** section that explains how a maintainer records that a specific deployment went live in production as an unplanned response to the incident.
-8. When production history is complete but unavailable incident evidence could change a recorded classification, the report shows the verified production total, confirmed rework count, number of affected deployments awaiting review, and **Incomplete evidence**. It omits the percentage. If the affected IDs are unknown, the awaiting-review count includes every deployment whose classification could still change.
+8. When production history is complete but unavailable incident evidence could establish additional rework, the report shows the verified production total, confirmed rework count, number of deployments affected by the evidence gap, and **Incomplete evidence**. It omits the percentage. If the affected IDs are unknown, the affected count includes every deployment that could still be confirmed as rework.
 
 ## Reference Links
 
