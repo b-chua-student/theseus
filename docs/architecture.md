@@ -8,12 +8,12 @@ flowchart LR
     subgraph Hosting["Render production service"]
         Flask -->|Serves| Static["Built Svelte assets"]
         Flask --> Assistant["Assistant and indexing services"]
-        Assistant --> Encoder["Local MiniLM ONNX encoder"]
+        Assistant --> Encoder["Local MiniLM ONNX encoder when Gemini is unset"]
         Assistant --> Chroma["Chroma vector storage"]
     end
     Flask --> Mongo["MongoDB"]
     Assistant --> Mongo
-    Assistant --> Gemini["Gemini generation and answer validation"]
+    Assistant --> Gemini["Gemini embeddings, generation, and validation when configured"]
     GitHub["GitHub Actions CI"] --> Main["Reviewed main branch"]
     Main -.->|Verify auto-deploy in Render| Flask
 ```

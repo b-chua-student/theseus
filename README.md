@@ -81,7 +81,7 @@ npm --prefix frontend run test:components
 npm run test:backend
 ```
 
-The backend integration tests may download the MiniLM model on first run. The [CI workflow](.github/workflows/ci.yml) also runs Playwright end-to-end tests.
+The local lint command runs ESLint, Ruff, and mypy. The [CI workflow](.github/workflows/ci.yml) runs the backend lint, format, and type checks through pre-commit and also runs `svelte-check` and Playwright. The backend integration tests may download the MiniLM model on first run.
 
 ## Team Roles
 
@@ -100,7 +100,7 @@ The backend integration tests may download the MiniLM model on first run. The [C
 | Frontend | Svelte and Vite |
 | Backend | Flask REST API, served by Gunicorn in the production container |
 | Storage | MongoDB for application records and Chroma for search vectors |
-| AI | Gemini for configured generation and validation, MiniLM ONNX for local retrieval embeddings |
+| AI | Gemini for configured embeddings, generation, and validation. MiniLM ONNX for embeddings in MongoDB mode without a Gemini key. |
 | Delivery | GitHub Actions, Docker, and Render |
 
 See the [architecture and database relationships](docs/architecture.md) and the [AI feature and evaluation write-up](docs/ai-feature.md).

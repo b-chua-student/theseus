@@ -10,7 +10,7 @@ Use the actual consultation windows and record their date ranges and time zone. 
 | Sprint 4 | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending |
 | [DORA snapshot, Oct 28–Nov 27, 2026 UTC](#dora-metrics-report) | Pending | Pending | Pending | 11 | Mean pending (DORA median: 236.4 min) | Pending | No completed recoveries | Pending |
 
-The snapshot dates use the DORA lead-time and rework reporting window. The change failure rate uses its own window and counts deployments requiring immediate intervention. The weekly failed-deployment count requires Render attempt history. Sprint rows require confirmed consultation dates and source records.
+The snapshot dates use the DORA lead-time and rework reporting window. The snapshot’s production deploy count comes from the rework section. The deployment frequency section covers verified service history. The change failure rate uses its own window and counts deployments requiring immediate intervention. The weekly failed-deployment count requires Render attempt history. Sprint rows require confirmed consultation dates and source records.
 
 Use one duration per completed CI run. Record the mean of completed main CI runs for the window and note the sample count. For success rate, divide successful runs by completed runs with a success or failure outcome and report cancellations separately. Count live and failed production attempts using Render history. Match reviewed merges to their first live deployment and take the arithmetic mean of matched durations. Report missing matches. For recovery, link incident evidence and give the time from degradation to verified restoration for each completed incident. Record zero only where evidence supports it.
 
