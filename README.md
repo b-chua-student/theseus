@@ -1,5 +1,7 @@
 # Theseus
 
+**[CSP221A Final Technical Documentation](https://docs.google.com/document/d/1zHA4pZPGcx9m1WG4oTJVmNH9Ry4ZFPrJcLmPOre98YQ/edit?usp=sharing)**
+
 Theseus is a web-based document editor with integrated Git-like VCS and AI capabilities.
 
 ## Installation
