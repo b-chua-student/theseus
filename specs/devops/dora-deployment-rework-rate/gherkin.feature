@@ -17,7 +17,7 @@ Feature: Track deployment rework rate
     Given a maintainer is documenting a production incident
     When the maintainer uses the production incident template
     Then the template includes a "Deployment rework" section
-    And the section explains how to record that a specific deployment went live in production as an unplanned response to the incident
+    And it explains how to record that a specific deployment went live in production as an unplanned incident response
 
   @S-047 @edge @criterion-1 @criterion-2
   Scenario: Count a deployment linked to multiple incidents once
@@ -100,4 +100,5 @@ Feature: Track deployment rework rate
     And unavailable incident evidence could establish rework but cannot be tied to specific deployment IDs
     When a maintainer runs the report on demand
     Then the report shows "Incomplete evidence" and omits the percentage
-    And it shows 4 verified production deployments, 1 confirmed rework deployment, and 3 deployments affected by the evidence gap
+    And the report shows 4 verified production deployments and 1 confirmed rework deployment
+    And it shows 3 deployments affected by the evidence gap
