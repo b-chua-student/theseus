@@ -23,7 +23,9 @@ Use this context when asked to create tests for Theseus. Read the requested beha
 
 ## Backend
 
-- Put backend pytest files under `backend/tests/`. For domain-specific tests, mirror the context and layer under `backend/domain/`, such as `backend/tests/domain/<context>/services/`. Follow the existing suite when extending its coverage.
+- Put backend pytest files under `backend/tests/` and domain tests under `backend/tests/domain/<context>/`. Match the layout already used by that domain.
+  - For `assistant`, `identity`, `manuscript`, `revision_history`, and `src_lib`, put tests alongside related tests in layer directories such as `models/`, `services/`, `infrastructure/adapters/`, or `api/`.
+  - `project` groups tests by layer in files at the domain root, such as `test_models.py` and `test_api.py`.
 - Name files `test_*.py` and test functions `test_<behavior>`. Reuse existing fixtures and in-memory adapters. Keep new fixtures in the test module unless several modules need them, then use their nearest shared `conftest.py`.
 - Use `@pytest.mark.integration` on new integration tests and register the marker under `[tool.pytest.ini_options]` in the root `pyproject.toml` when first needed. pytest supports marking a whole module with `pytestmark = pytest.mark.integration` when every test in the file belongs to that stage.
 - For live MongoDB tests, follow the existing test database configuration and fixture cleanup. Give concurrently running tests isolated data. Report dependency-related skips when summarizing verification.

@@ -13,7 +13,7 @@
     finally { busy = false; }
   }
 </script>
-<AuthLayout title="Create your account" subtitle="A focused space for your manuscripts.">
+<AuthLayout mode="signup" {onswitch} title="Create your account" subtitle="A focused space for your manuscripts.">
   <form onsubmit={submit}>
     <label>Name<input bind:value={name} required autocomplete="name" /></label>
     <label>Email<input type="email" bind:value={email} required autocomplete="email" /></label>
@@ -22,5 +22,4 @@
     {#if error}<p class="error" role="alert">{error}</p>{/if}
     <button type="submit" disabled={busy}>{busy ? 'Creating account…' : 'Create Account'}</button>
   </form>
-  <p class="switch-row"><button class="switch" type="button" onclick={onswitch}>Sign In<span aria-hidden="true">↗</span></button></p>
 </AuthLayout>

@@ -148,6 +148,7 @@
 </script>
 
 <!-- ── banner ───────────────────────────────────────────────────────────── -->
+<div class="projects-page">
 <section class="banner">
   <div>
     <span class="eyebrow">THESEUS PROJECTS</span>
@@ -232,6 +233,7 @@
   </div>
   {/if}
 </main>
+</div>
 
 <!-- ── create project modal ─────────────────────────────────────────────── -->
 <dialog bind:this={createModal} aria-labelledby="create-title">
@@ -326,18 +328,32 @@
 
 <style>
   /* ── banner ── */
+  .projects-page {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-height: calc(100svh - 48px);
+    background: #eaf1eb;
+  }
+  .projects-page::before {
+    content: '';
+    position: absolute;
+    inset: -15%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 16% 42%, #add5c2, transparent 48%),
+      radial-gradient(ellipse at 84% 65%, #ffffff, transparent 46%);
+  }
   .banner {
-    padding: 36px 24px;
-    background: linear-gradient(125deg, #6e857b, #839e93 34%, #9cc1b3 68%, #b2dec8);
+    padding: clamp(36px, 6vw, 76px) 24px;
+    background: linear-gradient(112deg, #304f42, #406755dd);
     color: white;
   }
-  .banner > div { max-width: 780px; margin: auto; }
-  .eyebrow { font: 9.5px var(--mono); letter-spacing: 0.08em; }
-  h1 { font-size: 23px; max-width: 540px; line-height: 1.35; margin: 8px 0; }
-  p { font-size: 11px; line-height: 1.6; }
-
-  /* ── layout ── */
-  main { max-width: 844px; margin: auto; padding: 48px 32px; }
+  .banner > div, main { max-width: 960px; margin: auto; }
+  .eyebrow { font: 11px var(--mono); letter-spacing: .1em; }
+  h1 { font-size: clamp(26px, 3vw, 40px); max-width: 700px; line-height: 1.16; letter-spacing: -.03em; margin: 12px 0; overflow-wrap: anywhere; }
+  p { font-size: 14px; line-height: 1.6; }
+  main { padding: 40px 24px 64px; }
 
   .toolbar {
     display: flex;
@@ -368,10 +384,10 @@
   .card {
     background: var(--surface);
     padding: 0;
-    border: 1.5px solid transparent;
+    border: 1px solid #cbdacf;
     border-radius: 14px;
     min-height: 200px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 8px 24px #203d2f10;
     overflow-wrap: anywhere;
     display: flex;
     flex-direction: column;
@@ -385,8 +401,20 @@
     gap: 12px;
     padding: 24px;
   }
-  .new:hover { border-color: var(--accent); }
-  .plus { font-size: 32px; color: var(--accent); }
+  .new { background: linear-gradient(145deg, #fff, #f0f7f1); }
+  :is(.new, article.card):focus-within {
+    border-color: #62866f;
+    box-shadow: 0 8px 24px #203d2f24;
+  }
+  @media (hover: hover) {
+    :is(.new, article.card):hover {
+      border-color: #83a891;
+      box-shadow: 0 12px 26px -6px #224a3538;
+    }
+    .new:hover .plus { background: #315943; color: white; }
+  }
+  .new:focus-visible .plus { background: #315943; color: white; }
+  .plus { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #e0eee4; color: #304f42; font-size: 30px; }
 
   /* ── card internals ── */
   .card-actions {
@@ -422,12 +450,12 @@
     font: inherit;
     color: inherit;
   }
-  .card-body:hover { background: rgba(0, 0, 0, 0.03); }
+  .card-body:hover { background: #eff6f080; }
   .card-body:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 0 0 14px 14px; }
 
-  h2 { font-size: 14px; margin: 0 0 8px; }
+  h2 { font-size: 18px; margin: 0 0 8px; }
 
-  .desc { font-size: 11px; line-height: 1.6; margin: 0; color: var(--text-muted); flex: 1; }
+  .desc { font-size: 13px; line-height: 1.6; margin: 0; color: var(--text-muted); flex: 1; }
 
   .meta {
     margin-top: 16px;
@@ -500,6 +528,28 @@
     font-size: 10.5px;
   }
   .green:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .toolbar button:hover, header button:hover { background-color: #e3eee6; }
+
+  dialog header { background: #edf4ee; font-size: 15px; }
+  .green:hover:not(:disabled) { background-color: #29483b; }
+  @media (prefers-reduced-motion: no-preference) {
+    :is(.new, article.card) { transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease; }
+    .plus { transition: background-color 180ms ease, color 180ms ease; }
+    @media (hover: hover) {
+      :is(.new, article.card):hover { transform: translateY(-3px); }
+    }
+    .projects-page::before { animation: project-wave 12s ease-in-out infinite alternate; }
+    button { transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, transform 140ms ease; }
+    button:active:not(:disabled) { transform: scale(.985); }
+  }
+  @keyframes project-wave {
+    from { transform: translate(-5%, -2%) rotate(-3deg); }
+    to { transform: translate(5%, 2%) rotate(3deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton { animation: none; }
+  }
 
   /* ── responsive ── */
   @media (max-width: 760px) {

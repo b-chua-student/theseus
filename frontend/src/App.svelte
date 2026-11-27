@@ -1,4 +1,5 @@
 <script>
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
   import { onMount } from 'svelte';
   import Projects from './pages/projects.svelte';
   import SignIn from './pages/signin.svelte';
@@ -28,9 +29,20 @@
   let authScreen = $state('signin');
   let showProjects = $state(window.location.pathname !== '/workspace');
 
-  // selectedManuscript holds { id, projectId } when the editor is open.
-  let selectedManuscript = $state(null);
-  let selectedProject = $state(null);
+  const workspaceParams = new URLSearchParams(window.location.pathname === '/workspace' ? location.search : '');
+  const projectId = workspaceParams.get('project');
+  const manuscriptId = workspaceParams.get('manuscript');
+  const labels = history.state ?? {};
+  let selectedProject = $state(projectId ? { id: projectId, name: labels.projectName ?? 'Your workspace' } : null);
+  let selectedManuscript = $state(projectId && manuscriptId
+    ? { id: manuscriptId, projectId, title: labels.manuscriptTitle ?? '' }
+    : null);
+
+  function updateWorkspaceUrl(project, manuscript = null) {
+    const params = new SvelteURLSearchParams({ project: project.id });
+    if (manuscript) params.set('manuscript', manuscript.id);
+    history.replaceState({ projectName: project.name, manuscriptTitle: manuscript?.title }, '', '/workspace?' + params);
+  }
   // Number of manuscripts in the open project, reported by the Dashboard.
   let manuscriptCount = $state(0);
   // Incremented each time the user returns from the editor, so the Dashboard
@@ -51,15 +63,18 @@
   }
 
   function openProject(project) {
+    updateWorkspaceUrl(project);
     selectedProject = project;
     showProjects = false;
   }
 
   function openManuscript(manuscriptId, projectId, title) {
     selectedManuscript = { id: manuscriptId, projectId, title };
+    updateWorkspaceUrl(selectedProject, selectedManuscript);
   }
 
   function backFromEditor() {
+    updateWorkspaceUrl(selectedProject);
     selectedManuscript = null;
     dashboardRefreshKey++;
   }
@@ -125,6 +140,7 @@
           manuscriptId={selectedManuscript.id}
           projectId={selectedManuscript.projectId}
           title={selectedManuscript.title}
+          ontitle={(title) => { if (selectedManuscript && title) selectedManuscript.title = title; }}
           onback={backFromEditor}
         />
       </div>
