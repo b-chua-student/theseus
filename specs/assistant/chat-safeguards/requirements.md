@@ -18,4 +18,4 @@
 
 ## Open Questions
 
-The findings establish behavior for submissions from a single client. They leave project-specific configuration outside the verified scenarios.
+Resolved. All projects use the same limits in this release: ten chat questions per minute when rate limiting is enabled and the ten most recent completed exchanges for model history. Per-project overrides are out of scope.

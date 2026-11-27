@@ -47,7 +47,7 @@ Protect the Theseus AI assistant and its provider quota before model calls by bl
 
 ## Open Questions
 
-- Should the burst rate limit or history window be configurable per project? Deferred: this release uses the stated defaults.
+- Resolved. All projects use the same limits in this release: ten chat questions per minute when rate limiting is enabled and the ten most recent completed exchanges for model history. Per-project overrides are out of scope.
 
 ## Success Criteria
 

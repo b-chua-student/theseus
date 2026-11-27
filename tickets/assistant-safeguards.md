@@ -27,7 +27,7 @@ Automatically verify input blocking, benign pass-through, burst limiting, and hi
 Changes to existing system instructions, untrusted-data boundaries, and content safety filters. Post-generation answer validation, semantic embeddings, document chunking, vector storage, background indexing, and document parsing.
 
 ## Open Questions
-Should projects be able to configure either limit? Deferred: this release uses the stated defaults.
+Resolved. All projects use the same limits in this release: ten chat questions per minute when rate limiting is enabled and the ten most recent completed exchanges for model history. Per-project overrides are out of scope.
 
 ## Output Paths
 Feature directory: `specs/assistant/chat-safeguards/`.
@@ -39,6 +39,6 @@ Feature directory: `specs/assistant/chat-safeguards/`.
 ## Definition of Done
 - [ ] Intake generated and approved
 - [ ] Gherkin generated and approved
-- [ ] Open questions resolved
+- [x] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged
