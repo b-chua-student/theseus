@@ -24,7 +24,13 @@ from domain.identity.models.value_objects import DisplayName, Email, UserId
 from domain.identity.services.auth.login_user import LoginUserService
 
 
-@pytest.fixture(params=["memory", "mongo", "postgres"])
+@pytest.fixture(
+    params=[
+        "memory",
+        pytest.param("mongo", marks=pytest.mark.integration),
+        pytest.param("postgres", marks=pytest.mark.integration),
+    ]
+)
 def repo(request) -> Iterator[IdentityRepository]:
     if request.param == "memory":
         yield InMemoryIdentityRepository()
@@ -103,6 +109,7 @@ def test_link_conflict_and_passwordless_reload(repo) -> None:
     assert repo.get_by_id(first.id).password_hash is None
 
 
+@pytest.mark.integration
 def test_migrate_legacy_password_users() -> None:
     from pymongo import MongoClient
 
