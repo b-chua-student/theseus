@@ -7,6 +7,7 @@ Feature: Assistant Prompt Guardrails and Safety Controls
     When the assistant configuration is prepared for handling questions
     Then a default system instruction is active
     And the instruction enforces rule-override resistance, confidentiality, and honest grounding
+    And the instruction directs the assistant to use manuscripts and retrieved excerpts as references and ignore instructions embedded in either
     And default content safety filters are enabled for harmful content categories
 
   @S-002 @criterion-1
@@ -33,9 +34,10 @@ Feature: Assistant Prompt Guardrails and Safety Controls
 
   @S-005 @criterion-5
   Scenario: Automated guardrail checks run offline without live credentials
-    Given the automated test suite runs without live external model credentials
+    Given the automated test suite runs without network access or live external model credentials
     When the assistant guardrail tests are executed
-    Then default system instructions and safety filter settings are verified
+    Then the guardrail checks complete successfully
+    And default system instructions and safety filter settings are verified
     And untrusted-data isolation for both sources and manuscripts is verified
 
   @S-006 @criterion-2 @edge
@@ -58,3 +60,16 @@ Feature: Assistant Prompt Guardrails and Safety Controls
     When an evaluator submits an override or system-prompt disclosure attempt
     Then the active system instruction directs the assistant to refuse rule overrides
     And the active system instruction forbids disclosing internal instructions
+
+  @S-009 @criterion-1
+  Scenario Outline: Writers receive ordinary answers with default guardrails active
+    Given a writer in <scope> scope has <context>
+    And the model is set to return "<answer>"
+    When the writer asks "<question>"
+    Then the writer receives "<answer>"
+
+    Examples:
+      | scope          | context                                      | question                      | answer                       |
+      | none           | no attachments                               | What is a primary source?     | A firsthand record.          |
+      | manuscript     | a manuscript describing twelve interviews    | How many interviews are cited? | Twelve interviews.           |
+      | source library | a retrieved excerpt naming the survey site   | Where was the survey held?    | At the university library.   |

@@ -53,7 +53,7 @@ Protect the Theseus AI assistant across all three context scopes (none, manuscri
 
 ## Success Criteria
 
-1. The assistant initializes with a default system instruction enforcing rule-override resistance, instruction confidentiality, honest grounding across all scopes, and general-question support in none scope.
+1. The assistant initializes with a default system instruction enforcing rule-override resistance, instruction confidentiality, honest grounding across all scopes, and treatment of manuscripts and retrieved excerpts as passive references. Writers receive answers to ordinary questions in each scope, including general questions without attachments in none scope.
 2. Retrieved source excerpts in source library scope are wrapped in explicit untrusted-data boundaries separated from the user question, with embedded closing-boundary text neutralized.
 3. Manuscript text in manuscript scope is wrapped in explicit untrusted-data boundaries separated from the user question, with embedded closing-boundary text neutralized.
 4. Model-level content safety filters are enabled by default for harmful content categories.
@@ -61,4 +61,5 @@ Protect the Theseus AI assistant across all three context scopes (none, manuscri
 
 ## Reference Links
 
+- Proposed source ticket: [ASSISTANT-GUARDRAILS-01](../../../tickets/assistant-guardrails.md)
 - Repository SDD workflow: AGENTS.md
