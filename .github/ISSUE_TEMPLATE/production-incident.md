@@ -1,6 +1,6 @@
 ---
 name: Production incident
-about: Record a deployment-caused production incident for DORA reporting.
+about: Record a production incident for DORA reporting.
 title: "[Production incident] "
 ---
 
@@ -97,3 +97,15 @@ records the original deploy ID, whether it caused the incident, the
 intervention type and start time, and the corrective action link in a
 `DORA attribution:` comment. See the
 [attribution instructions](https://github.com/b-chua-student/theseus/blob/main/specs/devops/dora-change-failure-rate/operations.md#confirm-attribution).
+
+## Deployment rework
+
+After verifying that a corrective deployment went live in production as an unplanned response
+to this incident, a maintainer posts the following command on its own line in an incident comment.
+Record each qualifying deployment separately, regardless of the incident's cause.
+
+```text
+/dora rework <service-id> <deploy-id>
+```
+
+Replace the placeholders with the Render production service ID and the corrective deployment ID.
