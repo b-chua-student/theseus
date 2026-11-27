@@ -81,8 +81,8 @@ header { position:sticky; top:0; z-index:30; height:48px; display:flex; align-it
   content:""; position:absolute; inset:-18%; z-index:-1; pointer-events:none;
   background:radial-gradient(ellipse at 18% 32%, #a9d8c3 0%, transparent 48%),
     radial-gradient(ellipse at 76% 22%, #c1dada 0%, transparent 42%),
-    radial-gradient(ellipse at 65% 85%, #dce3b8 0%, transparent 45%);
-  animation:auth-wave 16s ease-in-out infinite alternate;
+    radial-gradient(ellipse at 65% 85%, #ffffff 0%, transparent 45%);
+  animation:auth-wave 12s ease-in-out infinite alternate;
 }
 @keyframes auth-wave {
   from { transform:translate(-4%, -2%) rotate(-4deg); }

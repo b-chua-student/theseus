@@ -88,9 +88,9 @@ section,footer { scroll-margin-top:64px; }
     radial-gradient(ellipse at 78% 64%,var(--wave-teal) 0%,transparent 48%);
 }
 .banner { --wave-sage:#587563; --wave-teal:#346763; }
-.features { --wave-sage:#a9d8c3; --wave-teal:#dce3b8; }
+.features { --wave-sage:#a9d8c3; --wave-teal:#ffffff; }
 @media (prefers-reduced-motion:no-preference) {
-  .banner::before, .features::before { animation:landing-wave 16s ease-in-out infinite alternate; }
+  .banner::before, .features::before { animation:landing-wave 12s ease-in-out infinite alternate; }
   .features::before { animation-delay:-6s; }
   .footer-banner::before { animation-delay:-12s; }
 }
