@@ -29,14 +29,3 @@ Run commands from the repository root. Include the scenario ID in each new pytes
 | T-006 | Apply the chat submission limit and verify enforcement with default and explicitly enabled test configurations. | D-002 | T-004 | Rerun the T-002 command. Confirm ten model calls with limiting enabled and eleven answers under default test settings. | S-012, S-018 | 3 |
 | T-007 | Cap completed history at the model boundary. Verify both history lengths against the recorded model call and stored conversation. | D-003 | T-004 | Rerun the T-003 command. Confirm exact forwarded order and full persisted history. | S-013, S-017 | 3 |
 | T-008 | Rerun the complete safeguard suite offline with all changes together. Confirm each scenario and both academic-question examples pass. | D-004, R-006 | T-005, T-006, T-007 | Run `python -m pytest backend/tests/domain/assistant -v` offline. Confirm all nine scenarios, both academic examples, and existing assistant tests pass. | S-010, S-011, S-012, S-013, S-014, S-015, S-016, S-017, S-018 | 4 |
-
-### T-004 offline baseline (2026-11-27)
-
-Pytest collected 80 assistant tests covering S-010 through S-018. Before application changes, 76 passed and four failed. The run disabled dotenv loading, removed provider credentials from the test environment, and blocked outbound Python socket access.
-
-| Scenarios | Baseline observation |
-| --- | --- |
-| S-010, S-016 and S-011 | Both direct prompts completed without raising the expected error (two failures). The tests stopped before checking stored and pending exchanges. |
-| S-012 | With limiting enabled, the eleventh submission returned HTTP 201 instead of 429. |
-| S-013 | The model received exchanges 1 through 11 instead of 2 through 11. The test stopped before its storage check. |
-| S-014, S-015, S-017, S-018 | Offline provider verification, both academic questions, the ten-exchange boundary, and the default test burst passed. |
