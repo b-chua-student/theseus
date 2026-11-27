@@ -49,7 +49,7 @@ Protect the Theseus AI assistant across all three context scopes (none, manuscri
 
 ## Open Questions
 
-- Should safety filter thresholds be configurable via environment settings? Deferred: apply safe defaults first and add configuration later if needed.
+- Resolved. Block medium- and high-probability harassment, hate speech, sexually explicit content, and dangerous content. Apply fixed thresholds with no environment or project setting in this release.
 
 ## Success Criteria
 

@@ -29,7 +29,7 @@ Verification must run without external credentials or network access.
 Blocking ordinary general questions, input keyword filters, rate limiting, post-generation answer validation, semantic embeddings, chunking, vector storage, conversation history truncation, and background indexing queues.
 
 ## Open Questions
-Should safety thresholds be configurable in a future change? Use defaults for this feature.
+Resolved. Block medium- and high-probability harassment, hate speech, sexually explicit content, and dangerous content. Apply fixed thresholds with no environment or project setting in this release.
 
 ## Output Paths
 Feature directory: `specs/assistant/prompt-guardrails/`.
@@ -41,6 +41,6 @@ Feature directory: `specs/assistant/prompt-guardrails/`.
 ## Definition of Done
 - [ ] Intake generated and approved
 - [ ] Gherkin generated and approved
-- [ ] Open questions resolved
+- [x] Open questions resolved
 - [ ] Spec, Gherkin, and code in sync
 - [ ] Reviewed and merged
