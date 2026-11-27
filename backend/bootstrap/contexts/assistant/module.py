@@ -10,6 +10,7 @@ from domain.assistant.infrastructure.adapters.in_memory_indexed_document_reposit
 from domain.assistant.infrastructure.adapters.in_process_index_job_queue import (
     InProcessIndexJobQueue,
 )
+from domain.assistant.infrastructure.ports.answer_validator import AnswerValidator
 from domain.assistant.infrastructure.ports.chat_model import ChatModel
 from domain.assistant.infrastructure.ports.conversation_repository import ConversationRepository
 from domain.assistant.infrastructure.ports.document_chunker import DocumentChunker
@@ -20,6 +21,7 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
     IndexedDocumentRepository,
 )
 from domain.assistant.infrastructure.ports.source_content_provider import SourceContentProvider
+from domain.assistant.infrastructure.ports.token_counter import TokenCounter
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
 from domain.assistant.models.value_objects import DocumentRefId, ProjectId
 from domain.assistant.services.chat import ChatService
@@ -28,7 +30,10 @@ from domain.assistant.services.handlers.on_manuscript_saved import OnManuscriptS
 from domain.assistant.services.handlers.on_source_added import OnSourceAdded
 from domain.assistant.services.handlers.on_source_removed import OnSourceRemoved
 from domain.assistant.services.handlers.on_source_updated import OnSourceUpdated
+from domain.assistant.services.indexing_state import IndexingState
 from domain.assistant.services.ingestion_worker import IngestionWorker
+from domain.assistant.services.list_indexed_sources import ListIndexedSourcesService
+from domain.assistant.services.reindex_documents import ReindexDocumentsService
 from domain.manuscript.models.events import ManuscriptContentReplaced, ManuscriptSaved
 from domain.src_lib.infrastructure.adapters.in_process_event_bus import InProcessEventBus
 from domain.src_lib.models.events import SourceAdded, SourceRemoved, SourceUpdated
@@ -48,7 +53,10 @@ class AssistantModule:
     embedding_generator: EmbeddingGenerator | None = None
     vector_store: VectorStore | None = None
     chat: ChatService | None = None
+    answer_validator: AnswerValidator | None = None
     indexing_status: GetIndexingStatusService | None = None
+    reindex: ReindexDocumentsService | None = None
+    indexed_sources: ListIndexedSourcesService | None = None
 
 
 def build_assistant_module(
@@ -62,13 +70,20 @@ def build_assistant_module(
     vector_store: VectorStore | None = None,
     conversation_repo: ConversationRepository | None = None,
     chat_model: ChatModel | None = None,
+    answer_validator: AnswerValidator | None = None,
     source_ids: Callable[[ProjectId], list[DocumentRefId]] | None = None,
+    relevance_threshold: float | None = None,
+    token_counter: TokenCounter | None = None,
+    context_window: int | None = None,
+    response_reserve: int = 0,
 ) -> AssistantModule:
     """Build the assistant module and subscribe its handlers to ``event_bus``.
 
     In-memory defaults are used for repositories and the job queue when not given. The
     ingestion worker is wired only if every indexing port is supplied, and chat only if
-    ``chat_model`` is supplied.
+    ``chat_model`` is supplied. ``relevance_threshold`` is the lowest cosine score a passage may
+    have; ``token_counter``, ``context_window`` and ``response_reserve`` size the evidence
+    budget of each exchange.
     """
     indexed_document_repo = indexed_document_repo or InMemoryIndexedDocumentRepository()
     index_job_queue = index_job_queue or InProcessIndexJobQueue()
@@ -85,7 +100,8 @@ def build_assistant_module(
         queue=index_job_queue,
         provider=source_content_provider,
     )
-    on_source_removed = OnSourceRemoved(repository=indexed_document_repo)
+    indexing_state = IndexingState()
+    on_source_removed = OnSourceRemoved(indexed_document_repo, vector_store, indexing_state)
     on_manuscript_saved = OnManuscriptSaved(
         repository=indexed_document_repo,
         queue=index_job_queue,
@@ -109,6 +125,7 @@ def build_assistant_module(
         ingestion_worker = IngestionWorker(
             repository=indexed_document_repo,
             source_provider=source_content_provider,
+            indexing_state=indexing_state,
             parser=document_parser,
             chunker=document_chunker,
             embedding_generator=embedding_generator,
@@ -128,6 +145,12 @@ def build_assistant_module(
             embedding_generator=embedding_generator,
             vector_store=vector_store,
             document_repository=indexed_document_repo,
+            validator=answer_validator,
+            require_source_review=answer_validator is None,
+            relevance_threshold=relevance_threshold,
+            token_counter=token_counter,
+            context_window=context_window,
+            response_reserve=response_reserve,
         )
 
     return AssistantModule(
@@ -138,5 +161,10 @@ def build_assistant_module(
         embedding_generator=embedding_generator,
         vector_store=vector_store,
         chat=chat,
+        answer_validator=answer_validator,
         indexing_status=GetIndexingStatusService(repository=indexed_document_repo),
+        reindex=ReindexDocumentsService(repository=indexed_document_repo, queue=index_job_queue),
+        indexed_sources=ListIndexedSourcesService(
+            repository=indexed_document_repo, source_ids=source_ids
+        ),
     )

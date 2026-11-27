@@ -29,3 +29,7 @@ class InMemoryIndexedDocumentRepository(IndexedDocumentRepository):
     def list_by_project(self, project_id: ProjectId) -> list[IndexedDocument]:
         """List indexed documents for the given project."""
         return [d for d in self._store.values() if d.project_id == project_id]
+
+    def list_all(self) -> list[IndexedDocument]:
+        """List every indexed document."""
+        return list(self._store.values())

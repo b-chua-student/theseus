@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import Projects from './pages/projects.svelte';
   import SignIn from './pages/signin.svelte';
   import SignUp from './pages/signup.svelte';
@@ -7,9 +8,25 @@
   import Dashboard from './pages/dashboard.svelte';
   import DocumentEditor from './pages/editor.svelte';
 
-  let user = $state(getSession());
+  let user = $state(null);
+  let linkError = $state('');
+  let loading = $state(true);
+  let sessionError = $state('');
+  async function bootstrap() {
+    loading = true;
+    sessionError = '';
+    try {
+      user = await getSession();
+      if (user && new URLSearchParams(location.search).has('auth_error')) {
+        linkError = 'Could not link this provider to your account.';
+      }
+    }
+    catch { sessionError = 'Could not check your session. Please try again.'; }
+    finally { loading = false; }
+  }
+  onMount(() => { bootstrap(); });
   let authScreen = $state('signin');
-  let showProjects = $state(true);
+  let showProjects = $state(window.location.pathname !== '/workspace');
 
   // selectedManuscript holds { id, projectId } when the editor is open.
   let selectedManuscript = $state(null);
@@ -21,8 +38,16 @@
   let dashboardRefreshKey = $state(0);
 
   async function handleSignOut() {
-    await signOut();
-    user = null;
+    try {
+      await signOut();
+      user = null;
+      linkError = '';
+      sessionError = '';
+      authScreen = 'signin';
+      backToProjects();
+    } catch {
+      sessionError = 'Could not confirm sign-out. Please try again.';
+    }
   }
 
   function openProject(project) {
@@ -39,30 +64,44 @@
     dashboardRefreshKey++;
   }
 
+  function openWorkspace() {
+    history.replaceState(null, '', '/workspace');
+    selectedProject = null;
+    showProjects = false;
+  }
+
   function backToProjects() {
+    history.replaceState(null, '', '/');
     selectedProject = null;
     selectedManuscript = null;
     showProjects = true;
   }
 </script>
 
-{#if !user}
+{#if loading}
+  <p role="status">Checking session…</p>
+{:else if sessionError && !user}
+  <p role="alert">{sessionError}</p><button onclick={bootstrap}>Try again</button>
+{:else if !user}
   {#if authScreen === 'signup'}
     <SignUp onsuccess={value => user = value} onswitch={() => authScreen = 'signin'} />
   {:else}
     <SignIn onsuccess={value => user = value} onswitch={() => authScreen = 'signup'} />
   {/if}
 {:else}
+  {#if sessionError}<p role="alert">{sessionError} <button onclick={handleSignOut}>Try again</button></p>{/if}
+  {#if linkError}<p role="alert">{linkError}</p>{/if}
   <AppHeader
+    {user}
     inEditor={selectedManuscript !== null}
     documentTitle={selectedManuscript?.title ?? ''}
     manuscriptCount={showProjects ? 0 : manuscriptCount}
-    onworkspace={() => { selectedManuscript = null; showProjects = true; }}
+    onworkspace={backToProjects}
     onsignout={handleSignOut}
   />
 
   {#if showProjects}
-    <Projects {user} onworkspace={() => showProjects = false} onproject={openProject} />
+    <Projects {user} onworkspace={openWorkspace} onproject={openProject} />
   {:else}
     <!--
       Keep the Dashboard mounted while the editor is open (hidden via CSS) so its

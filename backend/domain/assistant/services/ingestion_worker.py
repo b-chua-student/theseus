@@ -8,9 +8,8 @@ from domain.assistant.infrastructure.ports.indexed_document_repository import (
 )
 from domain.assistant.infrastructure.ports.source_content_provider import SourceContentProvider
 from domain.assistant.infrastructure.ports.vector_store import VectorStore
-from domain.assistant.models.aggregates import IndexedDocument
-from domain.assistant.models.errors import InvalidIndexTransitionError
 from domain.assistant.models.value_objects import DocumentRefId, IndexStatus
+from domain.assistant.services.indexing_state import IndexingState
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +30,7 @@ class IngestionWorker:
         chunker: DocumentChunker,
         embedding_generator: EmbeddingGenerator,
         vector_store: VectorStore,
+        indexing_state: IndexingState | None = None,
     ) -> None:
         """Configure the dependencies for the document indexing pipeline."""
         self._repository = repository
@@ -39,92 +39,46 @@ class IngestionWorker:
         self._chunker = chunker
         self._embedding_generator = embedding_generator
         self._vector_store = vector_store
+        self._indexing_state = indexing_state or IndexingState()
 
     def process(self, doc_ref_id: DocumentRefId) -> None:
         """Run the ingestion pipeline for ``doc_ref_id`` and update its indexing status.
 
         Any step failure marks the document FAILED and is logged instead of raised.
         """
-        # Step 1 & 2: Lookup and state transition
-        doc = self._repository.get_by_doc_ref_id(doc_ref_id)
-        if doc is None:
-            logger.warning("IngestionWorker: document not found doc_ref_id=%s", doc_ref_id)
-            return
+        state = self._indexing_state.for_document(doc_ref_id)
+        job = object()
+        with state.lock:
+            doc = self._repository.get_by_doc_ref_id(doc_ref_id)
+            if doc is None:
+                logger.warning("No document to index for %s", doc_ref_id)
+                return
+            if doc.status is not IndexStatus.INDEXING:
+                doc.start_indexing()
+                self._repository.save(doc)
+            state.active_job = job
 
-        if doc.status is not IndexStatus.INDEXING:
-            doc.start_indexing()
-            self._repository.save(doc)
-
-        # Step 3: Fetch raw content
         try:
-            raw_text = self._source_provider.get_content(doc_ref_id)
-        except Exception as exc:
-            self._handle_failure(doc, exc, "content retrieval", doc_ref_id)
-            return
-
-        # Step 4: Parse
-        try:
-            structured_text = self._parser.parse(raw_text)
-        except Exception as exc:
-            self._handle_failure(doc, exc, "parsing", doc_ref_id)
-            return
-
-        # Step 5: Chunk
-        try:
-            chunks = self._chunker.chunk(structured_text)
+            text = self._source_provider.get_content(doc_ref_id)
+            chunks = self._chunker.chunk(self._parser.parse(text))
             if not chunks:
                 raise ValueError("Chunker returned an empty list")
-        except Exception as exc:
-            self._handle_failure(doc, exc, "chunking", doc_ref_id)
-            return
-
-        # Step 6: Generate embeddings
-        try:
             embeddings = self._embedding_generator.generate(chunks)
             if len(embeddings) != len(chunks):
-                raise ValueError(
-                    f"Embedding count mismatch: expected {len(chunks)}, got {len(embeddings)}"
-                )
-        except Exception as exc:
-            self._handle_failure(doc, exc, "embedding generation", doc_ref_id)
-            return
-
-        # Step 7: Upsert into vector store
-        try:
-            self._vector_store.upsert(doc_ref_id, embeddings, chunks)
-        except Exception as exc:
-            self._handle_failure(doc, exc, "vector upsert", doc_ref_id)
-            return
-
-        # Step 8: Success path
-        doc.complete_indexing(chunks)
-        self._repository.save(doc)
-        logger.info(
-            "IngestionWorker: indexing complete doc_ref_id=%s chunks=%d",
-            doc_ref_id,
-            len(chunks),
-        )
-
-    def _handle_failure(
-        self,
-        doc: IndexedDocument,
-        exc: Exception,
-        step_name: str,
-        doc_ref_id: DocumentRefId,
-    ) -> None:
-        try:
-            doc.fail_indexing()
-        except InvalidIndexTransitionError:
-            logger.warning(
-                "IngestionWorker: state-machine conflict in fail_indexing doc_ref_id=%s",
-                doc_ref_id,
-            )
-            return
-
-        self._repository.save(doc)
-        logger.exception(
-            "IngestionWorker: %s failed doc_ref_id=%s",
-            step_name,
-            doc_ref_id,
-            exc_info=exc,
-        )
+                raise ValueError(f"Expected {len(chunks)} embeddings, got {len(embeddings)}")
+            with state.lock:
+                if state.active_job is not job:
+                    return
+                self._vector_store.upsert(doc_ref_id, embeddings, chunks)
+                doc.complete_indexing(chunks)
+                self._repository.save(doc)
+                state.active_job = None
+        except Exception:
+            with state.lock:
+                if state.active_job is not job:
+                    return
+                if doc.status is IndexStatus.INDEXING:
+                    doc.fail_indexing()
+                    self._repository.save(doc)
+                state.active_job = None
+            logger.exception("Indexing failed for document %s", doc_ref_id)

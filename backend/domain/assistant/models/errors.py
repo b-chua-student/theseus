@@ -77,6 +77,12 @@ class EmptyQueryError(AssistantError):
     code = "assistant.empty_query"
 
 
+class PromptInjectionError(AssistantError):
+    """A question directly requests an instruction override or disclosure."""
+
+    code = "assistant.prompt_injection"
+
+
 class EmptyAnswerError(AssistantError):
     """Raised when an answer is blank."""
 
@@ -107,6 +113,12 @@ class ChatModelError(AssistantError):
     code = "assistant.model_error"
 
 
+class ChatRequestTooLargeError(ChatModelError):
+    """The assembled request does not fit in the model's context window."""
+
+    code = "assistant.request_too_large"
+
+
 class ChatModelRateLimitedError(ChatModelError):
     """The AI provider rejected the request because of rate limiting."""
 
@@ -117,3 +129,27 @@ class ChatUnavailableError(AssistantError):
     """No chat provider is configured, so the assistant cannot answer."""
 
     code = "assistant.unavailable"
+
+
+class RetrievalError(AssistantError):
+    """Looking up source passages failed, as opposed to finding none."""
+
+    code = "assistant.retrieval_failed"
+
+
+class AnswerValidationError(ChatModelError):
+    """Checking the answer could not be completed, so no answer is shown."""
+
+    code = "assistant.validation_interrupted"
+
+
+class ValidationBudgetExceeded(ChatModelError):
+    """A validation call cannot complete within its allowed time."""
+
+    code = "assistant.validation_budget_exceeded"
+
+
+class EmbeddingGenerationError(AssistantError):
+    """The embedding provider failed or returned the wrong number of vectors."""
+
+    code = "assistant.embedding_error"

@@ -30,6 +30,7 @@ class AccountModule:
 class IdentityModule:
     """Identity context services, grouped into authentication and account modules."""
 
+    repository: IdentityRepository
     auth: AuthModule
     account: AccountModule
 
@@ -37,6 +38,7 @@ class IdentityModule:
 def build_identity_module(repo: IdentityRepository, hasher: PasswordHasher) -> IdentityModule:
     """Wire the identity services around the given repository and password hasher."""
     return IdentityModule(
+        repository=repo,
         auth=AuthModule(
             login=LoginUserService(repository=repo, hasher=hasher),
             register=RegisterUserService(repository=repo, hasher=hasher),

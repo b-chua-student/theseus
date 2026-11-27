@@ -214,8 +214,8 @@ def _project_id() -> UUID:
     return project_id
 
 
-def _load_text(source_id: str, project_id: UUID) -> Source:
-    """Return the active text source in the project, else raise not-found (R3, R8)."""
+def _load_text(source_id: str, project_id: UUID, *, include_removed: bool = False) -> Source:
+    """Return a project-owned text source, including tombstones only for deletion retries."""
     container = current_app.extensions["container"]
     try:
         source = container.source.get.execute(source_id=source_id)
@@ -223,7 +223,7 @@ def _load_text(source_id: str, project_id: UUID) -> Source:
         source = None
     if (
         source is None
-        or source.is_removed
+        or (source.is_removed and not include_removed)
         or source.kind != "text"
         or source.project_id != project_id
     ):
@@ -418,7 +418,7 @@ def update_text_source(source_id: str) -> ResponseReturnValue:
 def delete_text_source(source_id: str) -> ResponseReturnValue:
     """Soft-delete a text source (R6)."""
     project_id = _project_id()
-    _load_text(source_id, project_id)
+    _load_text(source_id, project_id, include_removed=True)
     container = current_app.extensions["container"]
     try:
         container.source.remove.execute(source_id=source_id)

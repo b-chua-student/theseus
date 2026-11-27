@@ -5,8 +5,10 @@ from flask import Flask, Response, jsonify
 from werkzeug.exceptions import HTTPException
 
 from domain.assistant.models.errors import (
+    AnswerValidationError,
     ChatModelError,
     ChatModelRateLimitedError,
+    ChatRequestTooLargeError,
     ChatUnavailableError,
     ConversationNotFoundError,
     PendingExchangeError,
@@ -37,6 +39,11 @@ from domain.src_lib.api.errors import SourceNotFoundError
 logger = logging.getLogger(__name__)
 
 
+def log_invalid_credentials(error: Exception) -> None:
+    """Record an authentication rejection without request or provider data."""
+    logger.warning("Invalid credentials attempt: %s", error)
+
+
 def register_error_handlers(app: Flask) -> None:
     """Register handlers that map domain and service errors to JSON HTTP responses."""
 
@@ -63,7 +70,7 @@ def register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(InvalidCredentialsError)
     def handle_invalid_credentials(e: Exception) -> tuple[Response, int]:
-        logger.warning("Invalid credentials attempt: %s", e)
+        log_invalid_credentials(e)
         return jsonify(error="Invalid credentials"), 401
 
     @app.errorhandler(EmailAlreadyRegisteredError)
@@ -120,6 +127,20 @@ def register_error_handlers(app: Flask) -> None:
         )
         response.headers["Retry-After"] = "30"
         return response, 429
+
+    @app.errorhandler(AnswerValidationError)
+    def handle_validation_interrupted(e: AnswerValidationError) -> tuple[Response, int]:
+        logger.warning("Answer validation interrupted: %s", e)
+        return jsonify(error=str(e), code=e.code), 502
+
+    @app.errorhandler(ChatRequestTooLargeError)
+    def handle_request_too_large(e: ChatRequestTooLargeError) -> tuple[Response, int]:
+        logger.warning("Assistant request too large: %s", e)
+        return jsonify(
+            error="The selected context is too large for the assistant. "
+            "Uncheck some sources or quote a shorter passage, then try again.",
+            code=e.code,
+        ), 413
 
     @app.errorhandler(ChatModelError)
     def handle_model_error(e: ChatModelError) -> tuple[Response, int]:

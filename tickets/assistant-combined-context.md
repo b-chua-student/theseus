@@ -1,0 +1,58 @@
+# [assistant-combined-context] As a Theseus user, I can ask the Assistant to check my manuscript against library sources
+
+## Intent
+
+Let users ask questions that draw on their current manuscript and selected Source Library sources in a single Assistant answer.
+
+## Context
+
+The Assistant currently offers separate Manuscript and Source Library context options. Users can also quote a selected manuscript passage.
+
+## Scope
+
+- Ask a question using the current manuscript, including unsaved edits, and selected Source Library sources together.
+- Ask about a selected manuscript passage using the same combined context.
+
+## Expected Outcomes
+
+- [ ] A user can select library sources and ask which of those sources support a claim in the current manuscript. The Assistant uses the manuscript and evidence from the selected sources in the same answer. The user does not need to restate the claim in the question.
+- [ ] A user can quote a selected passage and ask how it compares with evidence from the selected sources. The answer addresses that passage.
+
+- [ ] With Web enabled, if the selected library sources yield no matching passage for a general-knowledge question, answer from general knowledge, identify the source gap, and omit library citations. With Web disabled, report the gap without supplying a general-knowledge answer.
+- [ ] After the writer unchecks all library sources and leaves Web alone, answer the next general-knowledge question in the same chat without carrying forward the previous source restriction or gap report.
+
+## Rules / Constraints
+
+- Limit library evidence to the sources the user selected.
+- Check every selected project source, including selections above 1,000. Use passages meeting or exceeding the calibrated cosine relevance cutoff. Give each matching source a chance to supply a fitting passage before taking additional passages from another source. Fit evidence to the space available for each exchange and cite only supplied passages.
+- New chats start on Web. Toggling Manuscript or a source preserves the Web setting. Clearing the selection or unchecking the last item leaves Web alone. Changes take effect immediately for the next exchange in the same conversation.
+- Writers can search sources by title while retaining checked items. Web, Manuscript and Clear selection stay visible as the list scrolls. Arrow keys move focus, Space toggles the focused item and Escape returns focus to the Context button. The closed button summarizes the selection.
+- Reopening a chat restores the contexts and sources from its last successful exchange. A failed send preserves that selection. Legacy general-chat conversations reopen with Web alone. Name a removed source by its saved title and retain the remaining choices.
+
+## Non-Functional Requirements
+
+None specified.
+
+## Out of Scope
+
+No exclusions specified.
+
+## Open Questions
+
+- Should combined context also offer an option to use all indexed sources? Resolved in the intake: yes, as one "All indexed sources" checkbox that selects the sources indexed at that moment.
+- How should the Assistant respond when a selected source is unavailable or there is no relevant evidence? Resolved in the intake: name each selected source that could not be checked, was searched without a match, or was omitted for capacity, continue with the usable evidence, and say the claim could not be verified from the selection when none is usable.
+
+
+## Output Paths
+
+- Intake brief: `specs/assistant/combined_context/brief.md`
+- Gherkin: `specs/assistant/combined_context/gherkin.feature`
+- Spec files: `requirements.md`, `design.md`, and `tasks.md` in `specs/assistant/combined_context/`.
+
+## Definition of Done
+
+- [x] Intake generated and approved
+- [x] Gherkin generated and approved
+- [x] Open questions resolved
+- [ ] Spec, Gherkin, and code in sync
+- [ ] Reviewed and merged

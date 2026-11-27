@@ -23,6 +23,7 @@ from .value_objects import (
     IndexStatus,
     ProjectId,
     Query,
+    SelectedSource,
 )
 
 
@@ -118,14 +119,22 @@ class Conversation:
     """Aggregate for a project's chat, holding an ordered list of exchanges.
 
     At most one exchange may be unanswered (pending) at a time. Identity is by ``id``.
+
+    The selection of the last successful exchange is kept in ``web``, ``manuscript`` and
+    ``source_ids``, with the titles the sources had then in ``sources``. A new conversation
+    starts on Web alone. ``source_ids`` of None with scope ``source_library`` is a legacy
+    record that meant every library source.
     """
 
     id: ConversationId
     project_id: ProjectId
     exchanges: list[Exchange] = field(default_factory=list)
     started_at: datetime = field(default_factory=now)
-    context_scope: str = "source_library"
+    context_scope: str = "none"
     source_ids: list[str] | None = None
+    web: bool = True
+    manuscript: bool = False
+    sources: list[SelectedSource] = field(default_factory=list)
 
     @classmethod
     def start(cls, project_id: ProjectId) -> Conversation:
