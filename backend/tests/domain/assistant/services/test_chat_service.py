@@ -1,5 +1,6 @@
 """Unit tests for the assistant ChatService."""
 
+from typing import Literal
 from uuid import uuid4
 
 import pytest
@@ -465,3 +466,34 @@ def test_ask_rejects_a_question_while_a_previous_one_is_pending(
 
     with pytest.raises(PendingExchangeError):
         service.ask(str(conversation_id.value), "Next?", context_scope="none")
+
+
+@pytest.mark.parametrize(
+    ("scope", "question", "reply"),
+    [
+        ("none", "What is a primary source?", "A firsthand record."),
+        ("manuscript", "How many interviews are cited?", "Twelve interviews."),
+        ("source_library", "Where was the survey held?", "At the university library."),
+    ],
+)
+def test_s009_ordinary_answer_delivery(
+    retrieving_service: ChatService,
+    model: FakeChatModel,
+    library: Library,
+    project_id: str,
+    scope: Literal["none", "manuscript", "source_library"],
+    question: str,
+    reply: str,
+) -> None:
+    manuscript = "The study cites twelve interviews." if scope == "manuscript" else ""
+    if scope == "source_library":
+        library.add_source("The survey was held at the university library.")
+    model.answer = reply
+    conversation = str(retrieving_service.start(project_id).value)
+    answer = retrieving_service.ask(
+        conversation, question, context_scope=scope, manuscript_text=manuscript
+    )
+    assert answer == Answer(reply)
+    [exchange] = retrieving_service.get(project_id, conversation).history
+    assert exchange.query == Query(question)
+    assert exchange.answer == answer
