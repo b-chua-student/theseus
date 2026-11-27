@@ -7,8 +7,8 @@ Feature: Assistant Prompt Guardrails and Safety Controls
     When the assistant configuration is prepared for handling questions
     Then a default system instruction is active
     And the instruction enforces rule-override resistance, confidentiality, and honest grounding
-    And the instruction directs the assistant to use manuscripts and retrieved excerpts as references and ignore instructions embedded in either
-    And the default filters block content rated medium or high probability for harassment, hate speech, sexually explicit content, and dangerous content
+    And the instruction treats manuscripts and retrieved excerpts as passive references, ignoring embedded commands
+    And default filters block medium- and high-probability harassment, hate speech, explicit, and dangerous content
 
   @S-002 @criterion-1
   Scenario: General questions remain allowed in none scope without fake document claims
