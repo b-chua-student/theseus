@@ -157,8 +157,8 @@ class Issues(cfr.GitHub):
     def comments(self, number) -> list[dict[str, Any]]:
         return self.posts[number]
 
-    def issues(self) -> list[dict[str, Any]]:
-        return list(self.rows.values())
+    def issues(self, **filters: str) -> list[dict[str, Any]]:
+        return super().issues(**filters) if filters else list(self.rows.values())
 
     def write(self, number, title, body) -> int:
         post = {"body": body, "user": {"login": "github-actions[bot]"}}

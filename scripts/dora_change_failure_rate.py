@@ -89,11 +89,11 @@ class GitHub:
                 return result
         raise EvidenceError("GitHub issue pagination did not terminate.")
 
-    def issues(self) -> list[dict[str, Any]]:
+    def issues(self, **filters: str) -> list[dict[str, Any]]:
         """Include closed issues and exclude pull requests."""
         return [
             row
-            for row in self.pages("issues", state="all", sort="created", direction="asc")
+            for row in self.pages("issues", state="all", sort="created", direction="asc", **filters)
             if "pull_request" not in row
         ]
 
@@ -371,10 +371,10 @@ def find_corrections(
     return corrections, gaps
 
 
-def issue_threads(github: GitHub) -> IssueThreads:
+def issue_threads(github: GitHub, **filters: str) -> IssueThreads:
     """Index issue bodies and comments, rejecting duplicate or truncated threads."""
     threads = {}
-    for issue in github.issues():
+    for issue in github.issues(**filters):
         number = issue["number"]
         if number in threads:
             raise EvidenceError("GitHub returned duplicate issue evidence.")
