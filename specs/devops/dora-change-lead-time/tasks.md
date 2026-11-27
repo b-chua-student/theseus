@@ -2,42 +2,34 @@
 
 ## Dependency graph
 
-An arrow points from a prerequisite to a dependent task. The report calculation can be implemented with fixtures while the production evidence contract is being confirmed.
-
 ```mermaid
 flowchart TD
-    T1["T1 Confirm evidence and reporting settings"]
-    T2["T2 Retrieve GitHub and Render evidence"]
-    T3["T3 Resolve PR provenance"]
-    T4["T4 Calculate and format the report"]
-    T5["T5 Integrate manual reporting"]
-    T6["T6 Test acceptance scenarios"]
-    T7["T7 Verify the manual report"]
-    T8["T8 Enable weekly publication"]
-    T1 --> T2
-    T2 --> T3
-    T3 --> T5
-    T4 --> T5
-    T5 --> T6
-    T6 --> T7
-    T7 --> T8
+    T001["T-001 Confirm evidence and settings"]
+    T002["T-002 Retrieve evidence"]
+    T003["T-003 Resolve provenance"]
+    T004["T-004 Calculate and format"]
+    T005["T-005 Integrate reporting"]
+    T006["T-006 Create and run scenario tests"]
+    T007["T-007 Verify on-demand run"]
+    T001 --> T002
+    T006 --> T002
+    T002 --> T003
+    T006 --> T004
+    T003 --> T005
+    T004 --> T005
+    T005 --> T007
 ```
 
-## Checklist
+## Tasks
 
-- [ ] **T1 — Confirm evidence and reporting settings.** Record the production service ID, deployment evidence and history coverage, GitHub feature PR classification, supported merge strategies, and authoritative promotion evidence. Confirm the weekly UTC schedule and publication surface. (R2–R5)
-- [x] **T2 — Retrieve GitHub and Render evidence.** Implement paginated retrieval of PRs, deployed revisions, and production deployment records. Validate required fields and history coverage. Report retrieval and coverage failures safely. (R2–R4)
-- [x] **T3 — Resolve PR provenance.** Resolve original feature PRs for direct merges, promotions containing multiple PRs, and supported rewritten histories. Fail when the deployed feature PRs cannot be identified. (R2, R4)
-- [x] **T4 — Calculate and format the report.** Deduplicate by PR identity using its earliest successful live deployment, apply the UTC window, and compute the count and median. Cover empty windows, even sample counts, and window boundaries. (R1–R3)
-- [x] **T5 — Integrate manual reporting.** Wire the evidence, calculation, and rendering into a manually dispatched workflow with read permissions, secret inputs, and sanitized failure handling. (R1, R4)
-- [x] **T6 — Test acceptance scenarios.** Cover S-001 and S-004 through S-011 with fixture-based tests, including incomplete history and safe handling of credential-bearing errors. Verify that a failed run publishes no metrics. (R1–R4)
-- [ ] **T7 — Verify the manual report.** Run the workflow with repository data and have a maintainer verify the count, median, window, and sampled PR-to-deployment traces against GitHub and Render. Record the verified run before enabling the schedule. (R1–R5)
-- [ ] **T8 — Enable weekly publication.** Configure the schedule and verify the withheld path with publication disabled. After T7, enable publication and verify that a scheduled run publishes a fresh report. Cover S-002 and S-003. (R5)
+| ID | Work item | References | Depends on | Verification | Scenarios | Wave |
+| --- | --- | --- | --- | --- | --- | --- |
+| T-001 | Confirm available evidence, history coverage, manual production deployment settings, and reporting settings. | D-001, D-002, D-003 | - | Record the evidence contract and confirm production deploys are manually initiated. | - | 1 |
+| T-002 | Retrieve and validate paginated GitHub and Render evidence. | D-001, D-002, D-004 | T-001, T-006 | Exercise incomplete-history and retrieval failures. | S-008, S-010 | 2 |
+| T-003 | Resolve original PR provenance for direct merges and promotions. | D-001, D-004 | T-002 | Compare resolved PR identities and merge timestamps with fixture evidence. | S-001, S-009, S-010, S-011, S-076 | 3 |
+| T-004 | Calculate and format the lead-time report. | D-002 | T-006 | Check empty windows, UTC boundaries, and first live timestamps. | S-004, S-005, S-006, S-007, S-075, S-077 | 2 |
+| T-005 | Wire report-only manual dispatch with sanitized failure handling. | D-003, D-004 | T-003, T-004 | Confirm manual dispatch is the sole event, the workflow has no production deployment actions, and failed runs withhold metrics. | S-001, S-008, S-010, S-078 | 4 |
+| T-006 | Create and run executable tests from the approved Gherkin. | R-001, R-002, R-003, R-004, R-005, R-006 | - | Run the report tests before application changes and confirm missing behavior fails for the expected reason. Rerun the suite after any changes. | S-001, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011, S-075, S-076, S-077, S-078 | 1 |
+| T-007 | Verify an on-demand report against GitHub and Render evidence. | R-001, R-002, R-003, R-006 | T-005 | Record maintainer verification of the count, median, window, and sampled PR-to-deployment traces. | S-001, S-011 | 5 |
 
-
-## Implementation status
-
-The [operations notes](operations.md) record the proposed evidence contract and configuration.
-T1 remains open pending maintainer confirmation. T7 requires a real GitHub Actions run and
-maintainer review. The weekly trigger and its default-off gate are in the workflow. T8
-remains open pending verification of both scheduled paths in GitHub Actions.
+The existing implementation and verification status are recorded in [operations notes](operations.md).

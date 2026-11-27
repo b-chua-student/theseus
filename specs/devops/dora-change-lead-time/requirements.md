@@ -1,13 +1,18 @@
 # Requirements — Feature PR merge-to-production lead time
 
-Use the [brief](brief.md) for scope and [lead-time.feature](lead-time.feature) for acceptance scenarios.
+- Ticket: `tickets/dora-change-lead-time.md`
 
-| ID | Acceptance criteria | Scenarios |
-| --- | --- | --- |
-| R1 | A maintainer can run the report on demand in GitHub Actions. A successful report is labeled “Feature PR merge-to-production lead time” and includes the UTC bounds of the rolling 30-day window, the included feature PR count, and the median lead time in hours. When the count is zero, the median is unavailable. | S-001, S-006 |
-| R2 | Count each qualifying feature PR once, using its original merge timestamp and the time it first went live in production. Include PRs merged into staging and carried by a promotion, and PRs merged directly into main. Preserve each feature PR's identity and timestamp across multi-commit PRs, multi-PR promotions, and squash promotions with sufficient provenance. | S-001, S-009, S-011 |
-| R3 | Qualify only successful live deployments on the designated Render production service. Use the first qualifying deployment across the available, verified history. Include a PR if that first live timestamp falls within the reporting window, even if it merged earlier. Exclude undeployed PRs and PRs first shipped before the window, including ones redeployed during it. | S-004–S-007 |
-| R4 | Fail with a sanitized diagnostic and withhold the median and count when available evidence cannot establish the result. Keep credentials out of report output and workflow logs. | S-008, S-010 |
-| R5 | Publish a fresh report weekly after a maintainer verifies the on-demand results and enables publication. Keep scheduled publication withheld while verification is pending. Apply R4 to scheduled runs as well. | S-002, S-003 |
+## Requirements
 
-The scope covers one sample per feature PR. Per-commit measurements, other DORA metrics, and changes to the Render deployment process are outside this scope.
+| ID | Requirement | Source | Ticket lines | Scenarios |
+| --- | --- | --- | --- | --- |
+| R-001 | Run the report on demand in GitHub Actions. Show the named metric, UTC window bounds, included PR count, and median in hours. Show an unavailable median for a verified zero count. | from ticket | 22, 23, 30, 41 | S-001, S-006 |
+| R-002 | Count one sample per qualifying PR from its original merge into staging or main. Identify features by the enhancement label and require maintainer-reviewed evidence when rewritten promotion history obscures PR identity. | from ticket | 9, 21, 27, 28, 35, 39 | S-001, S-009, S-010, S-011, S-076 |
+| R-003 | Use the earliest successful live timestamp on the designated production service, including prior verified history and deactivated deployments. Include only first live timestamps in the 30 days before report start, including the UTC start and excluding the UTC end. | from ticket | 29, 36, 37, 38, 40 | S-004, S-005, S-006, S-007, S-075, S-077 |
+| R-004 | Fail with a sanitized diagnostic and withhold the median and count when evidence is insufficient. Keep credentials out of reports and logs. | from ticket | 31, 46 | S-008, S-010 |
+| R-005 | Start the report only when manually requested by a maintainer. | from ticket | 22 | S-001, S-078 |
+| R-006 | Maintainers initiate production deployments manually from main. Report runs read deployment history without initiating deployments. | from ticket | 11, 42, 51 | S-001, S-011 |
+
+## Open Questions
+
+- None.
